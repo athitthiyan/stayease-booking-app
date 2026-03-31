@@ -1,6 +1,6 @@
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:8000',
-  paymentAppUrl: 'http://localhost:4201',
-  stripePublishableKey: 'pk_test_your_key_here',
+  apiUrl: 'https://hotelapi-backend.onrender.com',
+  paymentAppUrl: 'https://payflow-payment-app.vercel.app/',
+  stripePublishableKey: 'pk_test_51TH0UuBDYx3dIveAYRnmWFuHY6EB8yZigeKqjltdRnQpc3iidRxSDV6rdmZrH8bcRt9fg3HIBCp32GRpMTnjSGcy00KPKiGzPL',
 };
