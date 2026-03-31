@@ -155,6 +155,7 @@ export class CheckoutComponent implements OnInit {
 
   checkoutState = signal<CheckoutState | null>(null);
   submitting = signal(false);
+  submitError = signal('');
 
   nights = signal(0);
   subtotal = signal(0);
@@ -195,6 +196,7 @@ export class CheckoutComponent implements OnInit {
       return;
     }
     this.submitting.set(true);
+    this.submitError.set('');
     const state = this.checkoutState()!;
 
     this.bookingService.createBooking({
@@ -214,12 +216,7 @@ export class CheckoutComponent implements OnInit {
         window.location.href = paymentUrl;
       },
       error: () => {
-        // Demo fallback: simulate booking and redirect
-        const mockBookingId = Math.floor(Math.random() * 1000) + 1;
-        const mockRef = 'BK' + Math.random().toString(36).substring(2, 10).toUpperCase();
-        this.router.navigate(['/booking-confirmation'], {
-          queryParams: { ref: mockRef, demo: true }
-        });
+        this.submitError.set('Unable to create the booking right now. Please try again.');
         this.submitting.set(false);
       },
     });

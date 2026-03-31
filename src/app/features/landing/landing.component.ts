@@ -244,6 +244,7 @@ export class LandingComponent implements OnInit {
 
   featuredRooms = signal<Room[]>([]);
   loadingRooms = signal(true);
+  roomsError = signal(false);
 
   searchCity = '';
   checkIn = '';
@@ -284,11 +285,12 @@ export class LandingComponent implements OnInit {
     this.roomService.getFeaturedRooms(6).subscribe({
       next: rooms => {
         this.featuredRooms.set(rooms);
+        this.roomsError.set(false);
         this.loadingRooms.set(false);
       },
       error: () => {
-        // Fallback to mock data for demo
-        this.featuredRooms.set(this.getMockRooms());
+        this.featuredRooms.set([]);
+        this.roomsError.set(true);
         this.loadingRooms.set(false);
       },
     });
@@ -303,15 +305,5 @@ export class LandingComponent implements OnInit {
     this.router.navigate(['/search'], { queryParams: params });
   }
 
-  private getMockRooms(): Room[] {
-    return [
-      { id:1, hotel_name:'The Grand Azure', room_type:'penthouse', price:850, original_price:1200, availability:true, rating:4.9, review_count:284, image_url:'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800', location:'Manhattan, New York', city:'New York', country:'USA', max_guests:4, beds:2, bathrooms:3, size_sqft:2800, floor:52, is_featured:true, created_at:'', amenities:'', gallery_urls:'' },
-      { id:2, hotel_name:'Serenity Beach Resort', room_type:'suite', price:420, original_price:580, availability:true, rating:4.8, review_count:512, image_url:'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800', location:'Bali, Indonesia', city:'Bali', country:'Indonesia', max_guests:2, beds:1, bathrooms:2, size_sqft:1200, floor:3, is_featured:true, created_at:'', amenities:'', gallery_urls:'' },
-      { id:3, hotel_name:'Alpine Summit Lodge', room_type:'deluxe', price:280, original_price:350, availability:true, rating:4.7, review_count:198, image_url:'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800', location:'Zermatt, Switzerland', city:'Zermatt', country:'Switzerland', max_guests:2, beds:1, bathrooms:1, size_sqft:650, floor:2, is_featured:true, created_at:'', amenities:'', gallery_urls:'' },
-      { id:4, hotel_name:'Kyoto Garden Inn', room_type:'suite', price:310, availability:true, rating:4.9, review_count:445, image_url:'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=800', location:'Gion District, Kyoto', city:'Kyoto', country:'Japan', max_guests:2, beds:1, bathrooms:1, size_sqft:900, floor:1, is_featured:true, created_at:'', amenities:'', gallery_urls:'' },
-      { id:5, hotel_name:'Metropolis Business', room_type:'deluxe', price:195, original_price:240, availability:true, rating:4.6, review_count:820, image_url:'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800', location:'City Centre, London', city:'London', country:'UK', max_guests:2, beds:1, bathrooms:1, size_sqft:480, floor:15, is_featured:false, created_at:'', amenities:'', gallery_urls:'' },
-      { id:6, hotel_name:'Desert Mirage Palace', room_type:'suite', price:520, availability:true, rating:4.8, review_count:167, image_url:'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800', location:'Dubai, UAE', city:'Dubai', country:'UAE', max_guests:2, beds:1, bathrooms:2, size_sqft:1800, floor:5, is_featured:true, created_at:'', amenities:'', gallery_urls:'' },
-    ];
-  }
 }
 

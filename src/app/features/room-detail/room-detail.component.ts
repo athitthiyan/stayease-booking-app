@@ -199,6 +199,7 @@ export class RoomDetailComponent implements OnInit {
 
   room = signal<Room | null>(null);
   loading = signal(true);
+  loadError = signal(false);
   activeImageIdx = signal(0);
   galleryImages = signal<string[]>([]);
 
@@ -228,6 +229,7 @@ export class RoomDetailComponent implements OnInit {
     this.roomService.getRoom(id).subscribe({
       next: room => {
         this.room.set(room);
+        this.loadError.set(false);
         const imgs: string[] = room.image_url ? [room.image_url] : [];
         try {
           const gallery = JSON.parse(room.gallery_urls || '[]');
@@ -238,11 +240,10 @@ export class RoomDetailComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        // Mock fallback
-        const mock: Room = { id, hotel_name:'The Grand Azure', room_type:'penthouse', price:850, original_price:1200, availability:true, rating:4.9, review_count:284, image_url:'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800', location:'Manhattan, New York', city:'New York', country:'USA', max_guests:4, beds:2, bathrooms:3, size_sqft:2800, floor:52, is_featured:true, description:'Spectacular penthouse suite with panoramic city views, private terrace, and butler service.', amenities:'["King Bed","Private Terrace","Jacuzzi","Butler Service","Minibar","Smart TV","WiFi","City View"]', gallery_urls:'["https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800","https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800"]', created_at:'' };
-        this.room.set(mock);
-        this.galleryImages.set([mock.image_url!, 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800']);
-        this.activeImage.set(mock.image_url!);
+        this.room.set(null);
+        this.galleryImages.set([]);
+        this.activeImage.set('');
+        this.loadError.set(true);
         this.loading.set(false);
       },
     });
