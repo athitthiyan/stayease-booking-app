@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -105,98 +105,7 @@ import { Room, RoomSearchParams } from '../../core/models/room.model';
       </div>
     </div>
   `,
-  styles: [`
-    .search-page {
-      padding-top: 80px;
-      min-height: 100vh;
-    }
-
-    .filter-bar {
-      position: sticky;
-      top: 72px;
-      z-index: var(--z-raised);
-      background: rgba(8, 13, 26, 0.95);
-      backdrop-filter: blur(24px);
-      border-bottom: 1px solid var(--color-border);
-      padding: 12px 0;
-
-      &__inner {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-
-      &__search {
-        flex: 1;
-        min-width: 180px;
-        padding: 10px 16px !important;
-      }
-
-      &__select {
-        flex: 0 1 160px;
-        padding: 10px 16px !important;
-      }
-
-      &__price {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        flex: 0 1 200px;
-
-        &-label {
-          font-size: 11px;
-          color: var(--color-text-muted);
-          font-weight: 600;
-        }
-
-        input[type=range] {
-          width: 100%;
-          accent-color: var(--color-primary);
-        }
-      }
-    }
-
-    .results-wrapper {
-      padding-top: var(--space-3xl);
-      padding-bottom: var(--space-4xl);
-    }
-
-    .results-header {
-      margin-bottom: var(--space-3xl);
-    }
-
-    .results-title {
-      font-family: var(--font-serif);
-      font-size: 2rem;
-      color: var(--color-text);
-      span { color: var(--color-primary); }
-    }
-
-    .results-count {
-      font-size: 14px;
-      color: var(--color-text-muted);
-      margin-top: 6px;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: var(--space-4xl) 0;
-
-      &__icon { font-size: 4rem; margin-bottom: var(--space-lg); }
-      h3 { font-size: 1.5rem; color: var(--color-text); margin-bottom: var(--space-sm); }
-      p { color: var(--color-text-muted); margin-bottom: var(--space-xl); }
-    }
-
-    .pagination {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 8px;
-      margin-top: var(--space-3xl);
-      flex-wrap: wrap;
-    }
-  `],
+  styleUrl: './search-results.component.scss',
 })
 export class SearchResultsComponent implements OnInit {
   private roomService = inject(RoomService);
@@ -219,16 +128,14 @@ export class SearchResultsComponent implements OnInit {
     per_page: 9,
   };
 
-  get totalPages() {
-    return signal(Math.ceil(this.total() / this.perPage));
-  }
+  totalPages = computed(() => Math.ceil(this.total() / this.perPage));
 
-  get pageNumbers() {
+  pageNumbers = computed(() => {
     const pages: number[] = [];
     const total = Math.ceil(this.total() / this.perPage);
     for (let i = 1; i <= Math.min(total, 7); i++) pages.push(i);
-    return signal(pages);
-  }
+    return pages;
+  });
 
   ngOnInit() {
     this.route.queryParams.subscribe(params => {
@@ -292,3 +199,4 @@ export class SearchResultsComponent implements OnInit {
     ];
   }
 }
+

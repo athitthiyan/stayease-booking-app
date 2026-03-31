@@ -44,25 +44,26 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
       display: flex;
       align-items: center;
       padding-top: 80px;
+    }
 
-      &__bg {
-        position: absolute;
-        inset: 0;
-        background: var(--gradient-hero);
-        &::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(ellipse at center, rgba(34,197,94,0.08) 0%, transparent 60%);
-        }
-      }
+    .confirm-page__bg {
+      position: absolute;
+      inset: 0;
+      background: var(--gradient-hero);
+    }
 
-      &__content {
-        position: relative;
-        z-index: 1;
-        display: flex;
-        justify-content: center;
-      }
+    .confirm-page__bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(34,197,94,0.08) 0%, transparent 60%);
+    }
+
+    .confirm-page__content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: center;
     }
 
     .confirm-card {
@@ -75,68 +76,70 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
       width: 100%;
       animation: fadeInUp 0.6s ease;
       box-shadow: 0 0 60px rgba(34,197,94,0.1), var(--shadow-xl);
-
-      &__icon {
-        font-size: 4rem;
-        margin-bottom: var(--space-xl);
-        animation: pulse-ring 1.5s ease 1;
-        display: inline-block;
-      }
-
-      h1 {
-        font-family: var(--font-serif);
-        font-size: 2.5rem;
-        color: var(--color-text);
-        margin-bottom: var(--space-lg);
-        span { color: var(--color-success); }
-      }
-
-      &__desc {
-        font-size: 16px;
-        color: var(--color-text-muted);
-        line-height: 1.7;
-        margin-bottom: var(--space-xl);
-      }
-
-      &__ref {
-        background: var(--color-surface);
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-lg);
-        padding: var(--space-lg);
-        margin-bottom: var(--space-xl);
-
-        &-label {
-          display: block;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 2px;
-          color: var(--color-text-muted);
-          margin-bottom: 8px;
-        }
-
-        &-value {
-          font-size: 1.5rem;
-          font-weight: 800;
-          color: var(--color-primary);
-          letter-spacing: 3px;
-          font-family: monospace;
-        }
-      }
-
-      &__actions {
-        display: flex;
-        gap: var(--space-md);
-        justify-content: center;
-        flex-wrap: wrap;
-        margin-bottom: var(--space-xl);
-      }
-
-      &__links {
-        font-size: 14px;
-        color: var(--color-text-muted);
-        a { font-weight: 600; }
-      }
     }
+
+    .confirm-card__icon {
+      font-size: 4rem;
+      margin-bottom: var(--space-xl);
+      animation: pulse-ring 1.5s ease 1;
+      display: inline-block;
+    }
+
+    .confirm-card h1 {
+      font-family: var(--font-serif);
+      font-size: 2.5rem;
+      color: var(--color-text);
+      margin-bottom: var(--space-lg);
+    }
+
+    .confirm-card h1 span { color: var(--color-success); }
+
+    .confirm-card__desc {
+      font-size: 16px;
+      color: var(--color-text-muted);
+      line-height: 1.7;
+      margin-bottom: var(--space-xl);
+    }
+
+    .confirm-card__ref {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-lg);
+      margin-bottom: var(--space-xl);
+    }
+
+    .confirm-card__ref-label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--color-text-muted);
+      margin-bottom: 8px;
+    }
+
+    .confirm-card__ref-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--color-primary);
+      letter-spacing: 3px;
+      font-family: monospace;
+    }
+
+    .confirm-card__actions {
+      display: flex;
+      gap: var(--space-md);
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: var(--space-xl);
+    }
+
+    .confirm-card__links {
+      font-size: 14px;
+      color: var(--color-text-muted);
+    }
+
+    .confirm-card__links a { font-weight: 600; }
   `],
 })
 export class BookingConfirmationComponent implements OnInit {

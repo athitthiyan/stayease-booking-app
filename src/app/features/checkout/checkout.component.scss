@@ -1,0 +1,174 @@
+    .checkout-page {
+      padding-top: 100px;
+      padding-bottom: var(--space-4xl);
+      min-height: 100vh;
+
+      &__inner {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: var(--space-3xl);
+        align-items: start;
+
+        @media (max-width: 1024px) { grid-template-columns: 1fr; }
+      }
+    }
+
+    .checkout-title {
+      font-family: var(--font-serif);
+      font-size: 2.2rem;
+      color: var(--color-text);
+      margin: var(--space-xl) 0 var(--space-3xl);
+      span { color: var(--color-primary); }
+    }
+
+    .checkout-section {
+      background: var(--gradient-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-xl);
+      margin-bottom: var(--space-lg);
+
+      h2 {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--color-text);
+        margin-bottom: var(--space-lg);
+        padding-bottom: var(--space-md);
+        border-bottom: 1px solid var(--color-border);
+      }
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-md);
+
+      @media (max-width: 600px) { grid-template-columns: 1fr; }
+    }
+
+    .stay-details {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-md);
+    }
+
+    .stay-detail {
+      padding: var(--space-md);
+      background: var(--color-surface);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+
+      &__label {
+        display: block;
+        font-size: 11px;
+        color: var(--color-primary);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+
+      &__value {
+        font-weight: 600;
+        font-size: 15px;
+        color: var(--color-text);
+      }
+    }
+
+    .checkout-actions {
+      margin-top: var(--space-xl);
+
+      .btn { width: 100%; }
+    }
+
+    .checkout-note {
+      text-align: center;
+      font-size: 12px;
+      color: var(--color-text-muted);
+      margin-top: var(--space-md);
+    }
+
+    // ── Order Summary ──────────────────────────────────────────────────────────
+    .order-summary {
+      position: sticky;
+      top: 100px;
+
+      &__card {
+        background: var(--gradient-card);
+        border: 1px solid var(--color-border-light);
+        border-radius: var(--radius-xl);
+        padding: var(--space-xl);
+        box-shadow: var(--shadow-xl);
+
+        h3 {
+          font-family: var(--font-serif);
+          font-size: 1.3rem;
+          color: var(--color-text);
+          margin-bottom: var(--space-md);
+        }
+      }
+
+      &__room {
+        display: flex;
+        gap: var(--space-md);
+        margin-bottom: var(--space-md);
+        align-items: flex-start;
+
+        div {
+          span { display: block; font-size: 11px; color: var(--color-primary); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+          h4 { font-size: 15px; color: var(--color-text); margin-bottom: 4px; }
+          p { font-size: 13px; color: var(--color-text-muted); }
+        }
+      }
+
+      &__img {
+        width: 80px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: var(--radius-md);
+        flex-shrink: 0;
+      }
+
+      &__breakdown {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-sm);
+      }
+
+      &__trust {
+        margin-top: var(--space-lg);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-sm);
+
+        .trust-item {
+          font-size: 13px;
+          color: var(--color-text-muted);
+        }
+      }
+    }
+
+    .breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      color: var(--color-text-muted);
+
+      &--total {
+        font-size: 18px;
+        font-weight: 800;
+        color: var(--color-text);
+        .price__amount { color: var(--color-primary); }
+      }
+    }
+
+    .spinner-sm {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: #0a0f1e;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+  
