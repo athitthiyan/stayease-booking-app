@@ -72,6 +72,13 @@ import { Room, RoomSearchParams } from '../../core/models/room.model';
               </div>
             }
           </div>
+        } @else if (error()) {
+          <div class="empty-state">
+            <div class="empty-state__icon">⚠️</div>
+            <h3>Unable to load rooms</h3>
+            <p>We couldn't connect to the server. Please check your connection and try again.</p>
+            <button class="btn btn--primary" (click)="loadRoomsPublic()">Retry</button>
+          </div>
         } @else if (rooms().length === 0) {
           <div class="empty-state">
             <div class="empty-state__icon">🔍</div>
@@ -114,6 +121,7 @@ export class SearchResultsComponent implements OnInit {
 
   rooms = signal<Room[]>([]);
   loading = signal(true);
+  error = signal(false);
   total = signal(0);
   page = signal(1);
   perPage = 9;
@@ -162,8 +170,13 @@ export class SearchResultsComponent implements OnInit {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  loadRoomsPublic() {
+    this.loadRooms();
+  }
+
   private loadRooms() {
     this.loading.set(true);
+    this.error.set(false);
     const params: RoomSearchParams = {
       ...this.filters,
       page: this.page(),
@@ -178,11 +191,13 @@ export class SearchResultsComponent implements OnInit {
       next: res => {
         this.rooms.set(res.rooms);
         this.total.set(res.total);
+        this.error.set(false);
         this.loading.set(false);
       },
       error: () => {
         this.rooms.set([]);
         this.total.set(0);
+        this.error.set(true);
         this.loading.set(false);
       },
     });

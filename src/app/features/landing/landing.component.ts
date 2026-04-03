@@ -143,6 +143,13 @@ interface Destination {
               </div>
             }
           </div>
+        } @else if (roomsError()) {
+          <div class="empty-state" style="padding: 48px 24px; text-align: center;">
+            <div class="empty-state__icon" style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+            <h3 style="margin-bottom: 8px;">Unable to load featured rooms</h3>
+            <p style="opacity: 0.7; margin-bottom: 24px;">We're having trouble connecting to the server. Please try again shortly.</p>
+            <a routerLink="/search" class="btn btn--primary">Browse All Rooms →</a>
+          </div>
         } @else {
           <div class="grid-rooms">
             @for (room of featuredRooms(); track room.id) {
