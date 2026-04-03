@@ -1,6 +1,8 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Booking } from '../../core/models/booking.model';
+import { BookingService } from '../../core/services/booking.service';
 
 @Component({
   selector: 'app-booking-confirmation',
@@ -22,6 +24,56 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
             <span class="confirm-card__ref-value">{{ bookingRef }}</span>
           </div>
 
+          @if (loading) {
+            <p class="confirm-card__status">Loading your booking details...</p>
+          }
+
+          @if (error) {
+            <div class="confirm-card__detail-box">
+              <p class="confirm-card__status confirm-card__status--error">{{ error }}</p>
+            </div>
+          }
+
+          @if (booking) {
+            <div class="confirm-card__details">
+              <div class="confirm-card__detail-box">
+                <span class="confirm-card__detail-label">Hotel</span>
+                <strong>{{ booking.room?.hotel_name || 'Your stay' }}</strong>
+                <span class="confirm-card__detail-sub">{{ booking.room?.location || '' }}</span>
+              </div>
+
+              <div class="confirm-card__detail-grid">
+                <div class="confirm-card__detail-box">
+                  <span class="confirm-card__detail-label">Check-in</span>
+                  <strong>{{ booking.check_in | date:'mediumDate' }}</strong>
+                </div>
+                <div class="confirm-card__detail-box">
+                  <span class="confirm-card__detail-label">Check-out</span>
+                  <strong>{{ booking.check_out | date:'mediumDate' }}</strong>
+                </div>
+                <div class="confirm-card__detail-box">
+                  <span class="confirm-card__detail-label">Guests</span>
+                  <strong>{{ booking.guests }}</strong>
+                </div>
+                <div class="confirm-card__detail-box">
+                  <span class="confirm-card__detail-label">Total</span>
+                  <strong>\${{ booking.total_amount | number:'1.2-2' }}</strong>
+                </div>
+              </div>
+
+              <div class="confirm-card__detail-grid">
+                <div class="confirm-card__detail-box">
+                  <span class="confirm-card__detail-label">Booking Status</span>
+                  <strong>{{ booking.status }}</strong>
+                </div>
+                <div class="confirm-card__detail-box">
+                  <span class="confirm-card__detail-label">Payment Status</span>
+                  <strong>{{ booking.payment_status }}</strong>
+                </div>
+              </div>
+            </div>
+          }
+
           <div class="confirm-card__actions">
             <a routerLink="/" class="btn btn--primary btn--lg">Back to Home</a>
             <a routerLink="/search" class="btn btn--secondary btn--lg">Browse More Rooms</a>
@@ -29,7 +81,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 
           <div class="confirm-card__links">
             <p>View the payment for this booking at:</p>
-            <a href="https://payflow-gateway.vercel.app" target="_blank" class="text-gold">
+            <a href="https://payflow-payment-app.vercel.app" target="_blank" class="text-gold">
               PayFlow Gateway →
             </a>
           </div>
@@ -134,19 +186,91 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
       margin-bottom: var(--space-xl);
     }
 
+    .confirm-card__details {
+      display: grid;
+      gap: var(--space-md);
+      margin-bottom: var(--space-xl);
+      text-align: left;
+    }
+
+    .confirm-card__detail-grid {
+      display: grid;
+      gap: var(--space-md);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .confirm-card__detail-box {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-lg);
+    }
+
+    .confirm-card__detail-label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--color-text-muted);
+      margin-bottom: 8px;
+    }
+
+    .confirm-card__detail-sub {
+      display: block;
+      margin-top: 6px;
+      color: var(--color-text-muted);
+      font-size: 14px;
+    }
+
+    .confirm-card__status {
+      margin-bottom: var(--space-xl);
+      color: var(--color-text-muted);
+    }
+
+    .confirm-card__status--error {
+      color: #fca5a5;
+      margin-bottom: 0;
+    }
+
     .confirm-card__links {
       font-size: 14px;
       color: var(--color-text-muted);
     }
 
     .confirm-card__links a { font-weight: 600; }
+
+    @media (max-width: 640px) {
+      .confirm-card__detail-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   `],
 })
 export class BookingConfirmationComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private bookingService = inject(BookingService);
   bookingRef = '';
+  booking: Booking | null = null;
+  loading = true;
+  error = '';
 
   ngOnInit() {
     this.bookingRef = this.route.snapshot.queryParamMap.get('ref') || 'BK12345678';
+    if (!this.bookingRef) {
+      this.loading = false;
+      this.error = 'Booking reference is missing from the confirmation link.';
+      return;
+    }
+
+    this.bookingService.getBookingByRef(this.bookingRef).subscribe({
+      next: (booking) => {
+        this.booking = booking;
+        this.loading = false;
+      },
+      error: () => {
+        this.error = 'We could not load your booking details right now.';
+        this.loading = false;
+      },
+    });
   }
 }
