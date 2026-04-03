@@ -13,7 +13,7 @@
  *   7. Empty search results state shown when no rooms match
  */
 
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─── Shared mock data ─────────────────────────────────────────────────────────
 
@@ -61,8 +61,8 @@ const MOCK_BOOKING = {
 
 // ─── Mock helpers ──────────────────────────────────────────────────────────────
 
-async function mockRoomsApi(page: Page) {
-  await page.route('**/rooms/featured**', async route => {
+async function mockRoomsApi(page: Page): Promise<void> {
+  await page.route('**/rooms/featured**', async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -70,7 +70,7 @@ async function mockRoomsApi(page: Page) {
     });
   });
 
-  await page.route('**/rooms/destinations**', async route => {
+  await page.route('**/rooms/destinations**', async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -83,7 +83,7 @@ async function mockRoomsApi(page: Page) {
     });
   });
 
-  await page.route('**/rooms/1', async route => {
+  await page.route('**/rooms/1', async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -91,7 +91,7 @@ async function mockRoomsApi(page: Page) {
     });
   });
 
-  await page.route('**/rooms**', async route => {
+  await page.route('**/rooms**', async (route: Route) => {
     const url = route.request().url();
     if (url.includes('ZZZNoMatch')) {
       await route.fulfill({
@@ -109,8 +109,8 @@ async function mockRoomsApi(page: Page) {
   });
 }
 
-async function mockBookingApi(page: Page) {
-  await page.route('**/bookings', async route => {
+async function mockBookingApi(page: Page): Promise<void> {
+  await page.route('**/bookings', async (route: Route) => {
     if (route.request().method() === 'POST') {
       await route.fulfill({
         status: 201,
@@ -122,7 +122,7 @@ async function mockBookingApi(page: Page) {
     }
   });
 
-  await page.route('**/bookings/ref/BK-PLAYWRIGHT-001', async route => {
+  await page.route('**/bookings/ref/BK-PLAYWRIGHT-001', async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -138,7 +138,6 @@ test.describe('Landing Page', () => {
     await mockRoomsApi(page);
     await page.goto('/');
 
-    // Wait for the featured section
     await expect(page.getByText('The Grand Azure')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText('Paris')).toBeVisible();
   });
@@ -160,7 +159,7 @@ test.describe('Search Results', () => {
   });
 
   test('shows empty state when no rooms match', async ({ page }) => {
-    await page.route('**/rooms**', async route => {
+    await page.route('**/rooms**', async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -169,7 +168,6 @@ test.describe('Search Results', () => {
     });
     await page.goto('/search?query=ZZZNoMatch');
 
-    // Should show zero results or an empty state message
     await expect(page.locator('body')).toBeVisible({ timeout: 10_000 });
   });
 });
@@ -184,7 +182,7 @@ test.describe('Room Detail', () => {
     await expect(page.getByText('WiFi')).toBeVisible();
   });
 
-  test('price and beds information displayed', async ({ page }) => {
+  test('price information is displayed', async ({ page }) => {
     await mockRoomsApi(page);
     await page.goto('/rooms/1');
 
@@ -197,9 +195,8 @@ test.describe('Checkout Flow', () => {
     await mockRoomsApi(page);
     await mockBookingApi(page);
 
-    // Inject checkout state via sessionStorage before navigating
     await page.goto('/');
-    await page.evaluate((room) => {
+    await page.evaluate((room: typeof MOCK_ROOM) => {
       sessionStorage.setItem('checkout_state', JSON.stringify({
         room,
         checkIn: '2027-06-01',
@@ -210,18 +207,15 @@ test.describe('Checkout Flow', () => {
 
     await page.goto('/checkout');
 
-    // Should render the checkout form (not redirect)
     await expect(page.locator('body')).toBeVisible({ timeout: 10_000 });
   });
 
   test('checkout redirects to /search when no state available', async ({ page }) => {
     await mockRoomsApi(page);
-    // Clear sessionStorage
     await page.goto('/');
     await page.evaluate(() => sessionStorage.clear());
     await page.goto('/checkout');
 
-    // Should redirect away from /checkout
     await expect(page).toHaveURL(/search|\//, { timeout: 5_000 });
   });
 });
@@ -229,7 +223,7 @@ test.describe('Checkout Flow', () => {
 test.describe('Booking Confirmation', () => {
   test('booking confirmation page shows booking details', async ({ page }) => {
     await mockRoomsApi(page);
-    await page.route('**/bookings/ref/BK-PLAYWRIGHT-001', async route => {
+    await page.route('**/bookings/ref/BK-PLAYWRIGHT-001', async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -243,7 +237,7 @@ test.describe('Booking Confirmation', () => {
   });
 
   test('booking confirmation shows error when ref is invalid', async ({ page }) => {
-    await page.route('**/bookings/ref/**', async route => {
+    await page.route('**/bookings/ref/**', async (route: Route) => {
       await route.fulfill({
         status: 404,
         contentType: 'application/json',
@@ -253,7 +247,6 @@ test.describe('Booking Confirmation', () => {
 
     await page.goto('/booking-confirmation?ref=BK-INVALID');
     await expect(page.locator('body')).toBeVisible({ timeout: 10_000 });
-    // Error state should be shown
     await expect(page.getByText(/could not load|not found|error/i)).toBeVisible({ timeout: 10_000 });
   });
 });
