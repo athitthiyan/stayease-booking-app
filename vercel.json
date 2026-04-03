@@ -1,6 +1,6 @@
 {
   "buildCommand": "npm run build:prod",
-  "outputDirectory": "dist/stayease-booking-app/browser",
+  "outputDirectory": "dist/stayease-booking-app",
   "framework": null,
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
