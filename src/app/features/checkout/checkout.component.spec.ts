@@ -270,4 +270,60 @@ describe('CheckoutComponent', () => {
     expect(component.submitError()).toContain('already reserved');
     expect(component.submitting()).toBe(false);
   });
+
+  // ── SessionStorage recovery tests ────────────────────────────────────────────
+
+  it('recovers resumable booking and starts countdown from pending_booking sessionStorage', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const futureExpiry = new Date(Date.now() + 300_000).toISOString(); // 5 min
+    const pendingBooking = makeBooking({
+      id: 42,
+      booking_ref: 'BKPENDING',
+      payment_status: 'failed',
+      status: 'pending',
+      hold_expires_at: futureExpiry,
+    });
+    sessionStorage.setItem('pending_booking', JSON.stringify(pendingBooking));
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    // Should have restored resumable booking
+    expect(component.resumableBooking()?.id).toBe(42);
+    expect(component.resumableBooking()?.booking_ref).toBe('BKPENDING');
+
+    // Hold countdown should be running
+    expect(component.holdSecondsLeft()).toBeGreaterThan(0);
+
+    // Error message should prompt user to complete checkout
+    expect(component.submitError()).toContain('previous payment failed');
+
+    component.ngOnDestroy();
+  });
+
+  it('ignores expired pending_booking in sessionStorage and removes it', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const expiredBooking = makeBooking({
+      id: 55,
+      booking_ref: 'BKEXPIRED',
+      payment_status: 'failed',
+      status: 'pending',
+      hold_expires_at: new Date(Date.now() - 1000).toISOString(), // already expired
+    });
+    sessionStorage.setItem('pending_booking', JSON.stringify(expiredBooking));
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    // Should NOT restore the expired booking
+    expect(component.resumableBooking()).toBeNull();
+    expect(component.holdSecondsLeft()).toBe(0);
+
+    // SessionStorage should have been cleared
+    expect(sessionStorage.getItem('pending_booking')).toBeNull();
+  });
 });

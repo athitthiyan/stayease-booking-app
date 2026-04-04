@@ -247,6 +247,29 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.taxes.set(tax);
     this.serviceFee.set(fee);
     this.total.set(sub + tax + fee);
+
+    // Recover from payment failure redirect —
+    // `pending_booking` is written by redirectToPayment() before sending the user to PayFlow.
+    // When the user returns (back button / failed payment redirect) we restore the hold.
+    const pendingRaw = sessionStorage.getItem('pending_booking');
+    if (pendingRaw) {
+      try {
+        const pending: Booking = JSON.parse(pendingRaw);
+        if (pending?.id && pending.payment_status !== 'paid' && pending.status !== 'confirmed') {
+          if (pending.hold_expires_at && new Date(pending.hold_expires_at).getTime() > Date.now()) {
+            this.resumableBooking.set(pending);
+            this.startCountdown(pending.hold_expires_at);
+            this.submitError.set('Your previous payment failed. Complete checkout to retry.');
+          } else {
+            sessionStorage.removeItem('pending_booking');
+          }
+        } else if (pending?.payment_status === 'paid') {
+          sessionStorage.removeItem('pending_booking');
+        }
+      } catch {
+        sessionStorage.removeItem('pending_booking');
+      }
+    }
   }
 
   ngOnDestroy(): void {
