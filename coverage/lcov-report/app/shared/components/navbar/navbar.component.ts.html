@@ -490,12 +490,58 @@
 <a name='L425'></a><a href='#L425'>425</a>
 <a name='L426'></a><a href='#L426'>426</a>
 <a name='L427'></a><a href='#L427'>427</a>
-<a name='L428'></a><a href='#L428'>428</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L428'></a><a href='#L428'>428</a>
+<a name='L429'></a><a href='#L429'>429</a>
+<a name='L430'></a><a href='#L430'>430</a>
+<a name='L431'></a><a href='#L431'>431</a>
+<a name='L432'></a><a href='#L432'>432</a>
+<a name='L433'></a><a href='#L433'>433</a>
+<a name='L434'></a><a href='#L434'>434</a>
+<a name='L435'></a><a href='#L435'>435</a>
+<a name='L436'></a><a href='#L436'>436</a>
+<a name='L437'></a><a href='#L437'>437</a>
+<a name='L438'></a><a href='#L438'>438</a>
+<a name='L439'></a><a href='#L439'>439</a>
+<a name='L440'></a><a href='#L440'>440</a>
+<a name='L441'></a><a href='#L441'>441</a>
+<a name='L442'></a><a href='#L442'>442</a>
+<a name='L443'></a><a href='#L443'>443</a>
+<a name='L444'></a><a href='#L444'>444</a>
+<a name='L445'></a><a href='#L445'>445</a>
+<a name='L446'></a><a href='#L446'>446</a>
+<a name='L447'></a><a href='#L447'>447</a>
+<a name='L448'></a><a href='#L448'>448</a>
+<a name='L449'></a><a href='#L449'>449</a>
+<a name='L450'></a><a href='#L450'>450</a>
+<a name='L451'></a><a href='#L451'>451</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -981,19 +1027,25 @@ import { WishlistService } from '../../../core/services/wishlist.service';
 &nbsp;
       &lt;!-- Mobile Menu --&gt;
       @if (menuOpen()) {
-        &lt;div class="navbar__mobile" (click)="closeMenu()"&gt;
-          &lt;a routerLink="/"&gt;Home&lt;/a&gt;
-          &lt;a routerLink="/search"&gt;Explore Rooms&lt;/a&gt;
-          &lt;a routerLink="/" fragment="destinations"&gt;Destinations&lt;/a&gt;
-          &lt;a routerLink="/" fragment="about"&gt;About&lt;/a&gt;
+        &lt;button
+          type="button"
+          class="navbar__mobile-backdrop"
+          (click)="closeMenu()"
+          aria-label="Close mobile menu"
+        &gt;&lt;/button&gt;
+        &lt;div class="navbar__mobile"&gt;
+          &lt;a routerLink="/" (click)="closeMenu()"&gt;Home&lt;/a&gt;
+          &lt;a routerLink="/search" (click)="closeMenu()"&gt;Explore Rooms&lt;/a&gt;
+          &lt;a routerLink="/" fragment="destinations" (click)="closeMenu()"&gt;Destinations&lt;/a&gt;
+          &lt;a routerLink="/" fragment="about" (click)="closeMenu()"&gt;About&lt;/a&gt;
           @if (authService.isLoggedIn) {
-            &lt;a routerLink="/profile"&gt;Profile&lt;/a&gt;
-            &lt;a routerLink="/bookings"&gt;My Bookings&lt;/a&gt;
-            &lt;a routerLink="/wishlist"&gt;Saved Stays&lt;/a&gt;
+            &lt;a routerLink="/profile" (click)="closeMenu()"&gt;Profile&lt;/a&gt;
+            &lt;a routerLink="/bookings" (click)="closeMenu()"&gt;My Bookings&lt;/a&gt;
+            &lt;a routerLink="/wishlist" (click)="closeMenu()"&gt;Saved Stays&lt;/a&gt;
             &lt;button class="mobile-signout" (click)="logout()"&gt;Sign out&lt;/button&gt;
           } @else {
-            &lt;a routerLink="/auth/login"&gt;Sign in&lt;/a&gt;
-            &lt;a routerLink="/auth/signup"&gt;Sign up&lt;/a&gt;
+            &lt;a routerLink="/auth/login" (click)="closeMenu()"&gt;Sign in&lt;/a&gt;
+            &lt;a routerLink="/auth/signup" (click)="closeMenu()"&gt;Sign up&lt;/a&gt;
           }
         &lt;/div&gt;
       }
@@ -1101,6 +1153,12 @@ import { WishlistService } from '../../../core/services/wishlist.service';
     .navbar__burger.open span:last-child   { transform: rotate(-45deg) translate(5px, -5px); }
 &nbsp;
     .navbar__mobile {
+      position: fixed;
+      top: 88px;
+      left: 0;
+      right: 0;
+      max-height: calc(100dvh - 88px);
+      overflow-y: auto;
       display: flex;
       flex-direction: column;
       gap: var(--space-md);
@@ -1109,6 +1167,17 @@ import { WishlistService } from '../../../core/services/wishlist.service';
       backdrop-filter: blur(24px);
       border-top: 1px solid var(--color-border);
       animation: fadeInUp 0.2s ease;
+      z-index: calc(var(--z-nav) + 2);
+    }
+&nbsp;
+    .navbar__mobile-backdrop {
+      position: fixed;
+      inset: 0;
+      top: 88px;
+      background: rgba(8, 13, 26, 0.45);
+      border: 0;
+      padding: 0;
+      z-index: calc(var(--z-nav) + 1);
     }
 &nbsp;
     .navbar__mobile a {
@@ -1335,13 +1404,13 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 &nbsp;
   private lockBodyScroll(): void {
+    document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
-    document.body.style.touchAction = 'none';
   }
 &nbsp;
   private unlockBodyScroll(): void {
+    document.documentElement.style.overflow = '';
     document.body.style.overflow = '';
-    document.body.style.touchAction = '';
   }
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -1351,7 +1420,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-04T20:38:12.992Z
+                at 2026-04-04T20:43:05.558Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

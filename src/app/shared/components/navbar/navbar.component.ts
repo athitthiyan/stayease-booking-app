@@ -62,19 +62,25 @@ import { WishlistService } from '../../../core/services/wishlist.service';
 
       <!-- Mobile Menu -->
       @if (menuOpen()) {
-        <div class="navbar__mobile" (click)="closeMenu()">
-          <a routerLink="/">Home</a>
-          <a routerLink="/search">Explore Rooms</a>
-          <a routerLink="/" fragment="destinations">Destinations</a>
-          <a routerLink="/" fragment="about">About</a>
+        <button
+          type="button"
+          class="navbar__mobile-backdrop"
+          (click)="closeMenu()"
+          aria-label="Close mobile menu"
+        ></button>
+        <div class="navbar__mobile">
+          <a routerLink="/" (click)="closeMenu()">Home</a>
+          <a routerLink="/search" (click)="closeMenu()">Explore Rooms</a>
+          <a routerLink="/" fragment="destinations" (click)="closeMenu()">Destinations</a>
+          <a routerLink="/" fragment="about" (click)="closeMenu()">About</a>
           @if (authService.isLoggedIn) {
-            <a routerLink="/profile">Profile</a>
-            <a routerLink="/bookings">My Bookings</a>
-            <a routerLink="/wishlist">Saved Stays</a>
+            <a routerLink="/profile" (click)="closeMenu()">Profile</a>
+            <a routerLink="/bookings" (click)="closeMenu()">My Bookings</a>
+            <a routerLink="/wishlist" (click)="closeMenu()">Saved Stays</a>
             <button class="mobile-signout" (click)="logout()">Sign out</button>
           } @else {
-            <a routerLink="/auth/login">Sign in</a>
-            <a routerLink="/auth/signup">Sign up</a>
+            <a routerLink="/auth/login" (click)="closeMenu()">Sign in</a>
+            <a routerLink="/auth/signup" (click)="closeMenu()">Sign up</a>
           }
         </div>
       }
@@ -182,6 +188,12 @@ import { WishlistService } from '../../../core/services/wishlist.service';
     .navbar__burger.open span:last-child   { transform: rotate(-45deg) translate(5px, -5px); }
 
     .navbar__mobile {
+      position: fixed;
+      top: 88px;
+      left: 0;
+      right: 0;
+      max-height: calc(100dvh - 88px);
+      overflow-y: auto;
       display: flex;
       flex-direction: column;
       gap: var(--space-md);
@@ -190,6 +202,17 @@ import { WishlistService } from '../../../core/services/wishlist.service';
       backdrop-filter: blur(24px);
       border-top: 1px solid var(--color-border);
       animation: fadeInUp 0.2s ease;
+      z-index: calc(var(--z-nav) + 2);
+    }
+
+    .navbar__mobile-backdrop {
+      position: fixed;
+      inset: 0;
+      top: 88px;
+      background: rgba(8, 13, 26, 0.45);
+      border: 0;
+      padding: 0;
+      z-index: calc(var(--z-nav) + 1);
     }
 
     .navbar__mobile a {
@@ -416,12 +439,12 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   private lockBodyScroll(): void {
+    document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
-    document.body.style.touchAction = 'none';
   }
 
   private unlockBodyScroll(): void {
+    document.documentElement.style.overflow = '';
     document.body.style.overflow = '';
-    document.body.style.touchAction = '';
   }
 }

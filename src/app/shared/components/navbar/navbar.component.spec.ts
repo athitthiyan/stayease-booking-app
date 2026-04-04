@@ -77,13 +77,13 @@ describe('NavbarComponent', () => {
 
     component.toggleMenu();
     expect(component.menuOpen()).toBe(true);
+    expect(document.documentElement.style.overflow).toBe('hidden');
     expect(document.body.style.overflow).toBe('hidden');
-    expect(document.body.style.touchAction).toBe('none');
 
     component.toggleMenu();
     expect(component.menuOpen()).toBe(false);
+    expect(document.documentElement.style.overflow).toBe('');
     expect(document.body.style.overflow).toBe('');
-    expect(document.body.style.touchAction).toBe('');
   });
 
   it('cleans up body scroll lock on destroy', () => {
@@ -93,8 +93,8 @@ describe('NavbarComponent', () => {
     component.toggleMenu();
     component.ngOnDestroy();
 
+    expect(document.documentElement.style.overflow).toBe('');
     expect(document.body.style.overflow).toBe('');
-    expect(document.body.style.touchAction).toBe('');
   });
 
   it('derives names and logs out', () => {
