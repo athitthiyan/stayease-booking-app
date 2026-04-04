@@ -97,6 +97,82 @@ describe('BookingService (extended branches)', () => {
     });
   });
 
+  describe('getMyBookings', () => {
+    it('GETs the authenticated user booking history endpoint', () => {
+      service.getMyBookings().subscribe(response => {
+        expect(response.total).toBe(1);
+      });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/auth/me/bookings`);
+      expect(req.request.method).toBe('GET');
+      req.flush({ bookings: [{ id: 1 }], total: 1, upcoming: 1, past: 0, cancelled: 0 });
+    });
+  });
+
+  describe('getUnavailableDates', () => {
+    it('GETs unavailable dates with the expected query params', () => {
+      service.getUnavailableDates(8, '2026-05-01', '2026-05-10').subscribe(response => {
+        expect(response.unavailable_dates).toEqual(['2026-05-05']);
+      });
+
+      const req = httpMock.expectOne(
+        request =>
+          request.url === `${environment.apiUrl}/rooms/8/unavailable-dates` &&
+          request.params.get('from_date') === '2026-05-01' &&
+          request.params.get('to_date') === '2026-05-10',
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush({ unavailable_dates: ['2026-05-05'], held_dates: ['2026-05-06'] });
+    });
+  });
+
+  describe('findResumableBooking', () => {
+    it('returns a matching resumable booking when the API succeeds', () => {
+      service
+        .findResumableBooking(8, '2026-05-01', '2026-05-03', 'guest@example.com')
+        .subscribe(booking => {
+          expect(booking).toEqual({ id: 3, booking_ref: 'BK3' });
+        });
+
+      const req = httpMock.expectOne(
+        request =>
+          request.url === `${environment.apiUrl}/bookings/resumable` &&
+          request.params.get('room_id') === '8' &&
+          request.params.get('check_in') === '2026-05-01' &&
+          request.params.get('check_out') === '2026-05-03' &&
+          request.params.get('email') === 'guest@example.com',
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush({ id: 3, booking_ref: 'BK3' });
+    });
+
+    it('returns null when the resumable-booking lookup fails', () => {
+      service
+        .findResumableBooking(8, '2026-05-01', '2026-05-03', 'guest@example.com')
+        .subscribe(booking => {
+          expect(booking).toBeNull();
+        });
+
+      const req = httpMock.expectOne(
+        request => request.url === `${environment.apiUrl}/bookings/resumable`,
+      );
+      req.flush({ detail: 'not found' }, { status: 404, statusText: 'Not Found' });
+    });
+  });
+
+  describe('extendHold', () => {
+    it('POSTs the booking email to the extend-hold endpoint', () => {
+      service.extendHold(9, 'guest@example.com').subscribe(booking => {
+        expect(booking).toEqual({ id: 9, booking_ref: 'BKEXT' });
+      });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/bookings/9/extend-hold`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ email: 'guest@example.com' });
+      req.flush({ id: 9, booking_ref: 'BKEXT' });
+    });
+  });
+
   describe('checkoutState$ observable', () => {
     it('emits updated state after setCheckoutState', done => {
       const state: CheckoutState = { room: null, checkIn: '2027-02-01', checkOut: '2027-02-03', guests: 3 };

@@ -86,6 +86,24 @@ describe('RoomDetailComponent', () => {
     expect(component.loading()).toBe(false);
   });
 
+  it('uses default guest options before a room is loaded', () => {
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.guestOptions).toEqual([1, 2, 3, 4]);
+  });
+
+  it('loads wishlist status for logged-in users', () => {
+    Object.defineProperty(mockAuth, 'isLoggedIn', { value: true, configurable: true });
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(mockWishlist.loadStatus).toHaveBeenCalled();
+  });
+
   it('handles room load error', () => {
     roomService.getRoom.mockReturnValue(throwError(() => new Error('boom')));
 
@@ -124,6 +142,30 @@ describe('RoomDetailComponent', () => {
     component.checkOut = '';
     component.bookNow();
     expect(alertSpy).toHaveBeenCalled();
+  });
+
+  it('returns an empty amenities list when room amenities JSON is invalid', () => {
+    roomService.getRoom.mockReturnValue(
+      of(mockRoom({ amenities: 'invalid-json', gallery_urls: '[]' })),
+    );
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.amenities()).toEqual([]);
+  });
+
+  it('sets the active image when a thumbnail is selected', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.setActiveImage(1);
+
+    expect(component.activeImageIdx()).toBe(1);
+    expect(component.activeImage()).toBe('https://example.com/2.jpg');
   });
 
   // ── Unavailable dates ──────────────────────────────────────────────────────
@@ -248,5 +290,20 @@ describe('RoomDetailComponent', () => {
     // No conflict should be shown when the API fails
     expect(component.dateConflict()).toBe('');
     expect(component.unavailableDates()).toEqual([]);
+  });
+
+  it('toggles the wishlist only when a room is loaded', () => {
+    (mockWishlist.toggle as jest.Mock).mockReturnValue(of({}));
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+
+    component.toggleWishlist();
+    expect(mockWishlist.toggle).not.toHaveBeenCalled();
+
+    component.ngOnInit();
+    component.toggleWishlist();
+    expect(mockWishlist.toggle).toHaveBeenCalledWith(5);
   });
 });

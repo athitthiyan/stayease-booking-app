@@ -255,7 +255,7 @@ export class BookingConfirmationComponent implements OnInit {
   error = '';
 
   ngOnInit() {
-    this.bookingRef = this.route.snapshot.queryParamMap.get('ref') || 'BK12345678';
+    this.bookingRef = this.route.snapshot.queryParamMap.get('ref') ?? '';
     if (!this.bookingRef) {
       this.loading = false;
       this.error = 'Booking reference is missing from the confirmation link.';

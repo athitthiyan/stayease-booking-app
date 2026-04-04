@@ -76,4 +76,71 @@ describe('authInterceptor', () => {
     expect(req.request.headers.has('Authorization')).toBe(false);
     req.flush([]);
   });
+
+  it('refreshes the token and retries the request after a 401', () => {
+    setupModule({
+      getAccessToken: jest.fn().mockReturnValue('expired-token'),
+      getRefreshToken: jest.fn().mockReturnValue('refresh-token'),
+      refreshToken: jest.fn().mockReturnValue(of({ access_token: 'fresh-token' })),
+    });
+
+    const nextSpy = jest.fn();
+    httpClient.get(`${apiUrl}/rooms`).subscribe(nextSpy);
+
+    const initialReq = httpMock.expectOne(`${apiUrl}/rooms`);
+    expect(initialReq.request.headers.get('Authorization')).toBe('Bearer expired-token');
+    initialReq.flush(
+      { detail: 'expired' },
+      { status: 401, statusText: 'Unauthorized' },
+    );
+
+    const retriedReq = httpMock.expectOne(`${apiUrl}/rooms`);
+    expect(mockAuth.refreshToken).toHaveBeenCalled();
+    expect(retriedReq.request.headers.get('Authorization')).toBe('Bearer fresh-token');
+    retriedReq.flush([{ id: 1 }]);
+
+    expect(nextSpy).toHaveBeenCalledWith([{ id: 1 }]);
+  });
+
+  it('logs out and redirects when token refresh fails', () => {
+    setupModule({
+      getAccessToken: jest.fn().mockReturnValue('expired-token'),
+      getRefreshToken: jest.fn().mockReturnValue('refresh-token'),
+      refreshToken: jest.fn().mockReturnValue(
+        throwError(() => new Error('refresh failed')),
+      ),
+    });
+
+    const errorSpy = jest.fn();
+    httpClient.get(`${apiUrl}/rooms`).subscribe({ error: errorSpy });
+
+    const req = httpMock.expectOne(`${apiUrl}/rooms`);
+    req.flush(
+      { detail: 'expired' },
+      { status: 401, statusText: 'Unauthorized' },
+    );
+
+    expect(mockAuth.logout).toHaveBeenCalled();
+    expect(mockRouter.navigate).toHaveBeenCalledWith(['/auth/login']);
+    expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it('passes through non-401 API errors without refreshing', () => {
+    setupModule({
+      getAccessToken: jest.fn().mockReturnValue('token'),
+      getRefreshToken: jest.fn().mockReturnValue('refresh-token'),
+      refreshToken: jest.fn(),
+    });
+
+    const errorSpy = jest.fn();
+    httpClient.get(`${apiUrl}/rooms`).subscribe({ error: errorSpy });
+
+    const req = httpMock.expectOne(`${apiUrl}/rooms`);
+    req.flush({ detail: 'forbidden' }, { status: 403, statusText: 'Forbidden' });
+
+    expect(mockAuth.refreshToken).not.toHaveBeenCalled();
+    expect(mockAuth.logout).not.toHaveBeenCalled();
+    expect(mockRouter.navigate).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+  });
 });

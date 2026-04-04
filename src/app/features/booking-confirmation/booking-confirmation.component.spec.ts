@@ -80,4 +80,36 @@ describe('BookingConfirmationComponent', () => {
     expect(component.error).toContain('could not load');
     expect(component.loading).toBe(false);
   });
+
+  it('shows an error when the confirmation link has no booking reference', async () => {
+    const bookingService = {
+      getBookingByRef: jest.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [BookingConfirmationComponent],
+      providers: [
+        provideRouter([]),
+        { provide: BookingService, useValue: bookingService },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              queryParamMap: {
+                get: () => null,
+              },
+            },
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(BookingConfirmationComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(bookingService.getBookingByRef).not.toHaveBeenCalled();
+    expect(component.error).toContain('reference is missing');
+    expect(component.loading).toBe(false);
+  });
 });

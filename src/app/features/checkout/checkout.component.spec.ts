@@ -326,4 +326,107 @@ describe('CheckoutComponent', () => {
     // SessionStorage should have been cleared
     expect(sessionStorage.getItem('pending_booking')).toBeNull();
   });
+
+  it('removes a paid pending booking from session storage during recovery', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    sessionStorage.setItem(
+      'pending_booking',
+      JSON.stringify(
+        makeBooking({
+          payment_status: 'paid',
+          status: 'pending',
+        }),
+      ),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.resumableBooking()).toBeNull();
+    expect(sessionStorage.getItem('pending_booking')).toBeNull();
+  });
+
+  it('removes invalid pending booking JSON from session storage', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    sessionStorage.setItem('pending_booking', '{invalid-json');
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(sessionStorage.getItem('pending_booking')).toBeNull();
+    expect(component.resumableBooking()).toBeNull();
+  });
+
+  it('formats the hold countdown helpers with leading zeroes', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.holdSecondsLeft.set(65);
+
+    expect(component.holdMinutes()).toBe('01');
+    expect(component.holdSecondsPad()).toBe('05');
+  });
+
+  it('does not auto-extend an expired hold when email is missing', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.extendHold.mockReturnValue(of(makeBooking()));
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.resumableBooking.set(
+      makeBooking({ hold_expires_at: new Date(Date.now() - 1000).toISOString() }) as any,
+    );
+
+    component.startCountdown(new Date(Date.now() - 1000).toISOString());
+
+    expect(component.holdExpired()).toBe(true);
+    expect(bookingService.extendHold).not.toHaveBeenCalled();
+  });
+
+  it('shows a generic error when extend-hold fails for a non-conflict reason', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    const expired = makeBooking({
+      id: 88,
+      hold_expires_at: new Date(Date.now() - 1000).toISOString(),
+    });
+    bookingService.findResumableBooking.mockReturnValue(of(expired));
+    bookingService.extendHold.mockReturnValue(
+      throwError(() => ({
+        status: 500,
+        error: { detail: 'temporary outage' },
+      })),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    expect(component.submitError()).toContain('Could not extend your reservation hold');
+    expect(component.extendingHold()).toBe(false);
+  });
+
+  it('shows an error when the resumable-booking lookup itself fails', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.findResumableBooking.mockReturnValue(
+      throwError(() => new Error('network down')),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    expect(component.submitError()).toContain('Unable to check existing reservations');
+    expect(component.submitting()).toBe(false);
+  });
 });

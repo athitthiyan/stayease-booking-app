@@ -1,0 +1,45 @@
+import { routes } from './app.routes';
+
+describe('routes', () => {
+  it('defines all public and authenticated pages', () => {
+    const paths = routes.map(route => route.path);
+
+    expect(paths).toEqual([
+      '',
+      'search',
+      'rooms/:id',
+      'checkout/:id',
+      'booking-confirmation',
+      'auth/login',
+      'auth/signup',
+      'auth/forgot-password',
+      'auth/reset-password',
+      'profile',
+      'bookings',
+      'wishlist',
+      '**',
+    ]);
+  });
+
+  it('protects the appropriate routes and titles', () => {
+    expect(routes.find(route => route.path === 'auth/login')?.canActivate?.length).toBe(1);
+    expect(routes.find(route => route.path === 'auth/signup')?.canActivate?.length).toBe(1);
+    expect(routes.find(route => route.path === 'auth/forgot-password')?.canActivate?.length).toBe(1);
+    expect(routes.find(route => route.path === 'profile')?.canActivate?.length).toBe(1);
+    expect(routes.find(route => route.path === 'bookings')?.canActivate?.length).toBe(1);
+    expect(routes.find(route => route.path === 'wishlist')?.canActivate?.length).toBe(1);
+    expect(routes.find(route => route.path === '**')?.redirectTo).toBe('');
+    expect(routes.find(route => route.path === '')?.title).toContain('StayEase');
+  });
+
+  it('lazy-loads every route component', async () => {
+    const loaded = await Promise.all(
+      routes
+        .filter(route => route.loadComponent)
+        .map(route => route.loadComponent!())
+    );
+
+    expect(loaded).toHaveLength(12);
+    expect(loaded.every(component => !!component)).toBe(true);
+  });
+});
