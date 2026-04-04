@@ -1,8 +1,9 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { BookingService, CheckoutState } from '../../core/services/booking.service';
+import { Booking } from '../../core/models/booking.model';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -22,6 +23,44 @@ import { environment } from '../../../environments/environment';
           </nav>
 
           <h1 class="checkout-title">Complete Your <span>Booking</span></h1>
+
+          <!-- ── Resumable-booking banner ── -->
+          @if (resumableBooking()) {
+            <div class="hold-banner hold-banner--resume">
+              <span class="hold-banner__icon">🔄</span>
+              <div>
+                <strong>You have an active reservation for these dates.</strong>
+                <p>Booking {{ resumableBooking()!.booking_ref }} is still held.
+                  Complete payment to confirm it.
+                </p>
+              </div>
+            </div>
+          }
+
+          <!-- ── Hold expiry countdown ── -->
+          @if (holdSecondsLeft() > 0) {
+            <div class="hold-banner" [class.hold-banner--warning]="holdSecondsLeft() < 120">
+              <span class="hold-banner__icon">⏳</span>
+              <div>
+                <strong>Your hold expires in {{ holdMinutes() }}:{{ holdSecondsPad() }}</strong>
+                <p>Complete payment before the timer runs out to secure your dates.</p>
+              </div>
+            </div>
+          }
+
+          @if (holdExpired()) {
+            <div class="hold-banner hold-banner--expired">
+              <span class="hold-banner__icon">⏰</span>
+              <div>
+                <strong>Your reservation hold has expired.</strong>
+                @if (extendingHold()) {
+                  <p>Checking date availability…</p>
+                } @else {
+                  <p>We'll try to re-reserve your dates automatically.</p>
+                }
+              </div>
+            </div>
+          }
 
           <!-- Guest Details -->
           <section class="checkout-section">
@@ -69,11 +108,20 @@ import { environment } from '../../../environments/environment';
             </div>
           </section>
 
+          <!-- Error banner -->
+          @if (submitError()) {
+            <div class="checkout-error">⚠️ {{ submitError() }}</div>
+          }
+
           <!-- Submit -->
           <div class="checkout-actions">
-            <button class="btn btn--primary btn--lg" (click)="proceedToPayment()" [disabled]="submitting()">
-              @if (submitting()) {
-                <span class="spinner-sm"></span> Processing...
+            <button class="btn btn--primary btn--lg"
+              (click)="proceedToPayment()"
+              [disabled]="submitting() || extendingHold()">
+              @if (submitting() || extendingHold()) {
+                <span class="spinner-sm"></span> {{ extendingHold() ? 'Extending hold…' : 'Processing...' }}
+              } @else if (resumableBooking()) {
+                Complete Payment →
               } @else {
                 Proceed to Payment →
               }
@@ -148,7 +196,7 @@ import { environment } from '../../../environments/environment';
   `,
   styleUrl: './checkout.component.scss',
 })
-export class CheckoutComponent implements OnInit {
+export class CheckoutComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private bookingService = inject(BookingService);
@@ -162,6 +210,17 @@ export class CheckoutComponent implements OnInit {
   taxes = signal(0);
   serviceFee = signal(0);
   total = signal(0);
+
+  /** Existing resumable booking (PENDING, non-expired hold) for these dates/email. */
+  resumableBooking = signal<Booking | null>(null);
+  /** Seconds remaining on the hold countdown. 0 = not yet started or expired. */
+  holdSecondsLeft = signal(0);
+  /** True once the countdown reaches 0. */
+  holdExpired = signal(false);
+  /** True while the extend-hold API call is in-flight. */
+  extendingHold = signal(false);
+
+  private countdownInterval: ReturnType<typeof setInterval> | null = null;
 
   form = {
     user_name: '',
@@ -190,36 +249,165 @@ export class CheckoutComponent implements OnInit {
     this.total.set(sub + tax + fee);
   }
 
+  ngOnDestroy(): void {
+    this.stopCountdown();
+  }
+
+  // ── Countdown helpers ─────────────────────────────────────────────────────
+
+  holdMinutes(): string {
+    return String(Math.floor(this.holdSecondsLeft() / 60)).padStart(2, '0');
+  }
+
+  holdSecondsPad(): string {
+    return String(this.holdSecondsLeft() % 60).padStart(2, '0');
+  }
+
+  startCountdown(holdExpiresAt: string): void {
+    this.stopCountdown();
+    const expiry = new Date(holdExpiresAt).getTime();
+    const tick = () => {
+      const secs = Math.max(0, Math.round((expiry - Date.now()) / 1000));
+      this.holdSecondsLeft.set(secs);
+      if (secs === 0) {
+        this.stopCountdown();
+        this.holdExpired.set(true);
+        // Automatically attempt to extend the hold so the user isn't blocked
+        const booking = this.resumableBooking();
+        if (booking && this.form.email) {
+          this.tryExtendHold(booking.id, this.form.email);
+        }
+      }
+    };
+    tick();
+    this.countdownInterval = setInterval(tick, 1000);
+  }
+
+  private stopCountdown(): void {
+    if (this.countdownInterval !== null) {
+      clearInterval(this.countdownInterval);
+      this.countdownInterval = null;
+    }
+  }
+
+  // ── Extend-hold ───────────────────────────────────────────────────────────
+
+  private tryExtendHold(bookingId: number, email: string): void {
+    this.extendingHold.set(true);
+    this.bookingService.extendHold(bookingId, email).subscribe({
+      next: extended => {
+        this.resumableBooking.set(extended);
+        this.holdExpired.set(false);
+        this.extendingHold.set(false);
+        if (extended.hold_expires_at) {
+          this.startCountdown(extended.hold_expires_at);
+        }
+      },
+      error: err => {
+        this.extendingHold.set(false);
+        const detail = err?.error?.detail || '';
+        if (detail.toLowerCase().includes('no longer available') || err?.status === 409) {
+          this.submitError.set(
+            'Your hold expired and the dates are no longer available. Please go back and select new dates.',
+          );
+          this.resumableBooking.set(null);
+        } else {
+          this.submitError.set('Could not extend your reservation hold. Please try again.');
+        }
+      },
+    });
+  }
+
+  // ── Redirect helper ───────────────────────────────────────────────────────
+
+  private redirectToPayment(booking: Booking): void {
+    sessionStorage.setItem('pending_booking', JSON.stringify(booking));
+    const paymentUrl = `${environment.paymentAppUrl}?booking_id=${booking.id}&ref=${booking.booking_ref}`;
+    window.location.href = paymentUrl;
+  }
+
+  // ── Main flow ─────────────────────────────────────────────────────────────
+
   proceedToPayment() {
     if (!this.form.user_name || !this.form.email) {
       alert('Please fill in your name and email');
       return;
     }
+
+    // ① Prevent duplicate clicks — set immediately before any async work
+    if (this.submitting()) return;
     this.submitting.set(true);
     this.submitError.set('');
+
     const state = this.checkoutState()!;
 
-    this.bookingService.createBooking({
-      user_name: this.form.user_name,
-      email: this.form.email,
-      phone: this.form.phone,
-      room_id: state.room!.id,
-      check_in: new Date(state.checkIn).toISOString(),
-      check_out: new Date(state.checkOut).toISOString(),
-      guests: state.guests,
-      special_requests: this.form.special_requests,
-    }).subscribe({
-      next: booking => {
-        sessionStorage.setItem('pending_booking', JSON.stringify(booking));
-        // Redirect to PayFlow payment app
-        const paymentUrl = `${environment.paymentAppUrl}?booking_id=${booking.id}&ref=${booking.booking_ref}`;
-        window.location.href = paymentUrl;
-      },
-      error: () => {
-        this.submitError.set('Unable to create the booking right now. Please try again.');
-        this.submitting.set(false);
-      },
-    });
+    // ② Check for a resumable booking (same room/dates/email, non-expired hold)
+    this.bookingService
+      .findResumableBooking(
+        state.room!.id,
+        new Date(state.checkIn).toISOString(),
+        new Date(state.checkOut).toISOString(),
+        this.form.email,
+      )
+      .subscribe({
+        next: existing => {
+          if (existing) {
+            // ── Resume path: reuse the existing booking ──────────────────
+            this.resumableBooking.set(existing);
+            if (existing.hold_expires_at) {
+              this.startCountdown(existing.hold_expires_at);
+            }
+
+            // If the hold is still valid, go straight to payment
+            const holdExp = existing.hold_expires_at
+              ? new Date(existing.hold_expires_at).getTime()
+              : 0;
+            if (holdExp > Date.now()) {
+              this.redirectToPayment(existing);
+            } else {
+              // Hold already expired — try to extend before redirecting
+              this.submitting.set(false);
+              this.tryExtendHold(existing.id, this.form.email);
+            }
+          } else {
+            // ── New booking path ─────────────────────────────────────────
+            this.bookingService.createBooking({
+              user_name: this.form.user_name,
+              email: this.form.email,
+              phone: this.form.phone,
+              room_id: state.room!.id,
+              check_in: new Date(state.checkIn).toISOString(),
+              check_out: new Date(state.checkOut).toISOString(),
+              guests: state.guests,
+              special_requests: this.form.special_requests,
+            }).subscribe({
+              next: booking => {
+                this.resumableBooking.set(booking);
+                if (booking.hold_expires_at) {
+                  this.startCountdown(booking.hold_expires_at);
+                }
+                this.redirectToPayment(booking);
+              },
+              error: err => {
+                const detail: string = err?.error?.detail || '';
+                if (err?.status === 409) {
+                  this.submitError.set(
+                    detail || 'These dates are no longer available. Please go back and choose different dates.',
+                  );
+                } else {
+                  this.submitError.set('Unable to create the booking right now. Please try again.');
+                }
+                this.submitting.set(false);
+              },
+            });
+          }
+        },
+        // findResumableBooking catches 404 and returns null — this branch handles
+        // genuine network/server errors from the resumable lookup itself
+        error: () => {
+          this.submitError.set('Unable to check existing reservations. Please try again.');
+          this.submitting.set(false);
+        },
+      });
   }
 }
-

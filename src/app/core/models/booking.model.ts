@@ -1,7 +1,20 @@
 import { Room } from './room.model';
 
-export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
-export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+export type BookingStatus =
+  | 'pending'
+  | 'processing'
+  | 'confirmed'
+  | 'cancelled'
+  | 'completed'
+  | 'expired';
+
+export type PaymentStatus =
+  | 'pending'
+  | 'processing'
+  | 'paid'
+  | 'failed'
+  | 'refunded'
+  | 'expired';
 
 export interface CreateBookingRequest {
   user_name: string;
@@ -24,6 +37,8 @@ export interface Booking {
   room?: Room;
   check_in: string;
   check_out: string;
+  /** ISO timestamp — present only while the booking is in the PENDING hold window */
+  hold_expires_at?: string;
   guests: number;
   nights: number;
   room_rate: number;
@@ -34,6 +49,13 @@ export interface Booking {
   payment_status: PaymentStatus;
   special_requests?: string;
   created_at: string;
+}
+
+export interface UnavailableDatesResponse {
+  /** Confirmed/permanently blocked dates — will not free up. */
+  unavailable_dates: string[];
+  /** Temporarily locked by an active hold — may free up. */
+  held_dates: string[];
 }
 
 export interface BookingListResponse {

@@ -9,6 +9,9 @@ import { AuthService } from '../../core/services/auth.service';
 import { Room } from '../../core/models/room.model';
 import { ReviewsSectionComponent } from '../../shared/components/reviews-section/reviews-section.component';
 
+/** ISO date string, e.g. "2026-05-10" */
+type ISODateString = string;
+
 @Component({
   selector: 'app-room-detail',
   standalone: true,
@@ -152,12 +155,20 @@ import { ReviewsSectionComponent } from '../../shared/components/reviews-section
               <!-- Dates -->
               <div class="form-group">
                 <label>Check-in</label>
-                <input type="date" [(ngModel)]="checkIn" [min]="today" class="form-control" (change)="onDateChange()" />
+                <input type="date" [(ngModel)]="checkIn" [min]="today" class="form-control"
+                  [class.input--error]="dateConflict()" (change)="onDateChange()" />
               </div>
               <div class="form-group" style="margin-top:12px">
                 <label>Check-out</label>
-                <input type="date" [(ngModel)]="checkOut" [min]="tomorrow" class="form-control" (change)="onDateChange()" />
+                <input type="date" [(ngModel)]="checkOut" [min]="checkIn || tomorrow" class="form-control"
+                  [class.input--error]="dateConflict()" (change)="onDateChange()" />
               </div>
+              @if (dateConflict()) {
+                <div class="date-conflict-alert">
+                  <span>⚠️</span>
+                  <span>{{ dateConflict() }}</span>
+                </div>
+              }
               <div class="form-group" style="margin-top:12px">
                 <label>Guests</label>
                 <select [(ngModel)]="guests" class="form-control">
@@ -191,7 +202,8 @@ import { ReviewsSectionComponent } from '../../shared/components/reviews-section
                 </div>
               }
 
-              <button class="btn btn--primary" style="width:100%;margin-top:20px;padding:16px" (click)="bookNow()">
+              <button class="btn btn--primary" style="width:100%;margin-top:20px;padding:16px"
+                (click)="bookNow()" [disabled]="!!dateConflict()">
                 {{ nights() > 0 ? 'Book Now — $' + (totalAmount() | number:'1.0-0') : 'Select Dates to Book' }}
               </button>
 
@@ -232,6 +244,13 @@ export class RoomDetailComponent implements OnInit {
   nights = signal(0);
   totalAmount = signal(0);
 
+  /** Dates that are permanently booked (confirmed/blocked). */
+  unavailableDates = signal<ISODateString[]>([]);
+  /** Dates temporarily held by another user's active booking hold. */
+  heldDates = signal<ISODateString[]>([]);
+  /** Non-empty string = user's date range overlaps a taken date. */
+  dateConflict = signal('');
+
   get guestOptions() {
     return Array.from({ length: this.room()?.max_guests || 4 }, (_, i) => i + 1);
   }
@@ -261,6 +280,7 @@ export class RoomDetailComponent implements OnInit {
         this.galleryImages.set(imgs);
         this.activeImage.set(imgs[0] || '');
         this.loading.set(false);
+        this.loadUnavailableDates(room.id);
       },
       error: () => {
         this.room.set(null);
@@ -277,6 +297,56 @@ export class RoomDetailComponent implements OnInit {
     this.activeImage.set(this.galleryImages()[idx]);
   }
 
+  private loadUnavailableDates(roomId: number): void {
+    const fromDate = this.today;
+    const toDate = new Date(Date.now() + 180 * 86400000).toISOString().split('T')[0];
+    this.bookingService.getUnavailableDates(roomId, fromDate, toDate).subscribe({
+      next: res => {
+        this.unavailableDates.set(res.unavailable_dates);
+        this.heldDates.set(res.held_dates);
+        // Re-run validation in case dates were already selected
+        this.validateDateConflict();
+      },
+      error: () => {
+        // Non-critical — date picker still works; we just won't show conflict warnings
+        this.unavailableDates.set([]);
+        this.heldDates.set([]);
+      },
+    });
+  }
+
+  /** Iterate every night in the selected range and check against taken dates. */
+  private validateDateConflict(): void {
+    if (!this.checkIn || !this.checkOut) {
+      this.dateConflict.set('');
+      return;
+    }
+    const nights = Math.floor(
+      (new Date(this.checkOut).getTime() - new Date(this.checkIn).getTime()) / 86400000,
+    );
+    if (nights < 1) {
+      this.dateConflict.set('');
+      return;
+    }
+    const unavailable = new Set(this.unavailableDates());
+    const held = new Set(this.heldDates());
+
+    for (let i = 0; i < nights; i++) {
+      const d = new Date(this.checkIn);
+      d.setDate(d.getDate() + i);
+      const dateStr = d.toISOString().split('T')[0];
+      if (unavailable.has(dateStr)) {
+        this.dateConflict.set('These dates are already booked. Please select different dates.');
+        return;
+      }
+      if (held.has(dateStr)) {
+        this.dateConflict.set('These dates are temporarily held by another guest. Try again shortly or choose different dates.');
+        return;
+      }
+    }
+    this.dateConflict.set('');
+  }
+
   onDateChange() {
     if (this.checkIn && this.checkOut) {
       const nights = Math.max(0, (new Date(this.checkOut).getTime() - new Date(this.checkIn).getTime()) / 86400000);
@@ -284,12 +354,16 @@ export class RoomDetailComponent implements OnInit {
       const roomRate = (this.room()?.price || 0) * this.nights();
       this.totalAmount.set(Math.round(roomRate * 1.17)); // +12% tax +5% service
     }
+    this.validateDateConflict();
   }
 
   bookNow() {
     if (!this.checkIn || !this.checkOut || this.nights() < 1) {
       alert('Please select check-in and check-out dates');
       return;
+    }
+    if (this.dateConflict()) {
+      return; // Button should already be disabled; guard for keyboard/a11y activation
     }
     this.bookingService.setCheckoutState({
       room: this.room()!,

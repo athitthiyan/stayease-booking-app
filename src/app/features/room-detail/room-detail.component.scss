@@ -214,6 +214,27 @@
       }
     }
 
+    // Date conflict alert shown below the date inputs
+    .date-conflict-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-top: 10px;
+      padding: 10px 14px;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      color: #fca5a5;
+      line-height: 1.4;
+    }
+
+    // Error state for date inputs
+    .input--error {
+      border-color: rgba(239, 68, 68, 0.7) !important;
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+    }
+
     .breakdown-row {
       display: flex;
       justify-content: space-between;

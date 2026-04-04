@@ -172,3 +172,51 @@
       animation: spin 0.8s linear infinite;
     }
   
+
+    // ─── Hold expiry countdown banner ────────────────────────────────────────────
+    .hold-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 18px;
+      border-radius: var(--radius-lg);
+      margin-bottom: var(--space-xl);
+      background: rgba(34, 211, 238, 0.08);
+      border: 1px solid rgba(34, 211, 238, 0.3);
+      font-size: 14px;
+      color: var(--color-text-muted);
+
+      &__icon { font-size: 1.4rem; line-height: 1; }
+
+      strong { display: block; color: var(--color-text); margin-bottom: 4px; }
+      p { margin: 0; }
+
+      &--resume {
+        background: rgba(74, 222, 128, 0.08);
+        border-color: rgba(74, 222, 128, 0.3);
+      }
+
+      &--warning {
+        background: rgba(251, 191, 36, 0.1);
+        border-color: rgba(251, 191, 36, 0.4);
+        color: #fcd34d;
+        strong { color: #fcd34d; }
+      }
+
+      &--expired {
+        background: rgba(239, 68, 68, 0.08);
+        border-color: rgba(239, 68, 68, 0.3);
+        color: #fca5a5;
+        strong { color: #fca5a5; }
+      }
+    }
+
+    .checkout-error {
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+      font-size: 14px;
+      margin-bottom: var(--space-md);
+    }

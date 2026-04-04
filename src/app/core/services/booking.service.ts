@@ -1,13 +1,14 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, BehaviorSubject } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { Observable, BehaviorSubject, of } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
   Booking,
   BookingListResponse,
   CreateBookingRequest,
   MyBookingsResponse,
+  UnavailableDatesResponse,
 } from '../models/booking.model';
 import { Room } from '../models/room.model';
 
@@ -63,5 +64,54 @@ export class BookingService {
 
   getMyBookings(): Observable<MyBookingsResponse> {
     return this.http.get<MyBookingsResponse>(`${environment.apiUrl}/auth/me/bookings`);
+  }
+
+  /**
+   * Fetch unavailable and held dates for a room within a date window.
+   * Used by the room-detail date picker to disable / warn on conflicting dates.
+   */
+  getUnavailableDates(
+    roomId: number,
+    fromDate: string,
+    toDate: string,
+  ): Observable<UnavailableDatesResponse> {
+    const params = new HttpParams()
+      .set('from_date', fromDate)
+      .set('to_date', toDate);
+    return this.http.get<UnavailableDatesResponse>(
+      `${environment.apiUrl}/rooms/${roomId}/unavailable-dates`,
+      { params },
+    );
+  }
+
+  /**
+   * Look up an existing PENDING booking for the same room / dates / email
+   * whose hold has not yet expired.  Returns `null` when none is found.
+   */
+  findResumableBooking(
+    roomId: number,
+    checkIn: string,
+    checkOut: string,
+    email: string,
+  ): Observable<Booking | null> {
+    const params = new HttpParams()
+      .set('room_id', roomId)
+      .set('check_in', checkIn)
+      .set('check_out', checkOut)
+      .set('email', email);
+    return this.http
+      .get<Booking>(`${environment.apiUrl}/bookings/resumable`, { params })
+      .pipe(catchError(() => of(null)));
+  }
+
+  /**
+   * Re-lock inventory and extend the hold window for a booking whose hold
+   * has expired.  Requires the original booking email for authorisation.
+   */
+  extendHold(bookingId: number, email: string): Observable<Booking> {
+    return this.http.post<Booking>(
+      `${environment.apiUrl}/bookings/${bookingId}/extend-hold`,
+      { email },
+    );
   }
 }
