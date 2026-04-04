@@ -260,7 +260,7 @@ export class LandingComponent implements OnInit {
   today = new Date().toISOString().split('T')[0];
   tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
-  particles = Array.from({ length: 20 }, (_, i) => {
+  particles = Array.from({ length: 20 }, () => {
     const x = Math.random() * 100;
     const y = Math.random() * 100;
     const delay = Math.random() * 3;
@@ -313,4 +313,3 @@ export class LandingComponent implements OnInit {
   }
 
 }
-

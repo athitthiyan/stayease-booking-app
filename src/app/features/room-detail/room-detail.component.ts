@@ -276,7 +276,9 @@ export class RoomDetailComponent implements OnInit {
         try {
           const gallery = JSON.parse(room.gallery_urls || '[]');
           imgs.push(...gallery.filter((g: string) => g !== room.image_url));
-        } catch {}
+        } catch {
+          // Ignore malformed gallery data and fall back to the main image only.
+        }
         this.galleryImages.set(imgs);
         this.activeImage.set(imgs[0] || '');
         this.loading.set(false);
@@ -394,4 +396,3 @@ export class RoomDetailComponent implements OnInit {
     return '✓';
   }
 }
-

@@ -1,4 +1,4 @@
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 
@@ -213,7 +213,7 @@ describe('CheckoutComponent', () => {
   it('prevents double-submit while submitting is true', () => {
     bookingService.getCheckoutState.mockReturnValue(checkoutState);
     // Never resolves — simulates in-flight request
-    bookingService.findResumableBooking.mockReturnValue(new (require('rxjs').Subject)());
+    bookingService.findResumableBooking.mockReturnValue(new Subject());
 
     const fixture = TestBed.createComponent(CheckoutComponent);
     const component = fixture.componentInstance;

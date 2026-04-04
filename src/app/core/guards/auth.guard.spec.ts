@@ -2,7 +2,6 @@ import { TestBed } from '@angular/core/testing';
 import {
   ActivatedRouteSnapshot,
   RouterStateSnapshot,
-  UrlTree,
   Router,
 } from '@angular/router';
 import { authGuard, guestGuard } from './auth.guard';
