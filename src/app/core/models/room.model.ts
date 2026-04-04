@@ -1,4 +1,10 @@
 export type RoomType = 'standard' | 'deluxe' | 'suite' | 'penthouse';
+export type RoomSortOption =
+  | 'recommended'
+  | 'price_low_to_high'
+  | 'price_high_to_low'
+  | 'top_rated'
+  | 'most_popular';
 
 export interface Room {
   id: number;
@@ -33,13 +39,19 @@ export interface RoomListResponse {
 }
 
 export interface RoomSearchParams {
+  query?: string;
   city?: string;
+  landmark?: string;
   room_type?: string;
   min_price?: number;
   max_price?: number;
+  min_rating?: number;
+  amenities?: string;
   guests?: number;
   check_in?: string;
   check_out?: string;
+  featured?: boolean;
+  sort_by?: RoomSortOption;
   page?: number;
   per_page?: number;
 }

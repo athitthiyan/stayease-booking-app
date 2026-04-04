@@ -10,7 +10,8 @@
     "lint": "eslint src --ext .ts,.html",
     "watch": "ng build --watch --configuration development",
     "test": "jest --coverage",
-    "test:ci": "jest --runInBand --coverage --coverageReporters=text-summary --coverageReporters=text"
+    "test:ci": "jest --runInBand --coverage --coverageReporters=text-summary --coverageReporters=text",
+    "e2e": "playwright test"
   },
   "private": true,
   "dependencies": {

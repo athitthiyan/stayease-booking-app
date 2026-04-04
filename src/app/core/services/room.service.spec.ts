@@ -27,7 +27,16 @@ describe('RoomService', () => {
 
   it('fetches rooms with filtered params only', () => {
     service
-      .getRooms({ city: 'Paris', guests: 2, room_type: '', max_price: undefined } as any)
+      .getRooms({
+        city: 'Paris',
+        guests: 2,
+        room_type: '',
+        max_price: undefined,
+        sort_by: 'top_rated',
+        landmark: 'Marina Beach',
+        amenities: 'WiFi,Breakfast',
+        min_rating: 4,
+      } as any)
       .subscribe();
 
     const req = httpMock.expectOne(
@@ -35,6 +44,10 @@ describe('RoomService', () => {
         request.url === `${environment.apiUrl}/rooms` &&
         request.params.get('city') === 'Paris' &&
         request.params.get('guests') === '2' &&
+        request.params.get('sort_by') === 'top_rated' &&
+        request.params.get('landmark') === 'Marina Beach' &&
+        request.params.get('amenities') === 'WiFi,Breakfast' &&
+        request.params.get('min_rating') === '4' &&
         !request.params.has('room_type') &&
         !request.params.has('max_price')
     );

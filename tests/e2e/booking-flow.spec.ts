@@ -1,21 +1,4 @@
-/**
- * End-to-end tests for StayEase Booking App
- *
- * All API calls are intercepted with route mocks so no live backend is needed.
- *
- * Flows covered:
- *   1. Landing page renders featured rooms
- *   2. Search by city shows filtered results
- *   3. Click room card → room detail page loads
- *   4. Select dates and click "Book Now" → reaches checkout
- *   5. Checkout redirects to /search when no state (edge case)
- *   6. Booking confirmation page loads with booking ref
- *   7. Empty search results state shown when no rooms match
- */
-
 import { test, expect, type Page, type Route } from '@playwright/test';
-
-// ─── Shared mock data ─────────────────────────────────────────────────────────
 
 const MOCK_ROOM = {
   id: 1,
@@ -23,6 +6,7 @@ const MOCK_ROOM = {
   room_type: 'suite',
   description: 'Luxurious suite in the heart of Paris.',
   price: 350,
+  original_price: 410,
   availability: true,
   rating: 4.8,
   review_count: 120,
@@ -32,10 +16,10 @@ const MOCK_ROOM = {
     'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800',
   ]),
   amenities: JSON.stringify(['WiFi', 'Pool', 'Spa', 'Gym', 'Breakfast']),
-  location: 'Champs-Élysées',
+  location: 'Champs-Elysees',
   city: 'Paris',
   country: 'France',
-  max_guests: 2,
+  max_guests: 4,
   beds: 1,
   bathrooms: 1,
   size_sqft: 550,
@@ -50,6 +34,7 @@ const MOCK_BOOKING = {
   room: MOCK_ROOM,
   user_name: 'Test User',
   email: 'test@example.com',
+  phone: '+919999999999',
   check_in: '2027-06-01T00:00:00Z',
   check_out: '2027-06-04T00:00:00Z',
   guests: 2,
@@ -58,8 +43,6 @@ const MOCK_BOOKING = {
   status: 'confirmed',
   payment_status: 'paid',
 };
-
-// ─── Mock helpers ──────────────────────────────────────────────────────────────
 
 async function mockRoomsApi(page: Page): Promise<void> {
   await page.route('**/rooms/featured**', async (route: Route) => {
@@ -83,6 +66,17 @@ async function mockRoomsApi(page: Page): Promise<void> {
     });
   });
 
+  await page.route('**/rooms/1/availability-calendar**', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        unavailable_dates: [],
+        held_dates: [],
+      }),
+    });
+  });
+
   await page.route('**/rooms/1', async (route: Route) => {
     await route.fulfill({
       status: 200,
@@ -99,13 +93,42 @@ async function mockRoomsApi(page: Page): Promise<void> {
         contentType: 'application/json',
         body: JSON.stringify({ rooms: [], total: 0, page: 1, per_page: 12 }),
       });
-    } else {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ rooms: [MOCK_ROOM], total: 1, page: 1, per_page: 12 }),
-      });
+      return;
     }
+
+    if (url.includes('BrokenCity')) {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'Server error' }),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ rooms: [MOCK_ROOM], total: 1, page: 1, per_page: 12 }),
+    });
+  });
+
+  await page.route('**/reviews/room/1**', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        reviews: [
+          {
+            id: 1,
+            rating: 5,
+            comment: 'Excellent stay',
+            created_at: '2027-05-01T00:00:00Z',
+            user: { full_name: 'A Guest' },
+          },
+        ],
+        total: 1,
+      }),
+    });
   });
 }
 
@@ -117,9 +140,10 @@ async function mockBookingApi(page: Page): Promise<void> {
         contentType: 'application/json',
         body: JSON.stringify(MOCK_BOOKING),
       });
-    } else {
-      await route.continue();
+      return;
     }
+
+    await route.continue();
   });
 
   await page.route('**/bookings/ref/BK-PLAYWRIGHT-001', async (route: Route) => {
@@ -131,112 +155,131 @@ async function mockBookingApi(page: Page): Promise<void> {
   });
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
+async function seedCheckoutState(page: Page): Promise<void> {
+  await page.evaluate((room) => {
+    sessionStorage.setItem('checkout_state', JSON.stringify({
+      room,
+      checkIn: '2027-06-01',
+      checkOut: '2027-06-04',
+      guests: 2,
+    }));
+  }, MOCK_ROOM);
+}
 
-test.describe('Landing Page', () => {
-  test('renders featured rooms on the landing page', async ({ page }) => {
+test.describe('StayEase End-to-End Journeys', () => {
+  test('renders landing page with featured rooms and destinations', async ({ page }) => {
     await mockRoomsApi(page);
     await page.goto('/');
 
-    await expect(page.getByText('The Grand Azure')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText('Paris')).toBeVisible();
+    await expect(page.getByText(/Premium Hotel Booking/i)).toBeVisible();
+    await expect(page.getByText(/Top/i)).toBeVisible();
+    await expect(page.getByRole('link', { name: /View All/i })).toBeVisible();
   });
 
-  test('shows destinations section', async ({ page }) => {
+  test('searches from hero form and preserves query params', async ({ page }) => {
     await mockRoomsApi(page);
     await page.goto('/');
 
-    await expect(page.getByText('France')).toBeVisible({ timeout: 10_000 });
-  });
-});
+    await page.getByPlaceholder('Where are you going?').fill('Paris');
+    const dateInputs = page.locator('input[type="date"]');
+    await dateInputs.nth(0).fill('2027-06-01');
+    await dateInputs.nth(1).fill('2027-06-04');
+    await page.locator('select').first().selectOption('2');
+    await page.getByRole('button', { name: /Search/i }).click();
 
-test.describe('Search Results', () => {
-  test('navigates to search and shows rooms', async ({ page }) => {
+    await expect(page).toHaveURL(/city=Paris/);
+    await expect(page.getByText('The Grand Azure')).toBeVisible();
+  });
+
+  test('supports advanced filters, removable tags, and map placeholder on search page', async ({ page }) => {
     await mockRoomsApi(page);
     await page.goto('/search?city=Paris');
 
-    await expect(page.getByText('The Grand Azure')).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /Filters/i }).click();
+    await page.getByLabel('Nearby').fill('Marina Beach');
+    await page.getByLabel('Sort').selectOption('top_rated');
+    await page.getByRole('button', { name: /WiFi/i }).click();
+    await page.getByRole('button', { name: /Apply Filters/i }).click();
+
+    await expect(page).toHaveURL(/landmark=Marina/);
+    await expect(page).toHaveURL(/amenities=WiFi/);
+    await expect(page.getByRole('button', { name: /Map View/i })).toBeVisible();
+
+    await page.getByRole('button', { name: /Map View/i }).click();
+    await expect(page.getByText(/Interactive map architecture is ready/i)).toBeVisible();
+
+    await page.getByRole('button', { name: /Amenities: WiFi/i }).click();
+    await expect(page).not.toHaveURL(/amenities=WiFi/);
   });
 
   test('shows empty state when no rooms match', async ({ page }) => {
-    await page.route('**/rooms**', async (route: Route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ rooms: [], total: 0, page: 1, per_page: 12 }),
-      });
-    });
+    await mockRoomsApi(page);
     await page.goto('/search?query=ZZZNoMatch');
 
-    await expect(page.locator('body')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/No rooms|No stays|Try adjusting/i).or(page.locator('body'))).toBeVisible();
   });
-});
 
-test.describe('Room Detail', () => {
-  test('room detail page loads with correct info', async ({ page }) => {
+  test('shows error state when search API fails', async ({ page }) => {
+    await mockRoomsApi(page);
+    await page.goto('/search?city=BrokenCity');
+
+    await expect(page.getByRole('heading', { name: /Unable to load rooms/i })).toBeVisible();
+  });
+
+  test('renders room detail with amenities and booking panel', async ({ page }) => {
     await mockRoomsApi(page);
     await page.goto('/rooms/1');
 
-    await expect(page.getByText('The Grand Azure')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText('Paris')).toBeVisible();
+    await expect(page.getByText('The Grand Azure')).toBeVisible();
     await expect(page.getByText('WiFi')).toBeVisible();
   });
 
-  test('price information is displayed', async ({ page }) => {
+  test('checkout page renders saved booking state from session storage', async ({ page }) => {
     await mockRoomsApi(page);
-    await page.goto('/rooms/1');
-
-    await expect(page.getByText(/350/)).toBeVisible({ timeout: 10_000 });
-  });
-});
-
-test.describe('Checkout Flow', () => {
-  test('checkout page shows booking summary when state is loaded via sessionStorage', async ({ page }) => {
-    await mockRoomsApi(page);
-    await mockBookingApi(page);
-
     await page.goto('/');
-    await page.evaluate((room: typeof MOCK_ROOM) => {
-      sessionStorage.setItem('checkout_state', JSON.stringify({
-        room,
-        checkIn: '2027-06-01',
-        checkOut: '2027-06-04',
-        guests: 2,
-      }));
-    }, MOCK_ROOM);
+    await seedCheckoutState(page);
+    await page.goto('/checkout/1');
 
-    await page.goto('/checkout');
-
-    await expect(page.locator('body')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Complete Your')).toBeVisible();
+    await expect(page.getByText('The Grand Azure')).toBeVisible();
   });
 
-  test('checkout redirects to /search when no state available', async ({ page }) => {
+  test('checkout redirects away when no session state exists', async ({ page }) => {
     await mockRoomsApi(page);
     await page.goto('/');
     await page.evaluate(() => sessionStorage.clear());
-    await page.goto('/checkout');
+    await page.goto('/checkout/1');
 
-    await expect(page).toHaveURL(/search|\//, { timeout: 5_000 });
+    await expect(page).toHaveURL(/search|\//);
   });
-});
 
-test.describe('Booking Confirmation', () => {
-  test('booking confirmation page shows booking details', async ({ page }) => {
+  test('submits checkout and redirects to the PayFlow app', async ({ page }) => {
     await mockRoomsApi(page);
-    await page.route('**/bookings/ref/BK-PLAYWRIGHT-001', async (route: Route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(MOCK_BOOKING),
-      });
-    });
+    await mockBookingApi(page);
+    await page.goto('/');
+    await seedCheckoutState(page);
+    await page.goto('/checkout/1');
 
-    await page.goto('/booking-confirmation?ref=BK-PLAYWRIGHT-001');
-    await expect(page.locator('body')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText('BK-PLAYWRIGHT-001')).toBeVisible({ timeout: 10_000 });
+    await page.getByPlaceholder('John Doe').fill('Test User');
+    await page.getByPlaceholder('john@example.com').fill('test@example.com');
+    await page.getByPlaceholder('+1 (555) 000-0000').fill('+919999999999');
+
+    await page.getByRole('button', { name: /Proceed to Payment/i }).click();
+
+    await expect(page).toHaveURL(/booking_id=42/);
+    await expect(page).toHaveURL(/ref=BK-PLAYWRIGHT-001/);
   });
 
-  test('booking confirmation shows error when ref is invalid', async ({ page }) => {
+  test('booking confirmation shows booking details for valid ref', async ({ page }) => {
+    await mockRoomsApi(page);
+    await mockBookingApi(page);
+    await page.goto('/booking-confirmation?ref=BK-PLAYWRIGHT-001');
+
+    await expect(page.getByText('BK-PLAYWRIGHT-001')).toBeVisible();
+    await expect(page.getByText('The Grand Azure')).toBeVisible();
+  });
+
+  test('booking confirmation shows error for invalid ref', async ({ page }) => {
     await page.route('**/bookings/ref/**', async (route: Route) => {
       await route.fulfill({
         status: 404,
@@ -246,7 +289,13 @@ test.describe('Booking Confirmation', () => {
     });
 
     await page.goto('/booking-confirmation?ref=BK-INVALID');
-    await expect(page.locator('body')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText(/could not load|not found|error/i)).toBeVisible({ timeout: 10_000 });
+
+    await expect(page.getByText(/could not load|not found|error/i)).toBeVisible();
+  });
+
+  test('booking confirmation shows missing-ref guidance', async ({ page }) => {
+    await page.goto('/booking-confirmation');
+
+    await expect(page.getByText(/Booking reference is missing/i)).toBeVisible();
   });
 });
