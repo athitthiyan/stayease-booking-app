@@ -7,6 +7,7 @@ import {
   Booking,
   BookingListResponse,
   CreateBookingRequest,
+  MyBookingsResponse,
 } from '../models/booking.model';
 import { Room } from '../models/room.model';
 
@@ -58,5 +59,9 @@ export class BookingService {
 
   cancelBooking(id: number): Observable<Booking> {
     return this.http.patch<Booking>(`${this.base}/${id}/cancel`, {});
+  }
+
+  getMyBookings(): Observable<MyBookingsResponse> {
+    return this.http.get<MyBookingsResponse>(`${environment.apiUrl}/auth/me/bookings`);
   }
 }

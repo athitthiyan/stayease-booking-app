@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { RoomService } from '../../core/services/room.service';
+import { WishlistService } from '../../core/services/wishlist.service';
+import { AuthService } from '../../core/services/auth.service';
 import { RoomCardComponent } from '../../shared/components/room-card/room-card.component';
 import { Room, RoomSearchParams } from '../../core/models/room.model';
 
@@ -40,8 +42,51 @@ import { Room, RoomSearchParams } from '../../core/models/room.model';
           </select>
 
           <button class="btn btn--primary btn--sm" (click)="applyFilters()">Search</button>
+          <button class="btn btn--ghost btn--sm" (click)="toggleAdvanced()">
+            ⚙️ Filters {{ activeFilterCount() > 0 ? '(' + activeFilterCount() + ')' : '' }}
+          </button>
           <button class="btn btn--secondary btn--sm" (click)="clearFilters()">Clear</button>
         </div>
+
+        <!-- Advanced Filters Panel -->
+        @if (advancedOpen()) {
+          <div class="container advanced-filters" (click)="$event.stopPropagation()">
+            <div class="adv-section">
+              <label class="adv-label">Min rating: {{ advFilters.minRating }}⭐</label>
+              <input type="range" [(ngModel)]="advFilters.minRating" min="1" max="5" step="0.5" />
+            </div>
+
+            <div class="adv-section">
+              <label class="adv-label">Min price: {{ '$' + advFilters.minPrice }}</label>
+              <input type="range" [(ngModel)]="advFilters.minPrice" min="0" max="1000" step="10" />
+            </div>
+
+            <div class="adv-section">
+              <label class="adv-label">Amenities</label>
+              <div class="amenity-chips">
+                @for (amenity of amenityOptions; track amenity.value) {
+                  <label class="chip" [class.active]="advFilters.amenities.has(amenity.value)">
+                    <input
+                      type="checkbox"
+                      [checked]="advFilters.amenities.has(amenity.value)"
+                      (change)="toggleAmenity(amenity.value)"
+                    />
+                    {{ amenity.icon }} {{ amenity.label }}
+                  </label>
+                }
+              </div>
+            </div>
+
+            <div class="adv-section adv-toggles">
+              <label class="toggle-label">
+                <input type="checkbox" [(ngModel)]="advFilters.featuredOnly" />
+                ⭐ Featured only
+              </label>
+            </div>
+
+            <button class="btn btn--primary btn--sm" (click)="applyAdvanced()">Apply Filters</button>
+          </div>
+        }
       </div>
 
       <!-- Results -->
@@ -118,6 +163,8 @@ export class SearchResultsComponent implements OnInit {
   private roomService = inject(RoomService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private wishlistService = inject(WishlistService);
+  private authService = inject(AuthService);
 
   rooms = signal<Room[]>([]);
   loading = signal(true);
@@ -125,6 +172,7 @@ export class SearchResultsComponent implements OnInit {
   total = signal(0);
   page = signal(1);
   perPage = 9;
+  advancedOpen = signal(false);
 
   filters: RoomSearchParams = {
     city: '',
@@ -136,6 +184,33 @@ export class SearchResultsComponent implements OnInit {
     per_page: 9,
   };
 
+  advFilters = {
+    minRating: 0,
+    minPrice: 0,
+    amenities: new Set<string>(),
+    featuredOnly: false,
+  };
+
+  readonly amenityOptions = [
+    { value: 'WiFi', label: 'WiFi', icon: '📶' },
+    { value: 'Pool', label: 'Pool', icon: '🏊' },
+    { value: 'Breakfast Included', label: 'Breakfast', icon: '🍳' },
+    { value: 'Parking', label: 'Parking', icon: '🚗' },
+    { value: 'Spa', label: 'Spa', icon: '💆' },
+    { value: 'Gym', label: 'Gym', icon: '🏋️' },
+    { value: 'Pet Friendly', label: 'Pets OK', icon: '🐾' },
+    { value: 'Kitchen', label: 'Kitchen', icon: '🍳' },
+  ];
+
+  activeFilterCount = computed(() => {
+    let count = 0;
+    if (this.advFilters.minRating > 0) count++;
+    if (this.advFilters.minPrice > 0) count++;
+    if (this.advFilters.amenities.size > 0) count += this.advFilters.amenities.size;
+    if (this.advFilters.featuredOnly) count++;
+    return count;
+  });
+
   totalPages = computed(() => Math.ceil(this.total() / this.perPage));
 
   pageNumbers = computed(() => {
@@ -145,7 +220,10 @@ export class SearchResultsComponent implements OnInit {
     return pages;
   });
 
-  ngOnInit() {
+  ngOnInit(): void {
+    if (this.authService.isLoggedIn) {
+      this.wishlistService.loadStatus().subscribe();
+    }
     this.route.queryParams.subscribe(params => {
       this.filters.city = params['city'] || '';
       this.filters.room_type = params['room_type'] || '';
@@ -154,13 +232,35 @@ export class SearchResultsComponent implements OnInit {
     });
   }
 
-  applyFilters() {
+  toggleAdvanced(): void {
+    this.advancedOpen.update(v => !v);
+  }
+
+  applyFilters(): void {
     this.page.set(1);
     this.loadRooms();
   }
 
-  clearFilters() {
+  applyAdvanced(): void {
+    this.advancedOpen.set(false);
+    this.filters.min_price = this.advFilters.minPrice > 0 ? this.advFilters.minPrice : undefined;
+    this.page.set(1);
+    this.loadRooms();
+  }
+
+  toggleAmenity(value: string): void {
+    const amenities = new Set(this.advFilters.amenities);
+    if (amenities.has(value)) {
+      amenities.delete(value);
+    } else {
+      amenities.add(value);
+    }
+    this.advFilters = { ...this.advFilters, amenities };
+  }
+
+  clearFilters(): void {
     this.filters = { city: '', room_type: '', min_price: undefined, max_price: 2000, guests: 0, page: 1, per_page: 9 };
+    this.advFilters = { minRating: 0, minPrice: 0, amenities: new Set<string>(), featuredOnly: false };
     this.loadRooms();
   }
 
@@ -189,7 +289,26 @@ export class SearchResultsComponent implements OnInit {
 
     this.roomService.getRooms(params).subscribe({
       next: res => {
-        this.rooms.set(res.rooms);
+        let filtered = res.rooms;
+        if (this.advFilters.minRating > 0) {
+          filtered = filtered.filter(r => r.rating >= this.advFilters.minRating);
+        }
+        if (this.advFilters.featuredOnly) {
+          filtered = filtered.filter(r => r.is_featured);
+        }
+        if (this.advFilters.amenities.size > 0) {
+          filtered = filtered.filter(r => {
+            try {
+              const roomAmenities: string[] = JSON.parse(r.amenities ?? '[]');
+              return [...this.advFilters.amenities].every(a =>
+                roomAmenities.some(ra => ra.toLowerCase().includes(a.toLowerCase()))
+              );
+            } catch {
+              return false;
+            }
+          });
+        }
+        this.rooms.set(filtered);
         this.total.set(res.total);
         this.error.set(false);
         this.loading.set(false);

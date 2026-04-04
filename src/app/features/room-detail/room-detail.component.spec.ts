@@ -1,25 +1,37 @@
 import { of, throwError } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter, Router } from '@angular/router';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { RoomDetailComponent } from './room-detail.component';
 import { RoomService } from '../../core/services/room.service';
 import { BookingService } from '../../core/services/booking.service';
+import { WishlistService } from '../../core/services/wishlist.service';
+import { AuthService } from '../../core/services/auth.service';
 
 describe('RoomDetailComponent', () => {
   let roomService: { getRoom: jest.Mock };
   let bookingService: { setCheckoutState: jest.Mock };
+  let mockWishlist: Partial<WishlistService>;
+  let mockAuth: Partial<AuthService>;
 
   beforeEach(async () => {
     roomService = { getRoom: jest.fn() };
     bookingService = { setCheckoutState: jest.fn() };
+    mockWishlist = { loadStatus: jest.fn().mockReturnValue(of({})), toggle: jest.fn(), isSaved: jest.fn().mockReturnValue(false) };
+    mockAuth = { isLoggedIn: false };
 
     await TestBed.configureTestingModule({
       imports: [RoomDetailComponent],
       providers: [
         provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: RoomService, useValue: roomService },
         { provide: BookingService, useValue: bookingService },
+        { provide: WishlistService, useValue: mockWishlist },
+        { provide: AuthService, useValue: mockAuth },
         {
           provide: ActivatedRoute,
           useValue: {

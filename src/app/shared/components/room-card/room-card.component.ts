@@ -1,7 +1,9 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Room } from '../../../core/models/room.model';
+import { WishlistService } from '../../../core/services/wishlist.service';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-room-card',
@@ -27,6 +29,18 @@ import { Room } from '../../../core/models/room.model';
             <span class="badge badge--error">-{{ discountPct }}%</span>
           }
         </div>
+
+        <!-- Wishlist heart -->
+        @if (authService.isLoggedIn) {
+          <button
+            class="room-card__wishlist"
+            [class.saved]="wishlistService.isSaved(room.id)"
+            (click)="toggleWishlist($event)"
+            aria-label="Save to wishlist"
+          >
+            {{ wishlistService.isSaved(room.id) ? '❤️' : '🤍' }}
+          </button>
+        }
         <!-- Hover CTA -->
         <div class="room-card__hover-cta">
           <span>View Details →</span>
@@ -204,10 +218,36 @@ import { Room } from '../../../core/models/room.model';
       align-items: baseline;
       gap: 6px;
     }
+
+    .room-card__wishlist {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(8,13,26,0.55);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      z-index: 2;
+    }
+
+    .room-card__wishlist:hover {
+      background: rgba(239,68,68,0.3);
+      transform: scale(1.1);
+    }
   `],
 })
 export class RoomCardComponent implements OnInit {
   @Input({ required: true }) room!: Room;
+
+  protected wishlistService = inject(WishlistService);
+  protected authService = inject(AuthService);
 
   placeholderImg = 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600';
   starStr = '★★★★★';
@@ -233,7 +273,13 @@ export class RoomCardComponent implements OnInit {
     }
   }
 
-  onImgError(event: Event) {
+  onImgError(event: Event): void {
     (event.target as HTMLImageElement).src = this.placeholderImg;
+  }
+
+  toggleWishlist(event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.wishlistService.toggle(this.room.id).subscribe();
   }
 }

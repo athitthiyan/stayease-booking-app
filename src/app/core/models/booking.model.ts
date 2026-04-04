@@ -40,3 +40,11 @@ export interface BookingListResponse {
   bookings: Booking[];
   total: number;
 }
+
+export interface MyBookingsResponse {
+  bookings: Booking[];
+  total: number;
+  upcoming: number;
+  past: number;
+  cancelled: number;
+}

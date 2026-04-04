@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { authGuard, guestGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -31,5 +32,58 @@ export const routes: Routes = [
       import('./features/booking-confirmation/booking-confirmation.component').then(m => m.BookingConfirmationComponent),
     title: 'Booking Confirmed — StayEase',
   },
+
+  // ─── Auth (guest-only) ───────────────────────────────────────────────────────
+  {
+    path: 'auth/login',
+    loadComponent: () =>
+      import('./features/auth/login/login.component').then(m => m.LoginComponent),
+    title: 'Sign In — StayEase',
+    canActivate: [guestGuard],
+  },
+  {
+    path: 'auth/signup',
+    loadComponent: () =>
+      import('./features/auth/signup/signup.component').then(m => m.SignupComponent),
+    title: 'Create Account — StayEase',
+    canActivate: [guestGuard],
+  },
+  {
+    path: 'auth/forgot-password',
+    loadComponent: () =>
+      import('./features/auth/forgot-password/forgot-password.component').then(m => m.ForgotPasswordComponent),
+    title: 'Reset Password — StayEase',
+    canActivate: [guestGuard],
+  },
+  {
+    path: 'auth/reset-password',
+    loadComponent: () =>
+      import('./features/auth/reset-password/reset-password.component').then(m => m.ResetPasswordComponent),
+    title: 'Set New Password — StayEase',
+  },
+
+  // ─── Authenticated routes ────────────────────────────────────────────────────
+  {
+    path: 'profile',
+    loadComponent: () =>
+      import('./features/profile/profile.component').then(m => m.ProfileComponent),
+    title: 'My Profile — StayEase',
+    canActivate: [authGuard],
+  },
+  {
+    path: 'bookings',
+    loadComponent: () =>
+      import('./features/booking-history/booking-history.component').then(m => m.BookingHistoryComponent),
+    title: 'My Bookings — StayEase',
+    canActivate: [authGuard],
+  },
+  {
+    path: 'wishlist',
+    loadComponent: () =>
+      import('./features/wishlist/wishlist.component').then(m => m.WishlistComponent),
+    title: 'Saved Stays — StayEase',
+    canActivate: [authGuard],
+  },
+
   { path: '**', redirectTo: '' },
 ];

@@ -2,6 +2,8 @@ import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { filter } from 'rxjs/operators';
+import { AuthService } from '../../../core/services/auth.service';
+import { WishlistService } from '../../../core/services/wishlist.service';
 
 @Component({
   selector: 'app-navbar',
@@ -24,9 +26,32 @@ import { filter } from 'rxjs/operators';
           <li><a routerLink="/" fragment="about" [class.active]="isSectionActive('about')">About</a></li>
         </ul>
 
-        <!-- CTA -->
+        <!-- CTA / Auth -->
         <div class="navbar__actions">
           <a routerLink="/search" class="btn btn--ghost btn--sm">Browse Rooms</a>
+
+          @if (authService.isLoggedIn) {
+            <a routerLink="/wishlist" class="navbar__icon-btn" title="Saved stays">❤️</a>
+            <div class="navbar__user-menu">
+              <button class="navbar__user-btn" (click)="toggleUserMenu()">
+                <span class="user-avatar">{{ userInitials() }}</span>
+                <span class="user-name">{{ firstName() }}</span>
+                <span>▾</span>
+              </button>
+              @if (userMenuOpen()) {
+                <div class="navbar__dropdown" (click)="userMenuOpen.set(false)">
+                  <a routerLink="/profile" class="dropdown-item">👤 Profile</a>
+                  <a routerLink="/bookings" class="dropdown-item">📋 My Bookings</a>
+                  <a routerLink="/wishlist" class="dropdown-item">❤️ Saved Stays</a>
+                  <div class="dropdown-divider"></div>
+                  <button class="dropdown-item dropdown-item--danger" (click)="logout()">🚪 Sign out</button>
+                </div>
+              }
+            </div>
+          } @else {
+            <a routerLink="/auth/login" class="btn btn--ghost btn--sm">Sign in</a>
+            <a routerLink="/auth/signup" class="btn btn--primary btn--sm">Sign up</a>
+          }
         </div>
 
         <!-- Mobile toggle -->
@@ -42,6 +67,15 @@ import { filter } from 'rxjs/operators';
           <a routerLink="/search">Explore Rooms</a>
           <a routerLink="/" fragment="destinations">Destinations</a>
           <a routerLink="/" fragment="about">About</a>
+          @if (authService.isLoggedIn) {
+            <a routerLink="/profile">Profile</a>
+            <a routerLink="/bookings">My Bookings</a>
+            <a routerLink="/wishlist">Saved Stays</a>
+            <button class="mobile-signout" (click)="logout()">Sign out</button>
+          } @else {
+            <a routerLink="/auth/login">Sign in</a>
+            <a routerLink="/auth/signup">Sign up</a>
+          }
         </div>
       }
     </nav>
@@ -179,13 +213,100 @@ import { filter } from 'rxjs/operators';
         display: flex;
       }
     }
+
+    .navbar__icon-btn {
+      font-size: 1.2rem;
+      padding: 4px 8px;
+      border-radius: var(--radius-md);
+      transition: background var(--transition-fast);
+    }
+    .navbar__icon-btn:hover { background: rgba(255,255,255,0.08); }
+
+    .navbar__user-menu { position: relative; }
+
+    .navbar__user-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-full);
+      color: var(--color-text);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .navbar__user-btn:hover { background: rgba(255,255,255,0.12); }
+
+    .user-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--gradient-gold);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #000;
+    }
+
+    .navbar__dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      min-width: 200px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-sm);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.4);
+      z-index: 1000;
+      animation: fadeInUp 0.15s ease;
+    }
+
+    .dropdown-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 10px 14px;
+      font-size: 14px;
+      color: var(--color-text-muted);
+      border-radius: var(--radius-md);
+      transition: all var(--transition-fast);
+      background: none;
+      cursor: pointer;
+    }
+    .dropdown-item:hover { background: rgba(255,255,255,0.06); color: var(--color-text); }
+    .dropdown-item--danger:hover { background: rgba(239,68,68,0.1); color: #f87171; }
+
+    .dropdown-divider {
+      height: 1px;
+      background: var(--color-border);
+      margin: var(--space-sm) 0;
+    }
+
+    .mobile-signout {
+      background: none;
+      font-size: 16px;
+      font-weight: 500;
+      color: #f87171;
+      padding: var(--space-sm) 0;
+      border-bottom: 1px solid var(--color-border);
+      cursor: pointer;
+      text-align: left;
+    }
   `],
 })
 export class NavbarComponent implements OnInit {
   private router = inject(Router);
+  protected authService = inject(AuthService);
+  private wishlistService = inject(WishlistService);
 
   scrolled = signal(false);
   menuOpen = signal(false);
+  userMenuOpen = signal(false);
   currentUrl = signal(this.router.url);
   activeSection = signal<'home' | 'destinations' | 'about'>('home');
 
@@ -206,8 +327,30 @@ export class NavbarComponent implements OnInit {
     this.updateActiveSection();
   }
 
-  toggleMenu() {
+  toggleMenu(): void {
     this.menuOpen.update(v => !v);
+  }
+
+  toggleUserMenu(): void {
+    this.userMenuOpen.update(v => !v);
+  }
+
+  logout(): void {
+    this.authService.logout();
+  }
+
+  firstName(): string {
+    return this.authService.currentUser?.full_name?.split(' ').at(0) ?? '';
+  }
+
+  userInitials(): string {
+    const name = this.authService.currentUser?.full_name ?? '';
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   }
 
   isHomeActive(): boolean {

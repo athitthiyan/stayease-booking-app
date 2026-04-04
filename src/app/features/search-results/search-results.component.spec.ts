@@ -1,9 +1,13 @@
 import { of, throwError } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, provideRouter, Router } from '@angular/router';
+import { ActivatedRoute, provideRouter } from '@angular/router';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { SearchResultsComponent } from './search-results.component';
 import { RoomService } from '../../core/services/room.service';
+import { WishlistService } from '../../core/services/wishlist.service';
+import { AuthService } from '../../core/services/auth.service';
 
 describe('SearchResultsComponent', () => {
   let roomService: { getRooms: jest.Mock };
@@ -15,7 +19,11 @@ describe('SearchResultsComponent', () => {
       imports: [SearchResultsComponent],
       providers: [
         provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: RoomService, useValue: roomService },
+        { provide: WishlistService, useValue: { loadStatus: jest.fn().mockReturnValue(of({})), isSaved: jest.fn().mockReturnValue(false), toggle: jest.fn() } },
+        { provide: AuthService, useValue: { isLoggedIn: false } },
         {
           provide: ActivatedRoute,
           useValue: {

@@ -4,12 +4,15 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { RoomService } from '../../core/services/room.service';
 import { BookingService } from '../../core/services/booking.service';
+import { WishlistService } from '../../core/services/wishlist.service';
+import { AuthService } from '../../core/services/auth.service';
 import { Room } from '../../core/models/room.model';
+import { ReviewsSectionComponent } from '../../shared/components/reviews-section/reviews-section.component';
 
 @Component({
   selector: 'app-room-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, ReviewsSectionComponent],
   template: `
     <div class="room-detail" [class.loaded]="!loading()">
 
@@ -24,6 +27,16 @@ import { Room } from '../../core/models/room.model';
             <img [src]="activeImage()" [alt]="room()!.hotel_name" class="gallery__img" />
             <div class="gallery__badge">
               @if (room()!.is_featured) { <span class="badge badge--gold">⭐ Featured</span> }
+              @if (authService.isLoggedIn) {
+                <button
+                  class="wishlist-btn"
+                  [class.saved]="wishlistService.isSaved(room()!.id)"
+                  (click)="toggleWishlist()"
+                  aria-label="Save to wishlist"
+                >
+                  {{ wishlistService.isSaved(room()!.id) ? '❤️' : '🤍' }}
+                </button>
+              }
             </div>
           </div>
           @if (galleryImages().length > 1) {
@@ -108,6 +121,11 @@ import { Room } from '../../core/models/room.model';
                 <div class="policy">🚭 <strong>Non-smoking</strong> property</div>
                 <div class="policy">🐾 <strong>Pets:</strong> Not allowed</div>
               </div>
+            </div>
+
+            <!-- Reviews -->
+            <div class="room-detail__section">
+              <app-reviews-section [roomId]="room()!.id" />
             </div>
 
           </div>
@@ -196,6 +214,8 @@ export class RoomDetailComponent implements OnInit {
   private router = inject(Router);
   private roomService = inject(RoomService);
   private bookingService = inject(BookingService);
+  protected wishlistService = inject(WishlistService);
+  protected authService = inject(AuthService);
 
   room = signal<Room | null>(null);
   loading = signal(true);
@@ -226,6 +246,9 @@ export class RoomDetailComponent implements OnInit {
 
   ngOnInit() {
     const id = Number(this.route.snapshot.paramMap.get('id'));
+    if (this.authService.isLoggedIn) {
+      this.wishlistService.loadStatus().subscribe();
+    }
     this.roomService.getRoom(id).subscribe({
       next: room => {
         this.room.set(room);
@@ -275,6 +298,12 @@ export class RoomDetailComponent implements OnInit {
       guests: this.guests,
     });
     this.router.navigate(['/checkout', this.room()!.id]);
+  }
+
+  toggleWishlist(): void {
+    const room = this.room();
+    if (!room) return;
+    this.wishlistService.toggle(room.id).subscribe();
   }
 
   getAmenityIcon(amenity: string): string {
