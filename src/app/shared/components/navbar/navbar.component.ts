@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { filter } from 'rxjs/operators';
@@ -62,7 +62,7 @@ import { WishlistService } from '../../../core/services/wishlist.service';
 
       <!-- Mobile Menu -->
       @if (menuOpen()) {
-        <div class="navbar__mobile" (click)="menuOpen.set(false)">
+        <div class="navbar__mobile" (click)="closeMenu()">
           <a routerLink="/">Home</a>
           <a routerLink="/search">Explore Rooms</a>
           <a routerLink="/" fragment="destinations">Destinations</a>
@@ -299,7 +299,7 @@ import { WishlistService } from '../../../core/services/wishlist.service';
     }
   `],
 })
-export class NavbarComponent implements OnInit {
+export class NavbarComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   protected authService = inject(AuthService);
   private wishlistService = inject(WishlistService);
@@ -315,10 +315,15 @@ export class NavbarComponent implements OnInit {
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
       .subscribe(event => {
         this.currentUrl.set(event.urlAfterRedirects);
+        this.closeMenu();
         this.updateActiveSection();
       });
 
     this.updateActiveSection();
+  }
+
+  ngOnDestroy(): void {
+    this.unlockBodyScroll();
   }
 
   @HostListener('window:scroll')
@@ -328,7 +333,14 @@ export class NavbarComponent implements OnInit {
   }
 
   toggleMenu(): void {
-    this.menuOpen.update(v => !v);
+    const nextValue = !this.menuOpen();
+    this.menuOpen.set(nextValue);
+
+    if (nextValue) {
+      this.lockBodyScroll();
+    } else {
+      this.unlockBodyScroll();
+    }
   }
 
   toggleUserMenu(): void {
@@ -336,6 +348,7 @@ export class NavbarComponent implements OnInit {
   }
 
   logout(): void {
+    this.closeMenu();
     this.authService.logout();
   }
 
@@ -391,5 +404,24 @@ export class NavbarComponent implements OnInit {
     }
 
     this.activeSection.set('home');
+  }
+
+  closeMenu(): void {
+    if (!this.menuOpen()) {
+      return;
+    }
+
+    this.menuOpen.set(false);
+    this.unlockBodyScroll();
+  }
+
+  private lockBodyScroll(): void {
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+  }
+
+  private unlockBodyScroll(): void {
+    document.body.style.overflow = '';
+    document.body.style.touchAction = '';
   }
 }

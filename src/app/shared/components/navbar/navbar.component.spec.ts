@@ -71,6 +71,32 @@ describe('NavbarComponent', () => {
     expect(component.userMenuOpen()).toBe(true);
   });
 
+  it('locks body scroll while the mobile menu is open and restores it when closed', () => {
+    const fixture = TestBed.createComponent(NavbarComponent);
+    const component = fixture.componentInstance;
+
+    component.toggleMenu();
+    expect(component.menuOpen()).toBe(true);
+    expect(document.body.style.overflow).toBe('hidden');
+    expect(document.body.style.touchAction).toBe('none');
+
+    component.toggleMenu();
+    expect(component.menuOpen()).toBe(false);
+    expect(document.body.style.overflow).toBe('');
+    expect(document.body.style.touchAction).toBe('');
+  });
+
+  it('cleans up body scroll lock on destroy', () => {
+    const fixture = TestBed.createComponent(NavbarComponent);
+    const component = fixture.componentInstance;
+
+    component.toggleMenu();
+    component.ngOnDestroy();
+
+    expect(document.body.style.overflow).toBe('');
+    expect(document.body.style.touchAction).toBe('');
+  });
+
   it('derives names and logs out', () => {
     authService.isLoggedIn = true;
     authService.currentUser = { full_name: 'Alex Doe' };
