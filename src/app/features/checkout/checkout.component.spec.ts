@@ -87,6 +87,20 @@ describe('CheckoutComponent', () => {
     expect(component.total()).toBe(468);
   });
 
+  it('renders trust badges in the checkout summary', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Free cancellation (48h)');
+    expect(element.textContent).toContain('Secure payment');
+    expect(element.textContent).toContain('Best price guaranteed');
+  });
+
   it('shows alert when required fields are missing', () => {
     bookingService.getCheckoutState.mockReturnValue(checkoutState);
     const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});

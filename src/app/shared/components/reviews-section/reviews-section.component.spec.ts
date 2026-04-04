@@ -62,6 +62,43 @@ describe('ReviewsSectionComponent', () => {
     expect(component.errorMsg()).toBe('');
   });
 
+  it('renders the verified badge for verified reviews', () => {
+    reviewService.getRoomReviews.mockReturnValue(of(pageOne));
+
+    const fixture = TestBed.createComponent(ReviewsSectionComponent);
+    const component = fixture.componentInstance;
+    component.roomId = 10;
+
+    component.ngOnChanges({
+      roomId: new SimpleChange(undefined, 10, true),
+    });
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Verified stay');
+  });
+
+  it('hides the verified badge for unverified reviews', () => {
+    reviewService.getRoomReviews.mockReturnValue(
+      of({
+        ...pageOne,
+        reviews: [{ ...pageOne.reviews[0], is_verified: false }],
+      }),
+    );
+
+    const fixture = TestBed.createComponent(ReviewsSectionComponent);
+    const component = fixture.componentInstance;
+    component.roomId = 10;
+
+    component.ngOnChanges({
+      roomId: new SimpleChange(undefined, 10, true),
+    });
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).not.toContain('Verified stay');
+  });
+
   it('does not reload when roomId has no current value', () => {
     reviewService.getRoomReviews.mockReturnValue(of(pageOne));
 

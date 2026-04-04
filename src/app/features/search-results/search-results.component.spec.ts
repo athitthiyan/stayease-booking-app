@@ -129,6 +129,117 @@ describe('SearchResultsComponent', () => {
     expect(navigateSpy).toHaveBeenCalled();
   });
 
+  it('applies price filters, swaps invalid ranges, and exposes a price tag', () => {
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.draftFilters.min_price = 5000;
+    component.draftFilters.max_price = 3000;
+    component.applyFilters();
+
+    expect(component.draftFilters.min_price).toBe(3000);
+    expect(component.draftFilters.max_price).toBe(5000);
+    expect(component.activeFilterTags()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'price', label: 'Price: ₹3000 - ₹5000' }),
+      ]),
+    );
+    expect(navigateSpy).toHaveBeenCalled();
+  });
+
+  it('removes the price filter tag and resets both price boundaries', () => {
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.draftFilters.min_price = 0;
+    component.draftFilters.max_price = 30000;
+    component.removeFilter('price');
+
+    expect(component.draftFilters.min_price).toBeUndefined();
+    expect(component.draftFilters.max_price).toBeUndefined();
+    expect(component.activeFilterTags().some(tag => tag.key === 'price')).toBe(false);
+  });
+
+  it('supports rating filters, clearing the rating, and sort label coverage', () => {
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.draftFilters.min_rating = 4.5;
+    component.draftFilters.sort_by = 'top_rated';
+
+    expect(component.activeFilterTags()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'rating', label: '4.5+ stars' }),
+        expect.objectContaining({ key: 'sort', label: 'Top rated' }),
+      ]),
+    );
+
+    component.removeFilter('rating');
+    expect(component.draftFilters.min_rating).toBeUndefined();
+
+    component.draftFilters.sort_by = 'price_high_to_low';
+    expect(component.currentSortLabel()).toBe('Price high to low');
+    component.draftFilters.sort_by = 'price_low_to_high';
+    expect(component.currentSortLabel()).toBe('Price low to high');
+    component.draftFilters.sort_by = 'most_popular';
+    expect(component.currentSortLabel()).toBe('Most popular');
+  });
+
+  it('supports multiple amenities and prevents duplicate amenity chips', () => {
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.draftFilters.amenities = '';
+    component.toggleAmenity('WiFi');
+    component.toggleAmenity('Breakfast');
+    component.toggleAmenity('WiFi');
+    component.toggleAmenity('WiFi');
+
+    expect(component.selectedAmenities()).toEqual(['Breakfast', 'WiFi']);
+    expect(component.activeFilterTags()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'amenities', label: 'Amenities: Breakfast, WiFi' }),
+      ]),
+    );
+  });
+
+  it('filters search phrase suggestions, includes room-focused chips, and supports removing query filters', () => {
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.draftFilters.city = '';
+    component.draftFilters.query = 'family';
+    expect(component.visibleSuggestions().map(item => item.label)).toEqual(['Family room']);
+
+    component.draftFilters.query = 'Breakfast included';
+    component.applyFilters();
+    expect(component.activeFilterTags()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'query', label: 'Search: Breakfast included' }),
+      ]),
+    );
+
+    component.removeFilter('query');
+    expect(component.draftFilters.query).toBe('');
+  });
+
+  it('keeps empty-state scenarios stable when the backend returns no matches', () => {
+    roomService.getRooms.mockReturnValue(of({ rooms: [], total: 0, page: 1, per_page: 9 }));
+
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.rooms()).toEqual([]);
+    expect(component.total()).toBe(0);
+    expect(component.error()).toBe(false);
+  });
+
   it('toggles amenities, computes tags, removes filters, and clears all filters', () => {
     const fixture = TestBed.createComponent(SearchResultsComponent);
     const component = fixture.componentInstance;

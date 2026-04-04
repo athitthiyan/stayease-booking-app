@@ -86,6 +86,20 @@ describe('RoomDetailComponent', () => {
     expect(component.loading()).toBe(false);
   });
 
+  it('renders the cancellation policy block for trust messaging', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Free Cancellation');
+    expect(element.textContent).toContain('Check-in:');
+    expect(element.textContent).toContain('Check-out:');
+  });
+
   it('uses default guest options before a room is loaded', () => {
     const fixture = TestBed.createComponent(RoomDetailComponent);
     const component = fixture.componentInstance;

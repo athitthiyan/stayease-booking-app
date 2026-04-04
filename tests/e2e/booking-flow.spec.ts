@@ -212,6 +212,30 @@ test.describe('StayEase End-to-End Journeys', () => {
     await expect(page).not.toHaveURL(/amenities=WiFi/);
   });
 
+  test('supports price boundaries, ratings, chip suggestions, and clear filter behavior', async ({ page }) => {
+    await mockRoomsApi(page);
+    await page.goto('/search');
+
+    await page.getByRole('button', { name: /Under ₹3000/i }).click();
+    await expect(page).toHaveURL(/max_price=3000/);
+
+    await page.getByRole('button', { name: /Filters/i }).click();
+    await page.getByLabel('Minimum rating').selectOption({ label: '4.5+ stars' });
+
+    const ranges = page.locator('input[type="range"]');
+    await ranges.nth(0).fill('0');
+    await ranges.nth(1).fill('30000');
+    await page.getByRole('button', { name: /Apply Filters/i }).click();
+
+    await expect(page).toHaveURL(/min_rating=4.5/);
+    await expect(page.getByRole('button', { name: /Price: ₹0 - ₹30000/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /4.5\+ stars/i })).toBeVisible();
+
+    await page.getByRole('button', { name: /^Clear$/i }).click();
+    await expect(page).not.toHaveURL(/min_rating=/);
+    await expect(page).not.toHaveURL(/max_price=/);
+  });
+
   test('shows empty state when no rooms match', async ({ page }) => {
     await mockRoomsApi(page);
     await page.goto('/search?query=ZZZNoMatch');
