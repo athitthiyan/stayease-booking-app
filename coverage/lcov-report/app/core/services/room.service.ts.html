@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/16</span>
+                <span class='fraction'>16/16</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/8</span>
+                <span class='fraction'>6/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/5</span>
+                <span class='fraction'>5/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/14</span>
+                <span class='fraction'>14/14</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -96,70 +96,70 @@
 <a name='L31'></a><a href='#L31'>31</a>
 <a name='L32'></a><a href='#L32'>32</a>
 <a name='L33'></a><a href='#L33'>33</a>
-<a name='L34'></a><a href='#L34'>34</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<a name='L34'></a><a href='#L34'>34</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { Injectable, inject } from '@angular/core';</span>
-<span class="cstat-no" title="statement not covered" >import { HttpClient, HttpParams } from '@angular/common/http';</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Injectable, inject } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-<span class="cstat-no" title="statement not covered" >import { environment } from '../../../environments/environment';</span>
+import { environment } from '../../../environments/environment';
 import { Room, RoomListResponse, RoomSearchParams } from '../models/room.model';
 &nbsp;
 @Injectable({ providedIn: 'root' })
-export <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >class <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" >R</span>oomService </span>{</span></span>
-  private <span class="cstat-no" title="statement not covered" >http = inject(HttpClient);</span>
-  private <span class="cstat-no" title="statement not covered" >base = `${environment.apiUrl}/rooms`;</span>
+export class RoomService {
+  private http = inject(HttpClient);
+  private base = `${environment.apiUrl}/rooms`;
 &nbsp;
-<span class="fstat-no" title="function not covered" >  getRooms(</span>params?: RoomSearchParams): Observable&lt;RoomListResponse&gt; {
-    let httpParams = <span class="cstat-no" title="statement not covered" >new HttpParams();</span>
-<span class="cstat-no" title="statement not covered" >    if (params) {</span>
-<span class="cstat-no" title="statement not covered" >      Object.entries(params).forEach(<span class="fstat-no" title="function not covered" >([</span>k, v]) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >        if (v !== undefined &amp;&amp; v !== null &amp;&amp; v !== '') {</span>
-<span class="cstat-no" title="statement not covered" >          httpParams = httpParams.set(k, String(v));</span>
+  getRooms(params?: RoomSearchParams): Observable&lt;RoomListResponse&gt; {
+    let httpParams = new HttpParams();
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (params) {
+      Object.entries(params).forEach(([k, v]) =&gt; {
+        if (v !== undefined &amp;&amp; v !== null &amp;&amp; v !== '') {
+          httpParams = httpParams.set(k, String(v));
         }
       });
     }
-<span class="cstat-no" title="statement not covered" >    return this.http.get&lt;RoomListResponse&gt;(this.base, { params: httpParams });</span>
+    return this.http.get&lt;RoomListResponse&gt;(this.base, { params: httpParams });
   }
 &nbsp;
-<span class="fstat-no" title="function not covered" >  getFeaturedRooms(</span>limit = <span class="branch-0 cbranch-no" title="branch not covered" >6)</span>: Observable&lt;Room[]&gt; {
-<span class="cstat-no" title="statement not covered" >    return this.http.get&lt;Room[]&gt;(`${this.base}/featured`, {</span>
+  getFeaturedRooms(limit = <span class="branch-0 cbranch-no" title="branch not covered" >6)</span>: Observable&lt;Room[]&gt; {
+    return this.http.get&lt;Room[]&gt;(`${this.base}/featured`, {
       params: new HttpParams().set('limit', limit),
     });
   }
 &nbsp;
-<span class="fstat-no" title="function not covered" >  getRoom(</span>id: number): Observable&lt;Room&gt; {
-<span class="cstat-no" title="statement not covered" >    return this.http.get&lt;Room&gt;(`${this.base}/${id}`);</span>
+  getRoom(id: number): Observable&lt;Room&gt; {
+    return this.http.get&lt;Room&gt;(`${this.base}/${id}`);
   }
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -169,7 +169,7 @@ export <span class="cstat-no" title="statement not covered" ><span class="fstat-
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-03T21:10:54.338Z
+                at 2026-04-04T08:31:53.160Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
