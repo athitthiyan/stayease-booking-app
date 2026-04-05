@@ -4,7 +4,6 @@ import { RouterLink } from '@angular/router';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { WishlistItemResponse } from '../../core/models/wishlist.model';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
-import { FooterComponent } from '../../shared/components/footer/footer.component';
 import {
   ROOM_IMAGE_PLACEHOLDER,
   applyRoomImageFallback,
@@ -14,7 +13,7 @@ import {
 @Component({
   selector: 'app-wishlist',
   standalone: true,
-  imports: [CommonModule, RouterLink, NavbarComponent, FooterComponent],
+  imports: [CommonModule, RouterLink, NavbarComponent],
   template: `
     <app-navbar />
 
@@ -102,7 +101,6 @@ import {
       }
     </main>
 
-    <app-footer />
   `,
   styles: [`
     .wishlist-page {

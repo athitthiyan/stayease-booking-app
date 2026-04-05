@@ -4,13 +4,12 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
-import { FooterComponent } from '../../shared/components/footer/footer.component';
 import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, NavbarComponent, FooterComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, NavbarComponent],
   template: `
     <app-navbar />
 
@@ -117,7 +116,6 @@ import { HttpErrorResponse } from '@angular/common/http';
       </div>
     </main>
 
-    <app-footer />
   `,
   styles: [`
     .profile-page {

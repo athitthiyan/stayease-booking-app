@@ -4,7 +4,6 @@ import { RouterLink } from '@angular/router';
 import { BookingService } from '../../core/services/booking.service';
 import { Booking, MyBookingsResponse } from '../../core/models/booking.model';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
-import { FooterComponent } from '../../shared/components/footer/footer.component';
 import {
   ROOM_IMAGE_PLACEHOLDER,
   applyRoomImageFallback,
@@ -16,7 +15,7 @@ type TabKey = 'all' | 'upcoming' | 'past' | 'cancelled';
 @Component({
   selector: 'app-booking-history',
   standalone: true,
-  imports: [CommonModule, RouterLink, NavbarComponent, FooterComponent],
+  imports: [CommonModule, RouterLink, NavbarComponent],
   template: `
     <app-navbar />
 
@@ -136,7 +135,6 @@ type TabKey = 'all' | 'upcoming' | 'past' | 'cancelled';
       }
     </main>
 
-    <app-footer />
   `,
   styles: [`
     .bookings-page {
