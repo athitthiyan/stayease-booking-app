@@ -166,6 +166,54 @@ async function seedCheckoutState(page: Page): Promise<void> {
   }, MOCK_ROOM);
 }
 
+// ── Sprint: Booking Flow Hardening — additional mock helpers ─────────────────
+
+async function mockUnavailableDates(page: Page, unavailable: string[] = [], held: string[] = []) {
+  await page.route('**/rooms/1/unavailable-dates**', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ unavailable_dates: unavailable, held_dates: held }),
+    });
+  });
+}
+
+async function mockResumableNotFound(page: Page) {
+  await page.route('**/bookings/resumable**', async (route: Route) => {
+    await route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({ detail: 'No resumable booking found' }),
+    });
+  });
+}
+
+async function mockCreateBookingSuccess(page: Page, holdExpiry?: string) {
+  const booking = {
+    ...MOCK_BOOKING,
+    status: 'pending',
+    payment_status: 'pending',
+    hold_expires_at: holdExpiry ?? new Date(Date.now() + 600000).toISOString(),
+  };
+  await page.route('**/bookings', async (route: Route) => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(booking) });
+      return;
+    }
+    await route.continue();
+  });
+}
+
+async function seedAuthUser(page: Page) {
+  await page.evaluate(() => {
+    localStorage.setItem('se_access_token', 'test-token');
+    localStorage.setItem('se_user', JSON.stringify({
+      id: 1, email: 'test@example.com', full_name: 'Test User',
+      is_admin: false, is_active: true,
+    }));
+  });
+}
+
 test.describe('StayEase End-to-End Journeys', () => {
   test('renders landing page with featured rooms and destinations', async ({ page }) => {
     await mockRoomsApi(page);
@@ -354,5 +402,343 @@ test.describe('StayEase End-to-End Journeys', () => {
     await page.goto('/booking-confirmation');
 
     await expect(page.getByText(/Booking reference is missing/i)).toBeVisible();
+  });
+});
+
+// ── Sprint: Booking Flow Hardening — Phase 3 (login-before-hold) ─────────────
+
+test.describe('Phase 3 — Login-before-hold guard', () => {
+  test('unauthenticated user is redirected to login when accessing checkout', async ({ page }) => {
+    await mockRoomsApi(page);
+    await page.evaluate(() => {
+      localStorage.removeItem('se_access_token');
+      localStorage.removeItem('se_user');
+    });
+    await page.goto('/');
+    await seedCheckoutState(page);
+    await page.goto('/checkout/1');
+
+    await expect(page).toHaveURL(/auth\/login/);
+    await expect(page).toHaveURL(/returnUrl=%2Fcheckout/);
+  });
+
+  test('authenticated user can access checkout directly', async ({ page }) => {
+    await mockRoomsApi(page);
+    await page.goto('/');
+    await seedAuthUser(page);
+    await seedCheckoutState(page);
+    await page.goto('/checkout/1');
+
+    await expect(page).toHaveURL(/checkout/);
+    await expect(page.getByText('Complete Your')).toBeVisible();
+  });
+
+  test('after login with returnUrl, user lands back at checkout', async ({ page }) => {
+    await mockRoomsApi(page);
+    await page.route('**/auth/login', async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: 'test-token',
+          refresh_token: 'refresh-token',
+          user: { id: 1, email: 'test@example.com', full_name: 'Test User', is_admin: false },
+        }),
+      });
+    });
+
+    await page.evaluate(() => {
+      localStorage.removeItem('se_access_token');
+      localStorage.removeItem('se_user');
+    });
+    await page.goto('/auth/login?returnUrl=/checkout/1');
+
+    await expect(page.locator('#email')).toBeVisible();
+    await page.locator('#email').fill('test@example.com');
+    await page.locator('#password').fill('TestPass123!');
+    await page.getByRole('button', { name: /Sign in/i }).click();
+
+    await expect(page).toHaveURL(/checkout\/1/);
+  });
+});
+
+// ── Sprint: Booking Flow Hardening — Phase 4 (hold timer + cancel) ───────────
+
+test.describe('Phase 4 — Hold timer + resume + cancel', () => {
+  test('shows countdown timer after booking hold is created', async ({ page }) => {
+    await mockRoomsApi(page);
+    await mockResumableNotFound(page);
+    await seedAuthUser(page);
+    const holdExpiry = new Date(Date.now() + 600000).toISOString();
+    await mockCreateBookingSuccess(page, holdExpiry);
+
+    await page.goto('/');
+    await seedCheckoutState(page);
+    await page.goto('/checkout/1');
+
+    await page.getByPlaceholder('John Doe').fill('Test User');
+    await page.getByPlaceholder('john@example.com').fill('test@example.com');
+
+    // Mock the payment redirect so we can inspect state before redirect
+    await page.route('**/payflow**', async (route: Route) => route.abort());
+    await page.getByRole('button', { name: /Proceed to Payment/i }).click();
+
+    // The countdown timer should appear: format MM:SS
+    await expect(page.getByText(/\d+:\d{2}/)).toBeVisible();
+  });
+
+  test('shows resume card when returning to checkout with active pending booking', async ({ page }) => {
+    await mockRoomsApi(page);
+
+    const holdExpiry = new Date(Date.now() + 600000).toISOString();
+    const pendingBooking = { ...MOCK_BOOKING, status: 'pending', payment_status: 'pending', hold_expires_at: holdExpiry };
+    await page.route('**/bookings/resumable**', async (route: Route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(pendingBooking) });
+    });
+
+    await seedAuthUser(page);
+    await page.goto('/');
+    await seedCheckoutState(page);
+    // Simulate returning after failed payment
+    await page.evaluate((booking) => {
+      sessionStorage.setItem('pending_booking', JSON.stringify(booking));
+    }, pendingBooking);
+
+    await page.goto('/checkout/1');
+
+    await expect(page.getByText(/pending booking|active reservation/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Cancel Booking/i })).toBeVisible();
+  });
+
+  test('cancel booking button navigates back to room detail', async ({ page }) => {
+    await mockRoomsApi(page);
+
+    const holdExpiry = new Date(Date.now() + 600000).toISOString();
+    const pendingBooking = { ...MOCK_BOOKING, status: 'pending', payment_status: 'pending', hold_expires_at: holdExpiry };
+
+    await page.route('**/bookings/resumable**', async (route: Route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(pendingBooking) });
+    });
+    await page.route(`**/bookings/${pendingBooking.id}/cancel`, async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...pendingBooking, status: 'cancelled' }),
+      });
+    });
+
+    await seedAuthUser(page);
+    await page.goto('/');
+    await seedCheckoutState(page);
+    await page.evaluate((booking) => {
+      sessionStorage.setItem('pending_booking', JSON.stringify(booking));
+    }, pendingBooking);
+
+    await page.goto('/checkout/1');
+    await page.getByRole('button', { name: /Cancel Booking/i }).click();
+
+    await expect(page).toHaveURL(/rooms\/1|search/);
+  });
+
+  test('shows hold-expired banner when pending booking hold is in the past', async ({ page }) => {
+    await mockRoomsApi(page);
+    await seedAuthUser(page);
+    await page.goto('/');
+    await seedCheckoutState(page);
+
+    // Inject an already-expired pending booking
+    const expiredBooking = {
+      ...MOCK_BOOKING, status: 'pending', payment_status: 'pending',
+      hold_expires_at: new Date(Date.now() - 10000).toISOString(),
+    };
+    await page.evaluate((booking) => {
+      sessionStorage.setItem('pending_booking', JSON.stringify(booking));
+    }, expiredBooking);
+
+    // Mock extend-hold to fail with 409 (dates no longer available)
+    await page.route(`**/bookings/${expiredBooking.id}/extend-hold`, async (route: Route) => {
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: { code: 'BOOKING_CONFLICT', message: 'Dates no longer available' } }),
+      });
+    });
+
+    await page.goto('/checkout/1');
+
+    await expect(page.getByText(/expired|no longer available/i)).toBeVisible();
+  });
+});
+
+// ── Sprint: Booking Flow Hardening — Phase 1 (form validation) ───────────────
+
+test.describe('Phase 1 — Form validation UX', () => {
+  test('shows name error when Full Name is empty on checkout submit', async ({ page }) => {
+    await mockRoomsApi(page);
+    await seedAuthUser(page);
+    await mockResumableNotFound(page);
+    await page.goto('/');
+    await seedCheckoutState(page);
+    await page.goto('/checkout/1');
+
+    // Leave name empty, fill email
+    await page.getByPlaceholder('john@example.com').fill('test@example.com');
+    await page.getByRole('button', { name: /Proceed to Payment/i }).click();
+
+    await expect(page.getByText(/Please enter|Full Name/i)).toBeVisible();
+  });
+
+  test('shows email error when email is invalid format on checkout submit', async ({ page }) => {
+    await mockRoomsApi(page);
+    await seedAuthUser(page);
+    await mockResumableNotFound(page);
+    await page.goto('/');
+    await seedCheckoutState(page);
+    await page.goto('/checkout/1');
+
+    await page.getByPlaceholder('John Doe').fill('Test User');
+    await page.getByPlaceholder('john@example.com').fill('not-an-email');
+    await page.getByRole('button', { name: /Proceed to Payment/i }).click();
+
+    await expect(page.getByText(/valid email/i)).toBeVisible();
+  });
+
+  test('shows phone error when phone format is invalid', async ({ page }) => {
+    await mockRoomsApi(page);
+    await seedAuthUser(page);
+    await mockResumableNotFound(page);
+    await page.goto('/');
+    await seedCheckoutState(page);
+    await page.goto('/checkout/1');
+
+    await page.getByPlaceholder('John Doe').fill('Test User');
+    await page.getByPlaceholder('john@example.com').fill('test@example.com');
+    await page.getByPlaceholder('+1 (555) 000-0000').fill('abc');
+    await page.getByRole('button', { name: /Proceed to Payment/i }).click();
+
+    await expect(page.getByText(/valid phone/i)).toBeVisible();
+  });
+
+  test('checkout form inputs have aria-describedby for accessibility', async ({ page }) => {
+    await mockRoomsApi(page);
+    await seedAuthUser(page);
+    await page.goto('/');
+    await seedCheckoutState(page);
+    await page.goto('/checkout/1');
+
+    const nameInput = page.locator('#checkout-name');
+    const emailInput = page.locator('#checkout-email');
+
+    await expect(nameInput).toHaveAttribute('aria-describedby', 'checkout-name-error');
+    await expect(emailInput).toHaveAttribute('aria-describedby', 'checkout-email-error');
+  });
+
+  test('structured API error BOOKING_CONFLICT shows user-friendly message', async ({ page }) => {
+    await mockRoomsApi(page);
+    await seedAuthUser(page);
+    await mockResumableNotFound(page);
+    await page.route('**/bookings', async (route: Route) => {
+      if (route.request().method() === 'POST') {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: { code: 'BOOKING_CONFLICT', message: 'Selected dates are already booked', field: 'date_range' } }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.goto('/');
+    await seedCheckoutState(page);
+    await page.goto('/checkout/1');
+
+    await page.getByPlaceholder('John Doe').fill('Test User');
+    await page.getByPlaceholder('john@example.com').fill('test@example.com');
+    await page.getByRole('button', { name: /Proceed to Payment/i }).click();
+
+    await expect(page.getByText(/no longer available|different dates/i)).toBeVisible();
+  });
+
+  test('structured API error HOLD_EXISTS shows hold-already-exists message', async ({ page }) => {
+    await mockRoomsApi(page);
+    await seedAuthUser(page);
+    await mockResumableNotFound(page);
+    await page.route('**/bookings', async (route: Route) => {
+      if (route.request().method() === 'POST') {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: { code: 'HOLD_EXISTS', message: 'Active hold exists', field: 'date_range' } }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.goto('/');
+    await seedCheckoutState(page);
+    await page.goto('/checkout/1');
+
+    await page.getByPlaceholder('John Doe').fill('Test User');
+    await page.getByPlaceholder('john@example.com').fill('test@example.com');
+    await page.getByRole('button', { name: /Proceed to Payment/i }).click();
+
+    await expect(page.getByText(/active reservation|complete.*existing|cancel.*first/i)).toBeVisible();
+  });
+});
+
+// ── Sprint: Booking Flow Hardening — Phase 2 (date availability) ─────────────
+
+test.describe('Phase 2 — Date availability conflict detection', () => {
+  test('shows date conflict alert when selected dates overlap unavailable dates', async ({ page }) => {
+    await mockRoomsApi(page);
+    await mockUnavailableDates(page, ['2027-06-02'], []);
+    await page.goto('/rooms/1');
+
+    // Select check-in/check-out dates that span the blocked date
+    const dateInputs = page.locator('.booking-panel input[type="date"]');
+    await dateInputs.nth(0).fill('2027-06-01');
+    await dateInputs.nth(1).fill('2027-06-04');
+
+    await expect(page.getByText(/already booked|different dates/i)).toBeVisible();
+  });
+
+  test('Book Now button is disabled when date conflict is detected', async ({ page }) => {
+    await mockRoomsApi(page);
+    await mockUnavailableDates(page, ['2027-06-02'], []);
+    await page.goto('/rooms/1');
+
+    const dateInputs = page.locator('.booking-panel input[type="date"]');
+    await dateInputs.nth(0).fill('2027-06-01');
+    await dateInputs.nth(1).fill('2027-06-04');
+
+    const bookBtn = page.getByRole('button', { name: /Book Now|Select Dates/i });
+    await expect(bookBtn).toBeDisabled();
+  });
+
+  test('shows held-date warning when dates are temporarily locked', async ({ page }) => {
+    await mockRoomsApi(page);
+    await mockUnavailableDates(page, [], ['2027-06-02']);
+    await page.goto('/rooms/1');
+
+    const dateInputs = page.locator('.booking-panel input[type="date"]');
+    await dateInputs.nth(0).fill('2027-06-01');
+    await dateInputs.nth(1).fill('2027-06-04');
+
+    await expect(page.getByText(/temporarily held|another guest|try again/i)).toBeVisible();
+  });
+
+  test('no conflict shown when selected dates are fully available', async ({ page }) => {
+    await mockRoomsApi(page);
+    await mockUnavailableDates(page, [], []);
+    await page.goto('/rooms/1');
+
+    const dateInputs = page.locator('.booking-panel input[type="date"]');
+    await dateInputs.nth(0).fill('2027-06-10');
+    await dateInputs.nth(1).fill('2027-06-12');
+
+    await expect(page.getByText(/already booked/i)).not.toBeVisible();
+    await expect(page.getByText(/temporarily held/i)).not.toBeVisible();
   });
 });

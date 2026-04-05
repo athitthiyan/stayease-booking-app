@@ -25,6 +25,7 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/checkout/checkout.component').then(m => m.CheckoutComponent),
     title: 'Checkout — StayEase',
+    canActivate: [authGuard],
   },
   {
     path: 'booking-confirmation',

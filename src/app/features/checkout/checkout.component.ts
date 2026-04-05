@@ -67,23 +67,52 @@ import { environment } from '../../../environments/environment';
             <h2>Guest Information</h2>
             <div class="form-row">
               <div class="form-group">
-                <label>Full Name *</label>
-                <input type="text" [(ngModel)]="form.user_name" class="form-control" placeholder="John Doe" required />
+                <label for="checkout-name">Full Name *</label>
+                <input
+                  id="checkout-name"
+                  type="text"
+                  [(ngModel)]="form.user_name"
+                  class="form-control"
+                  [class.input--error]="nameError()"
+                  placeholder="John Doe"
+                  required
+                  aria-describedby="checkout-name-error"
+                />
                 @if (nameError()) {
-                  <p class="checkout-error">{{ nameError() }}</p>
+                  <p class="checkout-error" id="checkout-name-error" role="alert">{{ nameError() }}</p>
                 }
               </div>
               <div class="form-group">
-                <label>Email Address *</label>
-                <input type="email" [(ngModel)]="form.email" class="form-control" placeholder="john@example.com" required />
+                <label for="checkout-email">Email Address *</label>
+                <input
+                  id="checkout-email"
+                  type="email"
+                  [(ngModel)]="form.email"
+                  class="form-control"
+                  [class.input--error]="emailError()"
+                  placeholder="john@example.com"
+                  required
+                  aria-describedby="checkout-email-error"
+                />
                 @if (emailError()) {
-                  <p class="checkout-error">{{ emailError() }}</p>
+                  <p class="checkout-error" id="checkout-email-error" role="alert">{{ emailError() }}</p>
                 }
               </div>
             </div>
             <div class="form-group" style="margin-top:16px">
-              <label>Phone Number</label>
-              <input type="tel" [(ngModel)]="form.phone" class="form-control" placeholder="+1 (555) 000-0000" />
+              <label for="checkout-phone">Phone Number</label>
+              <input
+                id="checkout-phone"
+                type="tel"
+                [(ngModel)]="form.phone"
+                class="form-control"
+                [class.input--error]="phoneError()"
+                placeholder="+1 (555) 000-0000"
+                aria-describedby="checkout-phone-error"
+              />
+              @if (phoneError()) {
+                <p class="checkout-error" id="checkout-phone-error" role="alert">{{ phoneError() }}</p>
+              }
             </div>
             <div class="form-group" style="margin-top:16px">
               <label>Special Requests (Optional)</label>
@@ -132,6 +161,19 @@ import { environment } from '../../../environments/environment';
                 Proceed to Payment →
               }
             </button>
+            @if (resumableBooking()) {
+              <button
+                class="btn btn--ghost btn--lg"
+                (click)="cancelHold()"
+                [disabled]="cancellingHold()"
+                style="margin-top:8px">
+                @if (cancellingHold()) {
+                  Cancelling…
+                } @else {
+                  Cancel Booking
+                }
+              </button>
+            }
             <p class="checkout-note">
               🔒 Your data is encrypted and secure. No payment charged until confirmed.
             </p>
@@ -212,6 +254,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   submitError = signal('');
   nameError = signal('');
   emailError = signal('');
+  phoneError = signal('');
 
   nights = signal(0);
   subtotal = signal(0);
@@ -227,6 +270,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   holdExpired = signal(false);
   /** True while the extend-hold API call is in-flight. */
   extendingHold = signal(false);
+  /** True while the cancel booking API call is in-flight. */
+  cancellingHold = signal(false);
 
   private countdownInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -277,6 +322,13 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       } catch {
         sessionStorage.removeItem('pending_booking');
       }
+    }
+
+    // Detect return from login redirect — state is already restored from sessionStorage
+    const authRedirect = sessionStorage.getItem('booking_auth_redirect');
+    if (authRedirect) {
+      sessionStorage.removeItem('booking_auth_redirect');
+      // State is already restored from getCheckoutState() above
     }
   }
 
@@ -360,8 +412,10 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   private validateGuestDetails(): boolean {
     const trimmedName = this.form.user_name.trim();
     const trimmedEmail = this.form.email.trim();
+    const trimmedPhone = this.form.phone.trim();
     this.nameError.set('');
     this.emailError.set('');
+    this.phoneError.set('');
 
     if (!trimmedName) {
       this.nameError.set('Please enter the guest name.');
@@ -373,9 +427,65 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.emailError.set('Please enter a valid email address.');
     }
 
+    if (trimmedPhone && !/^\+?[\d\s\-().]{7,20}$/.test(trimmedPhone)) {
+      this.phoneError.set('Please enter a valid phone number.');
+    }
+
     this.form.user_name = trimmedName;
     this.form.email = trimmedEmail;
-    return !this.nameError() && !this.emailError();
+    this.form.phone = trimmedPhone;
+    return !this.nameError() && !this.emailError() && !this.phoneError();
+  }
+
+  // ── Error mapping ─────────────────────────────────────────────────────────
+
+  private mapApiError(err: any): string {
+    const detail = err?.error?.detail;
+    if (typeof detail === 'object' && detail?.code) {
+      const messages: Record<string, string> = {
+        BOOKING_CONFLICT: 'These dates are no longer available. Please go back and choose different dates.',
+        HOLD_EXISTS: 'You already have an active reservation for these dates. Please complete or cancel it first.',
+        ROOM_UNAVAILABLE: 'This room is no longer available for booking.',
+        ROOM_NOT_FOUND: 'This room could not be found. Please go back and try again.',
+        CHECK_IN_PAST: 'Check-in date must be in the future.',
+        GUEST_CAPACITY_EXCEEDED: detail.message || 'Guest count exceeds room capacity.',
+        INVALID_DATE_RANGE: 'Check-out date must be after check-in date.',
+        MINIMUM_STAY: 'Minimum stay is 1 night.',
+        AUTH_REQUIRED: 'Please log in to continue with your booking.',
+      };
+      return messages[detail.code] || detail.message || 'Booking failed. Please try again.';
+    }
+    if (typeof detail === 'string') return detail;
+    return 'Unable to create the booking right now. Please try again.';
+  }
+
+  // ── Cancel booking ────────────────────────────────────────────────────────
+
+  cancelHold(): void {
+    const booking = this.resumableBooking();
+    if (!booking || this.cancellingHold()) return;
+    this.cancellingHold.set(true);
+    this.bookingService.cancelBooking(booking.id).subscribe({
+      next: () => {
+        this.cancellingHold.set(false);
+        this.resumableBooking.set(null);
+        this.holdSecondsLeft.set(0);
+        this.holdExpired.set(false);
+        this.stopCountdown();
+        this.submitError.set('');
+        // Navigate back to room detail
+        const state = this.checkoutState();
+        if (state?.room?.id) {
+          this.router.navigate(['/rooms', state.room.id]);
+        } else {
+          this.router.navigate(['/search']);
+        }
+      },
+      error: () => {
+        this.cancellingHold.set(false);
+        this.submitError.set('Could not cancel the booking. Please try again.');
+      },
+    });
   }
 
   // ── Main flow ─────────────────────────────────────────────────────────────
@@ -440,14 +550,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
                 this.redirectToPayment(booking);
               },
               error: err => {
-                const detail: string = err?.error?.detail || '';
-                if (err?.status === 409) {
-                  this.submitError.set(
-                    detail || 'These dates are no longer available. Please go back and choose different dates.',
-                  );
-                } else {
-                  this.submitError.set('Unable to create the booking right now. Please try again.');
-                }
+                this.submitError.set(this.mapApiError(err));
                 this.submitting.set(false);
               },
             });

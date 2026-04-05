@@ -10,6 +10,11 @@ export const authGuard: CanActivateFn = (_route, state) => {
     return true;
   }
 
+  // Preserve the intent so checkout can detect it returned from auth
+  if (state.url.startsWith('/checkout')) {
+    sessionStorage.setItem('booking_auth_redirect', 'true');
+  }
+
   return router.createUrlTree(['/auth/login'], {
     queryParams: { returnUrl: state.url },
   });

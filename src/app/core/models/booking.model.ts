@@ -1,5 +1,15 @@
 import { Room } from './room.model';
 
+export interface ApiErrorDetail {
+  code: string;
+  message: string;
+  field?: string;
+}
+
+export interface ApiErrorResponse {
+  detail: ApiErrorDetail | string;
+}
+
 export type BookingStatus =
   | 'pending'
   | 'processing'

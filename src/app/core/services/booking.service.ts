@@ -114,4 +114,17 @@ export class BookingService {
       { email },
     );
   }
+
+  /**
+   * Fetch availability for a specific month (used for calendar UI).
+   * Returns the same shape as getUnavailableDates but filtered to a calendar month.
+   */
+  getMonthAvailability(roomId: number, yearMonth: string): Observable<UnavailableDatesResponse> {
+    // yearMonth format: "2026-05"
+    const [year, month] = yearMonth.split('-').map(Number);
+    const fromDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
+    const lastDay = new Date(year, month, 0).getDate();
+    const toDate = new Date(year, month - 1, lastDay).toISOString().split('T')[0];
+    return this.getUnavailableDates(roomId, fromDate, toDate);
+  }
 }
