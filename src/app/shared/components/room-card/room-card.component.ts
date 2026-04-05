@@ -4,6 +4,11 @@ import { CommonModule } from '@angular/common';
 import { Room } from '../../../core/models/room.model';
 import { WishlistService } from '../../../core/services/wishlist.service';
 import { AuthService } from '../../../core/services/auth.service';
+import {
+  ROOM_IMAGE_PLACEHOLDER,
+  applyRoomImageFallback,
+  normalizeRoomImageUrl,
+} from '../../utils/image-fallback';
 
 @Component({
   selector: 'app-room-card',
@@ -14,7 +19,7 @@ import { AuthService } from '../../../core/services/auth.service';
       <!-- Image -->
       <div class="room-card__image-wrap">
         <img
-          [src]="room.image_url || placeholderImg"
+          [src]="resolveImage(room.image_url)"
           [alt]="room.hotel_name"
           class="room-card__image"
           loading="lazy"
@@ -249,7 +254,7 @@ export class RoomCardComponent implements OnInit {
   protected wishlistService = inject(WishlistService);
   protected authService = inject(AuthService);
 
-  placeholderImg = 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600';
+  placeholderImg = ROOM_IMAGE_PLACEHOLDER;
   starStr = '★★★★★';
   roomTypeLabel = '';
   discountPct = 0;
@@ -274,7 +279,11 @@ export class RoomCardComponent implements OnInit {
   }
 
   onImgError(event: Event): void {
-    (event.target as HTMLImageElement).src = this.placeholderImg;
+    applyRoomImageFallback(event);
+  }
+
+  resolveImage(imageUrl?: string): string {
+    return normalizeRoomImageUrl(imageUrl) || this.placeholderImg;
   }
 
   toggleWishlist(event: Event): void {

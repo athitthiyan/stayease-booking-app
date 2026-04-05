@@ -8,6 +8,11 @@ import { WishlistService } from '../../core/services/wishlist.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Room } from '../../core/models/room.model';
 import { ReviewsSectionComponent } from '../../shared/components/reviews-section/reviews-section.component';
+import {
+  ROOM_IMAGE_PLACEHOLDER,
+  applyRoomImageFallback,
+  getRoomGalleryImages,
+} from '../../shared/utils/image-fallback';
 
 /** ISO date string, e.g. "2026-05-10" */
 type ISODateString = string;
@@ -27,7 +32,12 @@ type ISODateString = string;
         <!-- Hero image gallery -->
         <div class="gallery">
           <div class="gallery__main">
-            <img [src]="activeImage()" [alt]="room()!.hotel_name" class="gallery__img" />
+            <img
+              [src]="activeImage() || placeholderImg"
+              [alt]="room()!.hotel_name"
+              class="gallery__img"
+              (error)="onImageError($event)"
+            />
             <div class="gallery__badge">
               @if (room()!.is_featured) { <span class="badge badge--gold">⭐ Featured</span> }
               @if (authService.isLoggedIn) {
@@ -52,7 +62,13 @@ type ISODateString = string;
                   (click)="setActiveImage(i)"
                   [attr.aria-label]="'View gallery image ' + (i + 1)"
                 >
-                  <img [src]="img" [alt]="'Gallery ' + i" class="gallery__thumb" loading="lazy" />
+                  <img
+                    [src]="img"
+                    [alt]="'Gallery ' + i"
+                    class="gallery__thumb"
+                    loading="lazy"
+                    (error)="onImageError($event)"
+                  />
                 </button>
               }
             </div>
@@ -252,6 +268,7 @@ export class RoomDetailComponent implements OnInit {
   loadError = signal(false);
   activeImageIdx = signal(0);
   galleryImages = signal<string[]>([]);
+  protected readonly placeholderImg = ROOM_IMAGE_PLACEHOLDER;
 
   checkIn = '';
   checkOut = '';
@@ -292,13 +309,7 @@ export class RoomDetailComponent implements OnInit {
       next: room => {
         this.room.set(room);
         this.loadError.set(false);
-        const imgs: string[] = room.image_url ? [room.image_url] : [];
-        try {
-          const gallery = JSON.parse(room.gallery_urls || '[]');
-          imgs.push(...gallery.filter((g: string) => g !== room.image_url));
-        } catch {
-          // Ignore malformed gallery data and fall back to the main image only.
-        }
+        const imgs = getRoomGalleryImages(room);
         this.galleryImages.set(imgs);
         this.activeImage.set(imgs[0] || '');
         this.loading.set(false);
@@ -316,7 +327,11 @@ export class RoomDetailComponent implements OnInit {
 
   setActiveImage(idx: number) {
     this.activeImageIdx.set(idx);
-    this.activeImage.set(this.galleryImages()[idx]);
+    this.activeImage.set(this.galleryImages()[idx] || this.placeholderImg);
+  }
+
+  onImageError(event: Event): void {
+    applyRoomImageFallback(event);
   }
 
   private loadUnavailableDates(roomId: number): void {

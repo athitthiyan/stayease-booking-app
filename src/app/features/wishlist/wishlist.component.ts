@@ -5,6 +5,11 @@ import { WishlistService } from '../../core/services/wishlist.service';
 import { WishlistItemResponse } from '../../core/models/wishlist.model';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { FooterComponent } from '../../shared/components/footer/footer.component';
+import {
+  ROOM_IMAGE_PLACEHOLDER,
+  applyRoomImageFallback,
+  normalizeRoomImageUrl,
+} from '../../shared/utils/image-fallback';
 
 @Component({
   selector: 'app-wishlist',
@@ -50,7 +55,12 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
             <article class="wishlist-card">
               <div class="card-image">
                 @if (item.room?.image_url) {
-                  <img [src]="item.room!.image_url" [alt]="item.room!.hotel_name" loading="lazy" />
+                  <img
+                    [src]="resolveRoomImage(item.room!.image_url)"
+                    [alt]="item.room!.hotel_name"
+                    loading="lazy"
+                    (error)="onImageError($event)"
+                  />
                 } @else {
                   <div class="no-image">🏨</div>
                 }
@@ -228,11 +238,20 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
 })
 export class WishlistComponent implements OnInit {
   private wishlistService = inject(WishlistService);
+  protected readonly placeholderImg = ROOM_IMAGE_PLACEHOLDER;
 
   items = signal<WishlistItemResponse[]>([]);
   loading = signal(true);
   errorMsg = signal('');
   removing = signal<Set<number>>(new Set());
+
+  resolveRoomImage(imageUrl?: string): string {
+    return normalizeRoomImageUrl(imageUrl) || this.placeholderImg;
+  }
+
+  onImageError(event: Event): void {
+    applyRoomImageFallback(event);
+  }
 
   ngOnInit(): void {
     this.load();

@@ -5,6 +5,11 @@ import { FormsModule } from '@angular/forms';
 import { BookingService, CheckoutState } from '../../core/services/booking.service';
 import { ApiErrorDetail, ApiErrorResponse, Booking } from '../../core/models/booking.model';
 import { environment } from '../../../environments/environment';
+import {
+  ROOM_IMAGE_PLACEHOLDER,
+  applyRoomImageFallback,
+  normalizeRoomImageUrl,
+} from '../../shared/utils/image-fallback';
 
 @Component({
   selector: 'app-checkout',
@@ -189,9 +194,10 @@ import { environment } from '../../../environments/environment';
             @if (checkoutState()?.room) {
               <div class="order-summary__room">
                 <img
-                  [src]="checkoutState()!.room!.image_url"
+                  [src]="resolveRoomImage(checkoutState()!.room!.image_url)"
                   [alt]="checkoutState()!.room!.hotel_name"
                   class="order-summary__img"
+                  (error)="onImageError($event)"
                 />
                 <div>
                   <span class="order-summary__type">{{ checkoutState()!.room!.room_type | titlecase }}</span>
@@ -274,6 +280,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   cancellingHold = signal(false);
 
   private countdownInterval: ReturnType<typeof setInterval> | null = null;
+  protected readonly placeholderImg = ROOM_IMAGE_PLACEHOLDER;
 
   form = {
     user_name: '',
@@ -281,6 +288,14 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     phone: '',
     special_requests: '',
   };
+
+  resolveRoomImage(imageUrl?: string): string {
+    return normalizeRoomImageUrl(imageUrl) || this.placeholderImg;
+  }
+
+  onImageError(event: Event): void {
+    applyRoomImageFallback(event);
+  }
 
   ngOnInit() {
     const state = this.bookingService.getCheckoutState();

@@ -5,6 +5,11 @@ import { BookingService } from '../../core/services/booking.service';
 import { Booking, MyBookingsResponse } from '../../core/models/booking.model';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { FooterComponent } from '../../shared/components/footer/footer.component';
+import {
+  ROOM_IMAGE_PLACEHOLDER,
+  applyRoomImageFallback,
+  normalizeRoomImageUrl,
+} from '../../shared/utils/image-fallback';
 
 type TabKey = 'all' | 'upcoming' | 'past' | 'cancelled';
 
@@ -77,7 +82,13 @@ type TabKey = 'all' | 'upcoming' | 'past' | 'cancelled';
           @for (booking of filteredBookings(); track booking.id) {
             <article class="booking-card">
               @if (booking.room?.image_url) {
-                <img class="booking-img" [src]="booking.room!.image_url" [alt]="booking.room!.hotel_name" loading="lazy" />
+                <img
+                  class="booking-img"
+                  [src]="resolveRoomImage(booking.room!.image_url)"
+                  [alt]="booking.room!.hotel_name"
+                  loading="lazy"
+                  (error)="onImageError($event)"
+                />
               }
               <div class="booking-body">
                 <div class="booking-top">
@@ -296,6 +307,7 @@ type TabKey = 'all' | 'upcoming' | 'past' | 'cancelled';
 })
 export class BookingHistoryComponent implements OnInit {
   private bookingService = inject(BookingService);
+  protected readonly placeholderImg = ROOM_IMAGE_PLACEHOLDER;
 
   data = signal<MyBookingsResponse | null>(null);
   loading = signal(true);
@@ -308,6 +320,14 @@ export class BookingHistoryComponent implements OnInit {
     { key: 'past', label: 'Past' },
     { key: 'cancelled', label: 'Cancelled' },
   ];
+
+  resolveRoomImage(imageUrl?: string): string {
+    return normalizeRoomImageUrl(imageUrl) || this.placeholderImg;
+  }
+
+  onImageError(event: Event): void {
+    applyRoomImageFallback(event);
+  }
 
   ngOnInit(): void {
     this.load();
