@@ -198,6 +198,16 @@ type ISODateString = string;
                   <span>We can't verify live availability right now. Please try again in a moment.</span>
                 </div>
               }
+              @if (availabilityStatus() === 'error') {
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  style="width:100%;margin-top:12px"
+                  (click)="retryLiveAvailability()"
+                >
+                  Retry Live Dates
+                </button>
+              }
               @if (formError()) {
                 <div class="date-conflict-alert">
                   <span>⚠️</span>
@@ -353,15 +363,6 @@ export class RoomDetailComponent implements OnInit {
     applyRoomImageFallback(event);
   }
 
-  private hasActivePendingBooking(booking: Booking): boolean {
-    return (
-      booking.status === 'pending' &&
-      booking.payment_status !== 'paid' &&
-      !!booking.hold_expires_at &&
-      new Date(booking.hold_expires_at).getTime() > Date.now()
-    );
-  }
-
   resumePreviousBooking(): void {
     const booking = this.blockingActiveBooking();
     if (!booking || !booking.room) {
@@ -454,6 +455,15 @@ export class RoomDetailComponent implements OnInit {
     this.validateDateConflict();
   }
 
+  retryLiveAvailability(): void {
+    const roomId = this.room()?.id;
+    if (!roomId) {
+      return;
+    }
+    this.formError.set('');
+    this.loadUnavailableDates(roomId);
+  }
+
   bookNow() {
     if (!this.checkIn || !this.checkOut || this.nights() < 1) {
       this.formError.set('Please select valid check-in and check-out dates.');
@@ -468,28 +478,7 @@ export class RoomDetailComponent implements OnInit {
     }
     this.formError.set('');
     this.blockingActiveBooking.set(null);
-    if (this.authService.isLoggedIn) {
-      this.checkingExistingBooking.set(true);
-      this.bookingService.getMyBookings().subscribe({
-        next: response => {
-          this.checkingExistingBooking.set(false);
-          const activeBooking = response.bookings.find(booking => this.hasActivePendingBooking(booking));
-          if (activeBooking) {
-            this.blockingActiveBooking.set(activeBooking);
-            this.formError.set(
-              'You already have an active reservation hold. Complete or cancel it before starting a new booking.',
-            );
-            return;
-          }
-          this.beginCheckout();
-        },
-        error: () => {
-          this.checkingExistingBooking.set(false);
-          this.formError.set('We couldn’t verify your active reservations right now. Please try again.');
-        },
-      });
-      return;
-    }
+    this.checkingExistingBooking.set(false);
     this.beginCheckout();
   }
 

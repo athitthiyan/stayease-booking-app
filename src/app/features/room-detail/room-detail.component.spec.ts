@@ -60,7 +60,6 @@ describe('RoomDetailComponent', () => {
   let bookingService: {
     setCheckoutState: jest.Mock;
     getUnavailableDates: jest.Mock;
-    getMyBookings: jest.Mock;
   };
   let mockWishlist: Partial<WishlistService>;
   let mockAuth: Partial<AuthService>;
@@ -71,9 +70,6 @@ describe('RoomDetailComponent', () => {
       setCheckoutState: jest.fn(),
       getUnavailableDates: jest.fn().mockReturnValue(
         of({ unavailable_dates: [], held_dates: [] }),
-      ),
-      getMyBookings: jest.fn().mockReturnValue(
-        of({ bookings: [], total: 0, upcoming: 0, past: 0, cancelled: 0 }),
       ),
     };
     mockWishlist = {
@@ -195,12 +191,9 @@ describe('RoomDetailComponent', () => {
     expect(component.formError()).toBe('Please select valid check-in and check-out dates.');
   });
 
-  it('blocks logged-in users with an active booking hold and exposes a resume CTA', () => {
+  it('uses the same room-detail booking path for logged-in users', () => {
     Object.defineProperty(mockAuth, 'isLoggedIn', { value: true, configurable: true });
     roomService.getRoom.mockReturnValue(of(mockRoom()));
-    bookingService.getMyBookings.mockReturnValue(
-      of({ bookings: [mockBooking()], total: 1, upcoming: 0, past: 0, cancelled: 0 }),
-    );
     const router = TestBed.inject(Router);
     const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
 
@@ -212,11 +205,11 @@ describe('RoomDetailComponent', () => {
     component.onDateChange();
     component.bookNow();
 
-    expect(bookingService.getMyBookings).toHaveBeenCalled();
-    expect(bookingService.setCheckoutState).not.toHaveBeenCalled();
-    expect(component.blockingActiveBooking()?.booking_ref).toBe('BKACTIVE');
-    expect(component.formError()).toContain('active reservation hold');
-    expect(navigateSpy).not.toHaveBeenCalled();
+    expect(component.formError()).toBe('');
+    expect(component.blockingActiveBooking()).toBeNull();
+    expect(component.checkingExistingBooking()).toBe(false);
+    expect(bookingService.setCheckoutState).toHaveBeenCalled();
+    expect(navigateSpy).toHaveBeenCalled();
   });
 
   it('redirects the user back to their previous booking from the CTA', () => {
@@ -503,6 +496,26 @@ describe('RoomDetailComponent', () => {
     expect(component.availabilityStatus()).toBe('error');
     expect(component.formError()).toContain('live availability');
     expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  it('retries live availability after an initial failure', () => {
+    bookingService.getUnavailableDates
+      .mockReturnValueOnce(throwError(() => new Error('network')))
+      .mockReturnValueOnce(of({ unavailable_dates: ['2026-04-11'], held_dates: [] }));
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.availabilityStatus()).toBe('error');
+
+    component.retryLiveAvailability();
+
+    expect(bookingService.getUnavailableDates).toHaveBeenCalledTimes(2);
+    expect(component.availabilityStatus()).toBe('ready');
+    expect(component.unavailableDates()).toEqual(['2026-04-11']);
+    expect(component.formError()).toBe('');
   });
 
   it('toggles the wishlist only when a room is loaded', () => {
