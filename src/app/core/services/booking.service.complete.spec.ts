@@ -97,6 +97,24 @@ describe('BookingService (extended branches)', () => {
     });
   });
 
+  describe('requestBookingSupport', () => {
+    it('POSTs a support request for the booking', () => {
+      service
+        .requestBookingSupport(42, 'refund_help', 'Please review the refund status.')
+        .subscribe(response => {
+          expect(response.message).toContain('Support request submitted');
+        });
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/bookings/42/support-request`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({
+        category: 'refund_help',
+        message: 'Please review the refund status.',
+      });
+      req.flush({ message: 'Support request submitted. Our team will contact you shortly.' });
+    });
+  });
+
   describe('getMyBookings', () => {
     it('GETs the authenticated user booking history endpoint', () => {
       service.getMyBookings().subscribe(response => {

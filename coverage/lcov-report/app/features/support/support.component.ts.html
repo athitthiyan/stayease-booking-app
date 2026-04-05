@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for app/features/search-results/search-map-placeholder.component.ts</title>
+    <title>Code coverage report for app/features/support/support.component.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../../prettify.css" />
     <link rel="stylesheet" href="../../../base.css" />
@@ -19,7 +19,7 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../index.html">All files</a> / <a href="index.html">app/features/search-results</a> search-map-placeholder.component.ts</h1>
+        <h1><a href="../../../index.html">All files</a> / <a href="index.html">app/features/support</a> support.component.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>0/0</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/5</span>
+                <span class='fraction'>0/4</span>
             </div>
         
             
@@ -238,34 +238,9 @@
 <a name='L173'></a><a href='#L173'>173</a>
 <a name='L174'></a><a href='#L174'>174</a>
 <a name='L175'></a><a href='#L175'>175</a>
-<a name='L176'></a><a href='#L176'>176</a>
-<a name='L177'></a><a href='#L177'>177</a>
-<a name='L178'></a><a href='#L178'>178</a>
-<a name='L179'></a><a href='#L179'>179</a>
-<a name='L180'></a><a href='#L180'>180</a>
-<a name='L181'></a><a href='#L181'>181</a>
-<a name='L182'></a><a href='#L182'>182</a>
-<a name='L183'></a><a href='#L183'>183</a>
-<a name='L184'></a><a href='#L184'>184</a>
-<a name='L185'></a><a href='#L185'>185</a>
-<a name='L186'></a><a href='#L186'>186</a>
-<a name='L187'></a><a href='#L187'>187</a>
-<a name='L188'></a><a href='#L188'>188</a>
-<a name='L189'></a><a href='#L189'>189</a>
-<a name='L190'></a><a href='#L190'>190</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L176'></a><a href='#L176'>176</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -438,198 +413,181 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { CommonModule } from '@angular/common';</span>
-<span class="cstat-no" title="statement not covered" >import { Component, input } from '@angular/core';</span>
-import { Room } from '../../core/models/room.model';
+<span class="cstat-no" title="statement not covered" >import { Component } from '@angular/core';</span>
+<span class="cstat-no" title="statement not covered" >import { RouterLink } from '@angular/router';</span>
 &nbsp;
 @Component({
-  selector: 'app-search-map-placeholder',
+  selector: 'app-support',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   template: `
-    &lt;section class="map-shell" aria-label="Map view placeholder"&gt;
-      &lt;div class="map-shell__panel"&gt;
-        &lt;p class="map-shell__eyebrow"&gt;Map View Preview&lt;/p&gt;
-        &lt;h3&gt;Interactive map architecture is ready&lt;/h3&gt;
-        &lt;p&gt;
-          This placeholder reserves the layout, responsive behavior, and lazy-loading boundary for a future
-          provider such as Google Maps, Mapbox, or OpenStreetMap.
+    &lt;section class="support-page"&gt;
+      &lt;div class="container support-page__inner"&gt;
+        &lt;nav class="breadcrumb"&gt;
+          &lt;a routerLink="/"&gt;Home&lt;/a&gt;
+          &lt;span&gt;›&lt;/span&gt;
+          &lt;span&gt;Support&lt;/span&gt;
+        &lt;/nav&gt;
+&nbsp;
+        &lt;p class="support-page__eyebrow"&gt;Support&lt;/p&gt;
+        &lt;h1&gt;Need help with a booking?&lt;/h1&gt;
+        &lt;p class="support-page__intro"&gt;
+          Our launch support team handles booking recovery, payment help, cancellation guidance,
+          and refund follow-ups for both guests and hotel partners.
         &lt;/p&gt;
 &nbsp;
-        &lt;div class="map-shell__meta"&gt;
-          &lt;span&gt;{{ rooms().length }} stays in current results&lt;/span&gt;
-          &lt;span&gt;{{ cityLabel() }}&lt;/span&gt;
+        &lt;div class="support-page__grid"&gt;
+          &lt;article class="support-card"&gt;
+            &lt;h2&gt;Guest help&lt;/h2&gt;
+            &lt;ul&gt;
+              &lt;li&gt;Failed payment or payment retry assistance&lt;/li&gt;
+              &lt;li&gt;Cancellation and refund guidance&lt;/li&gt;
+              &lt;li&gt;Booking change and active-hold recovery help&lt;/li&gt;
+            &lt;/ul&gt;
+          &lt;/article&gt;
+&nbsp;
+          &lt;article class="support-card"&gt;
+            &lt;h2&gt;Partner help&lt;/h2&gt;
+            &lt;ul&gt;
+              &lt;li&gt;Inventory and pricing assistance&lt;/li&gt;
+              &lt;li&gt;Payout follow-up and settlement questions&lt;/li&gt;
+              &lt;li&gt;Booking disputes and support escalation&lt;/li&gt;
+            &lt;/ul&gt;
+          &lt;/article&gt;
         &lt;/div&gt;
 &nbsp;
-        &lt;ul class="map-shell__list"&gt;
-          @for (room of rooms().slice(0, 3); track room.id) {
-            &lt;li&gt;
-              &lt;strong&gt;{{ room.hotel_name }}&lt;/strong&gt;
-              &lt;span&gt;{{ room.location || room.city || 'Location coming soon' }}&lt;/span&gt;
-            &lt;/li&gt;
-          }
-        &lt;/ul&gt;
-      &lt;/div&gt;
-&nbsp;
-      &lt;div class="map-shell__canvas" role="img" aria-label="Static preview of future map surface"&gt;
-        &lt;div class="map-shell__grid"&gt;&lt;/div&gt;
-        &lt;div class="map-shell__pin map-shell__pin--a"&gt;&lt;/div&gt;
-        &lt;div class="map-shell__pin map-shell__pin--b"&gt;&lt;/div&gt;
-        &lt;div class="map-shell__pin map-shell__pin--c"&gt;&lt;/div&gt;
-        &lt;div class="map-shell__legend"&gt;Lazy-loaded map provider mounts here&lt;/div&gt;
+        &lt;div class="support-contact"&gt;
+          &lt;div&gt;
+            &lt;span class="support-contact__label"&gt;Email support&lt;/span&gt;
+            &lt;a href="mailto:support@stayvora.co.in"&gt;support@stayvora.co.in&lt;/a&gt;
+          &lt;/div&gt;
+          &lt;div&gt;
+            &lt;span class="support-contact__label"&gt;Response target&lt;/span&gt;
+            &lt;p&gt;Within 24 hours for booking, refund, and payout issues.&lt;/p&gt;
+          &lt;/div&gt;
+          &lt;div&gt;
+            &lt;span class="support-contact__label"&gt;Critical incidents&lt;/span&gt;
+            &lt;p&gt;Active payment or booking hold issues are triaged first.&lt;/p&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
       &lt;/div&gt;
     &lt;/section&gt;
   `,
   styles: [`
-    .map-shell {
-      display: grid;
-      grid-template-columns: minmax(260px, 340px) 1fr;
-      gap: 20px;
-      margin-top: 24px;
-      padding: 20px;
-      border: 1px solid var(--color-border);
-      border-radius: 20px;
-      background: rgba(11, 18, 32, 0.72);
-      backdrop-filter: blur(18px);
-    }
-&nbsp;
-    .map-shell__eyebrow {
-      margin: 0 0 6px;
-      font-size: 11px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--color-primary);
-    }
-&nbsp;
-    .map-shell__panel h3 {
-      margin: 0 0 8px;
-      color: var(--color-text);
-      font-size: 1.2rem;
-    }
-&nbsp;
-    .map-shell__panel p {
-      margin: 0 0 14px;
-      color: var(--color-text-muted);
-      line-height: 1.6;
-      font-size: 14px;
-    }
-&nbsp;
-    .map-shell__meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-&nbsp;
-    .map-shell__meta span,
-    .map-shell__legend {
-      display: inline-flex;
-      align-items: center;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: rgba(212, 175, 55, 0.12);
-      color: var(--color-primary);
-      font-size: 12px;
-      font-weight: 600;
-    }
-&nbsp;
-    .map-shell__list {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      display: grid;
-      gap: 10px;
-    }
-&nbsp;
-    .map-shell__list li {
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.05);
-    }
-&nbsp;
-    .map-shell__list strong,
-    .map-shell__list span {
-      display: block;
-    }
-&nbsp;
-    .map-shell__list strong {
-      color: var(--color-text);
-      margin-bottom: 4px;
-    }
-&nbsp;
-    .map-shell__list span {
-      color: var(--color-text-muted);
-      font-size: 13px;
-    }
-&nbsp;
-    .map-shell__canvas {
-      min-height: 320px;
-      position: relative;
-      overflow: hidden;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,0.08);
+    .support-page {
+      padding: 7rem 0 4rem;
+      min-height: 100vh;
       background:
-        radial-gradient(circle at 20% 20%, rgba(76, 201, 240, 0.16), transparent 28%),
-        radial-gradient(circle at 80% 30%, rgba(212, 175, 55, 0.18), transparent 26%),
-        linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(10, 15, 26, 0.98));
+        radial-gradient(circle at top left, rgba(201, 168, 76, 0.12), transparent 24%),
+        linear-gradient(180deg, rgba(18, 22, 42, 0.98), rgba(11, 15, 30, 1));
     }
 &nbsp;
-    .map-shell__grid {
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
-      background-size: 36px 36px;
+    .support-page__inner {
+      max-width: 980px;
     }
 &nbsp;
-    .map-shell__pin {
-      position: absolute;
-      width: 18px;
-      height: 18px;
-      border-radius: 50% 50% 50% 0;
-      transform: rotate(-45deg);
-      background: var(--color-primary);
-      box-shadow: 0 0 0 8px rgba(212, 175, 55, 0.1);
+    .support-page__eyebrow {
+      margin-top: 1.5rem;
+      color: var(--color-primary);
+      font-size: 0.9rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 700;
     }
 &nbsp;
-    .map-shell__pin::after {
-      content: '';
-      position: absolute;
-      inset: 4px;
-      border-radius: 50%;
-      background: #fff;
+    h1 {
+      margin-top: 1rem;
+      font-family: var(--font-serif);
+      font-size: clamp(2.5rem, 5vw, 4.2rem);
+      line-height: 1.05;
+      color: var(--color-text);
     }
 &nbsp;
-    .map-shell__pin--a { top: 22%; left: 26%; }
-    .map-shell__pin--b { top: 38%; right: 22%; }
-    .map-shell__pin--c { bottom: 18%; left: 48%; }
-&nbsp;
-    .map-shell__legend {
-      position: absolute;
-      left: 16px;
-      bottom: 16px;
+    .support-page__intro {
+      max-width: 720px;
+      margin-top: 1rem;
+      color: var(--color-text-muted);
+      font-size: 1.05rem;
+      line-height: 1.8;
     }
 &nbsp;
-    @media (max-width: 900px) {
-      .map-shell {
+    .support-page__grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.25rem;
+      margin-top: 2rem;
+    }
+&nbsp;
+    .support-card,
+    .support-contact {
+      border-radius: 28px;
+      border: 1px solid rgba(201, 168, 76, 0.2);
+      background: rgba(22, 27, 49, 0.84);
+      backdrop-filter: blur(16px);
+    }
+&nbsp;
+    .support-card {
+      padding: 1.5rem;
+    }
+&nbsp;
+    .support-card h2 {
+      color: var(--color-text);
+      font-size: 1.1rem;
+      margin-bottom: 0.75rem;
+    }
+&nbsp;
+    .support-card ul {
+      padding-left: 1rem;
+      color: var(--color-text-muted);
+      line-height: 1.9;
+    }
+&nbsp;
+    .support-contact {
+      margin-top: 1.25rem;
+      padding: 1.5rem;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+&nbsp;
+    .support-contact__label {
+      display: block;
+      margin-bottom: 0.45rem;
+      color: var(--color-primary);
+      font-size: 0.88rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 700;
+    }
+&nbsp;
+    .support-contact a,
+    .support-contact p {
+      color: var(--color-text);
+      line-height: 1.7;
+    }
+&nbsp;
+    .breadcrumb {
+      display: flex;
+      gap: 0.65rem;
+      align-items: center;
+      color: var(--color-text-subtle);
+      font-size: 0.92rem;
+    }
+&nbsp;
+    .breadcrumb a {
+      color: var(--color-text-muted);
+    }
+&nbsp;
+    @media (max-width: 780px) {
+      .support-page__grid,
+      .support-contact {
         grid-template-columns: 1fr;
-      }
-&nbsp;
-      .map-shell__canvas {
-        min-height: 240px;
       }
     }
   `],
 })
-export <span class="fstat-no" title="function not covered" >class <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" >S</span>earchMapPlaceholderComponent </span>{</span>
-  readonly rooms = <span class="cstat-no" title="statement not covered" >input&lt;Room[]&gt;([]);</span>
-  readonly cityLabel = <span class="cstat-no" title="statement not covered" >input&lt;string&gt;('Flexible search area');</span>
-}
+export <span class="cstat-no" title="statement not covered" >class <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" >SupportComponent </span>{}</span></span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->

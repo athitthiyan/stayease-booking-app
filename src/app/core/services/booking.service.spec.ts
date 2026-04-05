@@ -88,6 +88,23 @@ describe('BookingService', () => {
     req.flush({ id: 99, status: 'cancelled' });
   });
 
+  it('creates a booking support request with the expected payload', () => {
+    let result: unknown;
+    service
+      .requestBookingSupport(55, 'cancellation_help', 'Need help cancelling this stay.')
+      .subscribe(response => (result = response));
+    const req = httpMock.expectOne(`${environment.apiUrl}/bookings/55/support-request`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({
+      category: 'cancellation_help',
+      message: 'Need help cancelling this stay.',
+    });
+    req.flush({ message: 'Support request submitted. Our team will contact you shortly.' });
+    expect(result).toEqual({
+      message: 'Support request submitted. Our team will contact you shortly.',
+    });
+  });
+
   it('returns active hold payload when one exists', () => {
     let result: unknown;
     service.getActiveHold().subscribe(value => (result = value));

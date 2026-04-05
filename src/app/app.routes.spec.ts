@@ -10,6 +10,11 @@ describe('routes', () => {
       'rooms/:id',
       'checkout/:id',
       'booking-confirmation',
+      'privacy-policy',
+      'terms-and-conditions',
+      'cancellation-policy',
+      'refund-policy',
+      'support',
       'auth/login',
       'auth/signup',
       'auth/forgot-password',
@@ -29,6 +34,9 @@ describe('routes', () => {
     expect(routes.find(route => route.path === 'profile')?.canActivate?.length).toBe(1);
     expect(routes.find(route => route.path === 'bookings')?.canActivate?.length).toBe(1);
     expect(routes.find(route => route.path === 'wishlist')?.canActivate?.length).toBe(1);
+    expect(routes.find(route => route.path === 'privacy-policy')?.title).toContain('Privacy Policy');
+    expect(routes.find(route => route.path === 'refund-policy')?.title).toContain('Refund Policy');
+    expect(routes.find(route => route.path === 'support')?.title).toContain('Support');
     expect(routes.find(route => route.path === '404')?.title).toContain('Page Not Found');
     expect(routes.find(route => route.path === '**')?.redirectTo).toBe('/404');
     expect(routes.find(route => route.path === '')?.title).toContain('Stayvora');
@@ -41,7 +49,7 @@ describe('routes', () => {
         .map(route => route.loadComponent!())
     );
 
-    expect(loaded).toHaveLength(13);
+    expect(loaded).toHaveLength(18);
     expect(loaded.every(component => !!component)).toBe(true);
   });
 });

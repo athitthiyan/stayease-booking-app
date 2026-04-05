@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import {
   ActiveHold,
   Booking,
+  BookingSupportCategory,
   BookingListResponse,
   CreateBookingRequest,
   MyBookingsResponse,
@@ -65,6 +66,17 @@ export class BookingService {
 
   cancelBooking(id: number): Observable<Booking> {
     return this.http.patch<Booking>(`${this.base}/${id}/cancel`, {});
+  }
+
+  requestBookingSupport(
+    bookingId: number,
+    category: BookingSupportCategory,
+    message: string,
+  ): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(
+      `${this.base}/${bookingId}/support-request`,
+      { category, message },
+    );
   }
 
   getActiveHold(): Observable<ActiveHold | null> {

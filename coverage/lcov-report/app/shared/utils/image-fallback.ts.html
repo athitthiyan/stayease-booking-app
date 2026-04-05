@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">16.66% </span>
+                <span class="strong">46.66% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>5/30</span>
+                <span class='fraction'>14/30</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">27.77% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/18</span>
+                <span class='fraction'>5/18</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>2/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">16.66% </span>
+                <span class="strong">46.66% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>5/30</span>
+                <span class='fraction'>14/30</span>
             </div>
         
             
@@ -167,25 +167,25 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
@@ -214,13 +214,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Room } from '../../core/models/room.model';
@@ -246,17 +246,17 @@ export const ROOM_IMAGE_PLACEHOLDER = `data:image/svg+xml;charset=UTF-8,${encode
   ROOM_PLACEHOLDER_SVG,
 )}`;
 &nbsp;
-export function <span class="fstat-no" title="function not covered" >normalizeRoomImageUrl(</span>url?: string | null): string | null {
-  const trimmed = <span class="cstat-no" title="statement not covered" >url?.trim();</span>
-<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (!trimmed) {</span>
+export function normalizeRoomImageUrl(url?: string | null): string | null {
+  const trimmed = url?.trim();
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!trimmed) {
 <span class="cstat-no" title="statement not covered" >    return null;</span>
   }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (trimmed.startsWith('//')) {</span>
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (trimmed.startsWith('//')) {
 <span class="cstat-no" title="statement not covered" >    return `https:${trimmed}`;</span>
   }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (</span>
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (
     trimmed.startsWith('data:image/') ||
     trimmed.startsWith('http://') ||
     trimmed.startsWith('https://') ||
@@ -265,7 +265,7 @@ export function <span class="fstat-no" title="function not covered" >normalizeRo
 <span class="cstat-no" title="statement not covered" >    return trimmed;</span>
   }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return null;</span>
+  return null;
 }
 &nbsp;
 export function <span class="fstat-no" title="function not covered" >getRoomGalleryImages(</span>room: Pick&lt;Room, 'image_url' | 'gallery_urls'&gt;): string[] {
@@ -293,14 +293,14 @@ export function <span class="fstat-no" title="function not covered" >getRoomGall
 <span class="cstat-no" title="statement not covered" >  return images.size &gt; 0 ? Array.from(images) : [ROOM_IMAGE_PLACEHOLDER];</span>
 }
 &nbsp;
-export function <span class="fstat-no" title="function not covered" >applyRoomImageFallback(</span>event: Event): void {
-  const target = <span class="cstat-no" title="statement not covered" >event.target;</span>
-<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (!(target instanceof HTMLImageElement)) {</span>
+export function applyRoomImageFallback(event: Event): void {
+  const target = event.target;
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!(target instanceof HTMLImageElement)) {
 <span class="cstat-no" title="statement not covered" >    return;</span>
   }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (target.src !== ROOM_IMAGE_PLACEHOLDER) {</span>
-<span class="cstat-no" title="statement not covered" >    target.src = ROOM_IMAGE_PLACEHOLDER;</span>
+  if (target.src !== ROOM_IMAGE_PLACEHOLDER) {
+    target.src = ROOM_IMAGE_PLACEHOLDER;
   }
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -310,7 +310,7 @@ export function <span class="fstat-no" title="function not covered" >applyRoomIm
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-05T20:55:10.434Z
+                at 2026-04-05T22:32:03.800Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

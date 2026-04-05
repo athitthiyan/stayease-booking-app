@@ -214,6 +214,9 @@ describe('CheckoutComponent', () => {
     expect(element.textContent).toContain('Free cancellation (48h)');
     expect(element.textContent).toContain('Secure payment');
     expect(element.textContent).toContain('Best price guaranteed');
+    expect(element.textContent).toContain('Cancellation policy');
+    expect(element.textContent).toContain('Refund policy');
+    expect(element.textContent).toContain('support@stayvora.co.in');
   });
 
   it('shows inline validation when required fields are missing', () => {

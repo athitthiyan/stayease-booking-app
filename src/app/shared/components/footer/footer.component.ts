@@ -12,7 +12,7 @@ import { RouterLink } from '@angular/router';
         <div class="footer__grid">
           <div class="footer__brand">
             <a routerLink="/" class="footer__logo">🏨 Stay<span>vora</span></a>
-            <p>Discover luxury stays worldwide. Premium hotel bookings with unmatched service.</p>
+            <p>Stay Better. Travel Smarter. Premium hotel bookings with real-time inventory, safer payments, and clearer policies.</p>
             <div class="footer__socials">
               <a href="#" aria-label="Twitter">𝕏</a>
               <a href="#" aria-label="Instagram">📸</a>
@@ -31,27 +31,29 @@ import { RouterLink } from '@angular/router';
           </div>
 
           <div class="footer__col">
-            <h4>Destinations</h4>
+            <h4>Policies</h4>
             <ul>
-              <li><a routerLink="/search?city=New York">New York</a></li>
-              <li><a routerLink="/search?city=Bali">Bali</a></li>
-              <li><a routerLink="/search?city=Dubai">Dubai</a></li>
-              <li><a routerLink="/search?city=Kyoto">Kyoto</a></li>
+              <li><a routerLink="/privacy-policy">Privacy Policy</a></li>
+              <li><a routerLink="/terms-and-conditions">Terms & Conditions</a></li>
+              <li><a routerLink="/refund-policy">Refund Policy</a></li>
+              <li><a routerLink="/cancellation-policy">Cancellation Policy</a></li>
             </ul>
           </div>
 
           <div class="footer__col">
-            <h4>Portfolio</h4>
+            <h4>Support</h4>
             <ul>
-              <li><a href="https://payflow-gateway.vercel.app" target="_blank">PayFlow Gateway →</a></li>
-              <li><a href="https://insightboard-admin.vercel.app" target="_blank">InsightBoard Admin →</a></li>
+              <li><a routerLink="/support">Help Center</a></li>
+              <li><a href="mailto:support@stayvora.co.in">support&#64;stayvora.co.in</a></li>
+              <li><a href="https://payflow-gateway.vercel.app" target="_blank" rel="noreferrer">PayFlow Gateway →</a></li>
+              <li><a href="https://insightboard-admin.vercel.app" target="_blank" rel="noreferrer">InsightBoard Admin →</a></li>
             </ul>
           </div>
         </div>
 
         <div class="footer__bottom">
-          <p>© 2026 Stayvora. Built by Athitthiyan — Portfolio Demo Project.</p>
-          <p>Powered by Angular 17 · FastAPI · Supabase</p>
+          <p>© 2026 Stayvora. Stay Better. Travel Smarter.</p>
+          <p>Support: support&#64;stayvora.co.in</p>
         </div>
       </div>
     </footer>
@@ -72,7 +74,7 @@ import { RouterLink } from '@angular/router';
       transform: translateX(-50%);
       width: 600px;
       height: 120px;
-      background: radial-gradient(ellipse, rgba(201,168,76,0.08), transparent 70%);
+      background: radial-gradient(ellipse, rgba(201, 168, 76, 0.08), transparent 70%);
       pointer-events: none;
     }
 
@@ -89,7 +91,7 @@ import { RouterLink } from '@angular/router';
       color: var(--color-text-muted);
       line-height: 1.8;
       margin-top: var(--space-md);
-      max-width: 260px;
+      max-width: 320px;
     }
 
     .footer__logo {

@@ -30,6 +30,8 @@ const bookingRoom = (overrides: Partial<Room> = {}): Room => ({
 describe('BookingHistoryComponent', () => {
   const bookingService = {
     getMyBookings: jest.fn(),
+    cancelBooking: jest.fn(),
+    requestBookingSupport: jest.fn(),
   };
   const authService = {
     isLoggedIn: false,
@@ -55,6 +57,8 @@ describe('BookingHistoryComponent', () => {
 
   beforeEach(async () => {
     bookingService.getMyBookings.mockReset();
+    bookingService.cancelBooking.mockReset();
+    bookingService.requestBookingSupport.mockReset();
 
     await TestBed.configureTestingModule({
       imports: [BookingHistoryComponent],
@@ -143,5 +147,89 @@ describe('BookingHistoryComponent', () => {
     component.onImageError({ target: image } as unknown as Event);
 
     expect(image.src).toBe(ROOM_IMAGE_PLACEHOLDER);
+  });
+
+  it('shows resume actions for active unpaid holds', () => {
+    const futureHold: MyBookingsResponse = {
+      total: 1,
+      upcoming: 0,
+      past: 0,
+      cancelled: 0,
+      bookings: [
+        {
+          id: 12,
+          booking_ref: 'BK12',
+          user_name: 'Alex',
+          email: 'alex@example.com',
+          room_id: 1,
+          status: 'pending',
+          payment_status: 'failed',
+          hold_expires_at: new Date(Date.now() + 5 * 60_000).toISOString(),
+          check_in: '2030-01-01T00:00:00.000Z',
+          check_out: '2030-01-02T00:00:00.000Z',
+          nights: 1,
+          guests: 2,
+          room_rate: 100,
+          taxes: 12,
+          service_fee: 5,
+          total_amount: 117,
+          created_at: '2026-04-01T00:00:00.000Z',
+          room: bookingRoom(),
+        },
+      ],
+    };
+    bookingService.getMyBookings.mockReturnValue(of(futureHold));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    fixture.componentInstance.load();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Continue Payment');
+    expect(fixture.nativeElement.textContent).toContain('Cancel Hold');
+  });
+
+  it('cancels a pending hold and reloads bookings', () => {
+    bookingService.getMyBookings.mockReturnValue(of(response));
+    bookingService.cancelBooking.mockReturnValue(of({ id: 1, status: 'cancelled' }));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+
+    component.cancelPendingBooking(response.bookings[0]);
+
+    expect(bookingService.cancelBooking).toHaveBeenCalledWith(1);
+    expect(component.actionMessage()).toContain('inventory has been released');
+  });
+
+  it('requests cancellation help for upcoming paid bookings', () => {
+    bookingService.requestBookingSupport.mockReturnValue(
+      of({ message: 'Support request submitted. Our team will contact you shortly.' }),
+    );
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+
+    component.requestCancellationHelp(response.bookings[0]);
+
+    expect(bookingService.requestBookingSupport).toHaveBeenCalledWith(
+      1,
+      'cancellation_help',
+      expect.stringContaining('BK1'),
+    );
+    expect(component.actionMessage()).toContain('Support request submitted');
+  });
+
+  it('reports action errors when cancel or support escalation fails', () => {
+    bookingService.cancelBooking.mockReturnValue(throwError(() => new Error('boom')));
+    bookingService.requestBookingSupport.mockReturnValue(throwError(() => new Error('boom')));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+
+    component.cancelPendingBooking(response.bookings[0]);
+    expect(component.actionError()).toContain('could not cancel');
+
+    component.requestCancellationHelp(response.bookings[0]);
+    expect(component.actionError()).toContain('could not send your support request');
   });
 });

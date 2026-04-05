@@ -128,6 +128,42 @@ type TabKey = 'all' | 'upcoming' | 'past' | 'cancelled';
                   <div class="ref">Ref: <strong>{{ booking.booking_ref }}</strong></div>
                   <div class="total">Total: <strong>{{ booking.total_amount | currency }}</strong></div>
                 </div>
+
+                @if (actionMessage() && busyBookingId() === booking.id) {
+                  <p class="booking-feedback booking-feedback--success">{{ actionMessage() }}</p>
+                }
+
+                @if (actionError() && busyBookingId() === booking.id) {
+                  <p class="booking-feedback booking-feedback--error">{{ actionError() }}</p>
+                }
+
+                <div class="booking-actions">
+                  @if (canResumeBooking(booking)) {
+                    <a class="btn btn--primary btn--sm" [routerLink]="['/checkout', booking.id]">
+                      Continue Payment
+                    </a>
+                    <button
+                      type="button"
+                      class="btn btn--ghost btn--sm"
+                      [disabled]="busyBookingId() === booking.id"
+                      (click)="cancelPendingBooking(booking)"
+                    >
+                      Cancel Hold
+                    </button>
+                  } @else if (canRequestCancellationHelp(booking)) {
+                    <button
+                      type="button"
+                      class="btn btn--primary btn--sm"
+                      [disabled]="busyBookingId() === booking.id"
+                      (click)="requestCancellationHelp(booking)"
+                    >
+                      Need Cancellation Help
+                    </button>
+                    <a class="btn btn--ghost btn--sm" routerLink="/cancellation-policy">
+                      View Policy
+                    </a>
+                  }
+                </div>
               </div>
             </article>
           }
@@ -296,6 +332,21 @@ type TabKey = 'all' | 'upcoming' | 'past' | 'cancelled';
       color: var(--color-text-muted);
     }
 
+    .booking-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .booking-feedback {
+      margin: 0;
+      font-size: 13px;
+    }
+
+    .booking-feedback--success { color: #4ade80; }
+    .booking-feedback--error { color: #f87171; }
+
     @media (max-width: 640px) {
       .booking-card { flex-direction: column; }
       .booking-img { width: 100%; height: 160px; }
@@ -311,6 +362,9 @@ export class BookingHistoryComponent implements OnInit {
   loading = signal(true);
   errorMsg = signal('');
   activeTab = signal<TabKey>('all');
+  actionMessage = signal('');
+  actionError = signal('');
+  busyBookingId = signal<number | null>(null);
 
   readonly tabs: { key: TabKey; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -331,9 +385,14 @@ export class BookingHistoryComponent implements OnInit {
     this.load();
   }
 
-  load(): void {
+  load(preserveActionState = false): void {
     this.loading.set(true);
     this.errorMsg.set('');
+    if (!preserveActionState) {
+      this.actionMessage.set('');
+      this.actionError.set('');
+      this.busyBookingId.set(null);
+    }
 
     this.bookingService.getMyBookings().subscribe({
       next: res => {
@@ -387,5 +446,59 @@ export class BookingHistoryComponent implements OnInit {
       month: 'short',
       year: 'numeric',
     });
+  }
+
+  canResumeBooking(booking: Booking): boolean {
+    if (booking.payment_status === 'paid' || booking.status === 'confirmed') {
+      return false;
+    }
+    if (!booking.hold_expires_at) {
+      return false;
+    }
+    return new Date(booking.hold_expires_at).getTime() > Date.now();
+  }
+
+  canRequestCancellationHelp(booking: Booking): boolean {
+    if (booking.status !== 'confirmed' || booking.payment_status !== 'paid') {
+      return false;
+    }
+    return new Date(booking.check_out).getTime() >= Date.now();
+  }
+
+  cancelPendingBooking(booking: Booking): void {
+    this.busyBookingId.set(booking.id);
+    this.actionMessage.set('');
+    this.actionError.set('');
+    this.bookingService.cancelBooking(booking.id).subscribe({
+      next: () => {
+        this.actionMessage.set('Your booking hold was cancelled and inventory has been released.');
+        this.load(true);
+      },
+      error: () => {
+        this.actionError.set('We could not cancel this hold right now. Please try again.');
+      },
+    });
+  }
+
+  requestCancellationHelp(booking: Booking): void {
+    this.busyBookingId.set(booking.id);
+    this.actionMessage.set('');
+    this.actionError.set('');
+    this.bookingService
+      .requestBookingSupport(
+        booking.id,
+        'cancellation_help',
+        `Guest requested cancellation/refund assistance for booking ${booking.booking_ref}.`,
+      )
+      .subscribe({
+        next: response => {
+          this.actionMessage.set(response.message);
+        },
+        error: () => {
+          this.actionError.set(
+            'We could not send your support request right now. Please email support@stayvora.co.in.',
+          );
+        },
+      });
   }
 }

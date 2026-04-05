@@ -242,6 +242,14 @@ import {
               <div class="trust-item">✅ Free cancellation (48h)</div>
               <div class="trust-item">🔒 Secure payment</div>
               <div class="trust-item">⭐ Best price guaranteed</div>
+              <div class="trust-item trust-item--meta">
+                <a routerLink="/cancellation-policy">Cancellation policy</a>
+                <span>•</span>
+                <a routerLink="/refund-policy">Refund policy</a>
+              </div>
+              <div class="trust-item trust-item--meta">
+                Need help? <a href="mailto:support@stayvora.co.in">support&#64;stayvora.co.in</a>
+              </div>
             </div>
           </div>
         </aside>

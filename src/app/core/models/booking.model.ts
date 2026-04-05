@@ -26,6 +26,12 @@ export type PaymentStatus =
   | 'refunded'
   | 'expired';
 
+export type BookingSupportCategory =
+  | 'payment_help'
+  | 'cancellation_help'
+  | 'refund_help'
+  | 'booking_issue';
+
 export interface CreateBookingRequest {
   user_name: string;
   email: string;

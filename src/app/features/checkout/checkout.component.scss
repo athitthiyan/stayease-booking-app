@@ -144,6 +144,18 @@
         .trust-item {
           font-size: 13px;
           color: var(--color-text-muted);
+
+          &--meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            align-items: center;
+          }
+
+          a {
+            color: var(--color-primary);
+            text-decoration: none;
+          }
         }
       }
     }
