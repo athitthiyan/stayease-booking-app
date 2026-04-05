@@ -316,12 +316,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.form.special_requests = booking.special_requests || '';
   }
 
-  ngOnInit() {
-    const state = this.bookingService.getCheckoutState();
-    if (!state) {
-      this.router.navigate(['/search']);
-      return;
-    }
+  private initializePricing(state: CheckoutState): void {
     this.checkoutState.set(state);
     const nights = Math.floor(
       (new Date(state.checkOut).getTime() - new Date(state.checkIn).getTime()) / 86400000
@@ -334,12 +329,87 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.taxes.set(tax);
     this.serviceFee.set(fee);
     this.total.set(sub + tax + fee);
+  }
+
+  private restorePendingBooking(state: CheckoutState): void {
+    const pendingRaw = sessionStorage.getItem('pending_booking');
+    if (!pendingRaw) {
+      return;
+    }
+
+    try {
+      const pending: Booking = JSON.parse(pendingRaw);
+      if (
+        pending?.id &&
+        pending.payment_status !== 'paid' &&
+        pending.status !== 'confirmed' &&
+        this.matchesCheckoutState(pending, state)
+      ) {
+        if (pending.hold_expires_at && new Date(pending.hold_expires_at).getTime() > Date.now()) {
+          this.resumableBooking.set(pending);
+          this.applyBookingToForm(pending);
+          this.startCountdown(pending.hold_expires_at);
+          this.submitError.set('Your previous payment failed. Complete checkout to retry.');
+        } else {
+          sessionStorage.removeItem('pending_booking');
+        }
+      } else if (pending?.payment_status === 'paid') {
+        sessionStorage.removeItem('pending_booking');
+      }
+    } catch {
+      sessionStorage.removeItem('pending_booking');
+    }
+  }
+
+  private hydrateCheckoutFromBooking(booking: Booking): void {
+    if (!booking.room) {
+      this.submitError.set('This booking is no longer available.');
+      this.router.navigate(['/bookings']);
+      return;
+    }
+
+    const restoredState: CheckoutState = {
+      room: booking.room,
+      checkIn: booking.check_in.slice(0, 10),
+      checkOut: booking.check_out.slice(0, 10),
+      guests: booking.guests,
+    };
+    this.bookingService.setCheckoutState(restoredState);
+    this.initializePricing(restoredState);
+    this.resumableBooking.set(booking);
+    this.applyBookingToForm(booking);
+    sessionStorage.setItem('pending_booking', JSON.stringify(booking));
+    if (booking.hold_expires_at) {
+      this.startCountdown(booking.hold_expires_at);
+    }
+  }
+
+  ngOnInit() {
+    const state = this.bookingService.getCheckoutState();
+    if (state) {
+      this.initializePricing(state);
+      this.restorePendingBooking(state);
+    } else {
+      const bookingId = Number(this.route.snapshot.paramMap.get('id'));
+      if (!Number.isFinite(bookingId) || bookingId <= 0) {
+        this.router.navigate(['/search']);
+        return;
+      }
+
+      this.bookingService.getBooking(bookingId).subscribe({
+        next: booking => this.hydrateCheckoutFromBooking(booking),
+        error: () => {
+          this.submitError.set('This booking is no longer available.');
+          this.router.navigate(['/bookings']);
+        },
+      });
+    }
 
     // Recover from payment failure redirect —
     // `pending_booking` is written by redirectToPayment() before sending the user to PayFlow.
     // When the user returns (back button / failed payment redirect) we restore the hold.
     const pendingRaw = sessionStorage.getItem('pending_booking');
-    if (pendingRaw) {
+    if (pendingRaw && state && !this.resumableBooking()) {
       try {
         const pending: Booking = JSON.parse(pendingRaw);
         if (

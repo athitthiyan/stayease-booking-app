@@ -61,6 +61,13 @@ describe('BookingService', () => {
     req.flush({});
   });
 
+  it('fetches booking by id', () => {
+    service.getBooking(42).subscribe();
+    const req = httpMock.expectOne(`${environment.apiUrl}/bookings/42`);
+    expect(req.request.method).toBe('GET');
+    req.flush({});
+  });
+
   it('creates booking with correct payload', () => {
     const payload = {
       user_name: 'Test User', email: 'test@example.com', phone: '+1234567890',
@@ -79,6 +86,38 @@ describe('BookingService', () => {
     const req = httpMock.expectOne(`${environment.apiUrl}/bookings/99/cancel`);
     expect(req.request.method).toBe('PATCH');
     req.flush({ id: 99, status: 'cancelled' });
+  });
+
+  it('returns active hold payload when one exists', () => {
+    let result: unknown;
+    service.getActiveHold().subscribe(value => (result = value));
+    const req = httpMock.expectOne(`${environment.apiUrl}/bookings/active-hold`);
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      booking_id: 12,
+      room_id: 5,
+      hotel_name: 'Azure',
+      room_name: 'suite',
+      check_in: '2026-05-01',
+      check_out: '2026-05-03',
+      guests: 2,
+      expires_at: '2026-05-01T10:00:00.000Z',
+      remaining_seconds: 600,
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        booking_id: 12,
+        hotel_name: 'Azure',
+      }),
+    );
+  });
+
+  it('returns null when active hold endpoint responds with 204', () => {
+    let result: unknown = 'unset';
+    service.getActiveHold().subscribe(value => (result = value));
+    const req = httpMock.expectOne(`${environment.apiUrl}/bookings/active-hold`);
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    expect(result).toBeNull();
   });
 
   it('fetches booking history by email using query param', () => {

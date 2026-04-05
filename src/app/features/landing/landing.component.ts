@@ -1,12 +1,9 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { RoomService } from '../../core/services/room.service';
-import { BookingService } from '../../core/services/booking.service';
-import { AuthService } from '../../core/services/auth.service';
 import { RoomCardComponent } from '../../shared/components/room-card/room-card.component';
-import { Booking } from '../../core/models/booking.model';
 import { Room } from '../../core/models/room.model';
 
 interface Destination {
@@ -38,21 +35,6 @@ interface Destination {
       </div>
 
       <div class="container hero__content">
-        @if (activeBooking()) {
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding:18px 20px;margin-bottom:24px;border:1px solid rgba(208,180,90,0.35);border-radius:20px;background:rgba(16,22,40,0.88);box-shadow:0 12px 32px rgba(0,0,0,0.18);">
-            <div>
-              <p class="section-label" style="margin-bottom:8px">Active Booking</p>
-              <h3 style="margin:0 0 6px;font-size:1.1rem">Booking {{ activeBooking()!.booking_ref }} is still on hold</h3>
-              <p style="margin:0;color:var(--color-text-muted)">
-                Complete payment or cancel this booking before starting another one.
-                Time left: {{ activeBookingMinutes() }}:{{ activeBookingSecondsPad() }}
-              </p>
-            </div>
-            <button class="btn btn--primary" type="button" (click)="resumeActiveBooking()">
-              Go To Booking
-            </button>
-          </div>
-        }
         <div class="hero__eyebrow">
           <span class="section-label">Premium Hotel Booking</span>
         </div>
@@ -264,18 +246,13 @@ interface Destination {
   `,
   styleUrl: './landing.component.scss',
 })
-export class LandingComponent implements OnInit, OnDestroy {
+export class LandingComponent implements OnInit {
   private roomService = inject(RoomService);
-  private bookingService = inject(BookingService);
-  protected authService = inject(AuthService);
   private router = inject(Router);
 
   featuredRooms = signal<Room[]>([]);
   loadingRooms = signal(true);
   roomsError = signal(false);
-  activeBooking = signal<Booking | null>(null);
-  activeBookingSecondsLeft = signal(0);
-  private countdownInterval: ReturnType<typeof setInterval> | null = null;
 
   searchCity = '';
   checkIn = '';
@@ -325,91 +302,6 @@ export class LandingComponent implements OnInit, OnDestroy {
         this.loadingRooms.set(false);
       },
     });
-
-    if (this.authService.isLoggedIn) {
-      this.loadActiveBooking();
-    }
-  }
-
-  ngOnDestroy(): void {
-    this.stopActiveBookingCountdown();
-  }
-
-  activeBookingMinutes(): string {
-    return String(Math.floor(this.activeBookingSecondsLeft() / 60)).padStart(2, '0');
-  }
-
-  activeBookingSecondsPad(): string {
-    return String(this.activeBookingSecondsLeft() % 60).padStart(2, '0');
-  }
-
-  private hasActivePendingBooking(booking: Booking): boolean {
-    return (
-      booking.status === 'pending' &&
-      booking.payment_status !== 'paid' &&
-      !!booking.hold_expires_at &&
-      new Date(booking.hold_expires_at).getTime() > Date.now()
-    );
-  }
-
-  private loadActiveBooking(): void {
-    this.bookingService.getMyBookings().subscribe({
-      next: response => {
-        const activeBooking =
-          response.bookings.find(booking => this.hasActivePendingBooking(booking)) || null;
-        this.activeBooking.set(activeBooking);
-        if (activeBooking?.hold_expires_at) {
-          this.startActiveBookingCountdown(activeBooking.hold_expires_at);
-        } else {
-          this.stopActiveBookingCountdown();
-        }
-      },
-      error: () => {
-        this.activeBooking.set(null);
-        this.stopActiveBookingCountdown();
-      },
-    });
-  }
-
-  private startActiveBookingCountdown(holdExpiresAt: string): void {
-    this.stopActiveBookingCountdown();
-    const expiry = new Date(holdExpiresAt).getTime();
-    const tick = () => {
-      const secondsLeft = Math.max(0, Math.round((expiry - Date.now()) / 1000));
-      this.activeBookingSecondsLeft.set(secondsLeft);
-      if (secondsLeft === 0) {
-        this.stopActiveBookingCountdown();
-        this.activeBooking.set(null);
-      }
-    };
-
-    tick();
-    this.countdownInterval = setInterval(tick, 1000);
-  }
-
-  private stopActiveBookingCountdown(): void {
-    if (this.countdownInterval !== null) {
-      clearInterval(this.countdownInterval);
-      this.countdownInterval = null;
-    }
-    this.activeBookingSecondsLeft.set(0);
-  }
-
-  resumeActiveBooking(): void {
-    const booking = this.activeBooking();
-    if (!booking || !booking.room) {
-      this.router.navigate(['/booking-history']);
-      return;
-    }
-
-    sessionStorage.setItem('pending_booking', JSON.stringify(booking));
-    this.bookingService.setCheckoutState({
-      room: booking.room,
-      checkIn: booking.check_in.slice(0, 10),
-      checkOut: booking.check_out.slice(0, 10),
-      guests: booking.guests,
-    });
-    this.router.navigate(['/checkout', booking.room_id]);
   }
 
   search() {

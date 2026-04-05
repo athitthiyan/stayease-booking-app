@@ -1,6 +1,6 @@
 import { of, Subject, throwError } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 
 import { CheckoutComponent } from './checkout.component';
 import { BookingService, CheckoutState } from '../../core/services/booking.service';
@@ -62,6 +62,8 @@ describe('CheckoutComponent', () => {
 
   let bookingService: {
     getCheckoutState: jest.Mock;
+    getBooking: jest.Mock;
+    setCheckoutState: jest.Mock;
     createBooking: jest.Mock;
     findResumableBooking: jest.Mock;
     extendHold: jest.Mock;
@@ -71,6 +73,8 @@ describe('CheckoutComponent', () => {
   beforeEach(async () => {
     bookingService = {
       getCheckoutState: jest.fn(),
+      getBooking: jest.fn(),
+      setCheckoutState: jest.fn(),
       createBooking: jest.fn(),
       findResumableBooking: jest.fn().mockReturnValue(of(null)),
       extendHold: jest.fn(),
@@ -81,6 +85,14 @@ describe('CheckoutComponent', () => {
       imports: [CheckoutComponent],
       providers: [
         provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              paramMap: convertToParamMap({}),
+            },
+          },
+        },
         { provide: BookingService, useValue: bookingService },
       ],
     }).compileComponents();
@@ -103,6 +115,37 @@ describe('CheckoutComponent', () => {
     component.ngOnInit();
 
     expect(navigateSpy).toHaveBeenCalledWith(['/search']);
+  });
+
+  it('hydrates checkout details from an existing booking', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    (
+      component as unknown as { hydrateCheckoutFromBooking: (booking: Booking) => void }
+    ).hydrateCheckoutFromBooking(makeBooking({ room: checkoutState.room! }));
+
+    expect(component.checkoutState()?.room?.id).toBe(5);
+    expect(component.resumableBooking()?.booking_ref).toBe('BK123');
+  });
+
+  it('navigates to bookings when an existing booking no longer has room details', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    const router = TestBed.inject(Router);
+    const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    (
+      component as unknown as { hydrateCheckoutFromBooking: (booking: Booking) => void }
+    ).hydrateCheckoutFromBooking(makeBooking({ room: undefined }));
+
+    expect(component.submitError()).toBe('This booking is no longer available.');
+    expect(navigateSpy).toHaveBeenCalledWith(['/bookings']);
   });
 
   it('calculates totals from checkout state', () => {

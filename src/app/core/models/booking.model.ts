@@ -61,6 +61,18 @@ export interface Booking {
   created_at: string;
 }
 
+export interface ActiveHold {
+  booking_id: number;
+  room_id: number;
+  hotel_name: string;
+  room_name: string;
+  check_in: string;
+  check_out: string;
+  guests: number;
+  expires_at: string;
+  remaining_seconds: number;
+}
+
 export interface UnavailableDatesResponse {
   /** Confirmed/permanently blocked dates — will not free up. */
   unavailable_dates: string[];

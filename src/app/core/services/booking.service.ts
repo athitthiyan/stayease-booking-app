@@ -1,9 +1,10 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, BehaviorSubject, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { Observable, BehaviorSubject, of, throwError } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
+  ActiveHold,
   Booking,
   BookingListResponse,
   CreateBookingRequest,
@@ -52,6 +53,10 @@ export class BookingService {
     return this.http.get<Booking>(`${this.base}/ref/${ref}`);
   }
 
+  getBooking(id: number): Observable<Booking> {
+    return this.http.get<Booking>(`${this.base}/${id}`);
+  }
+
   getBookingHistory(email: string): Observable<BookingListResponse> {
     return this.http.get<BookingListResponse>(`${this.base}/history`, {
       params: new HttpParams().set('email', email),
@@ -60,6 +65,15 @@ export class BookingService {
 
   cancelBooking(id: number): Observable<Booking> {
     return this.http.patch<Booking>(`${this.base}/${id}/cancel`, {});
+  }
+
+  getActiveHold(): Observable<ActiveHold | null> {
+    return this.http
+      .get<ActiveHold>(`${this.base}/active-hold`, { observe: 'response' })
+      .pipe(
+        map(response => response.body ?? null),
+        catchError(error => (error.status === 204 ? of(null) : throwError(() => error))),
+      );
   }
 
   getMyBookings(): Observable<MyBookingsResponse> {
