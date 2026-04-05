@@ -67,9 +67,10 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
   styles: [`
     .active-booking-bar {
       position: fixed;
-      left: 16px;
-      right: 16px;
-      bottom: 20px;
+      top: 96px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(1120px, calc(100% - 32px));
       z-index: calc(var(--z-nav) + 5);
       border: 1px solid rgba(208, 180, 90, 0.35);
       border-radius: 24px;
@@ -122,7 +123,7 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
     .active-booking-toast {
       position: fixed;
       left: 50%;
-      bottom: 128px;
+      top: 188px;
       transform: translateX(-50%);
       z-index: calc(var(--z-nav) + 6);
       padding: 12px 18px;
@@ -135,9 +136,8 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
 
     @media (max-width: 768px) {
       .active-booking-bar {
-        left: 12px;
-        right: 12px;
-        bottom: 12px;
+        top: 84px;
+        width: calc(100% - 24px);
       }
 
       .active-booking-bar__content {
@@ -156,7 +156,7 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
       .active-booking-toast {
         left: 12px;
         right: 12px;
-        bottom: 144px;
+        top: 180px;
         transform: none;
         text-align: center;
         border-radius: 18px;

@@ -58,11 +58,15 @@ export class ActiveBookingService {
 
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', this.handleStorageSync);
+      window.addEventListener('focus', this.handleWindowFocus);
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
     }
 
     this.destroyRef.onDestroy(() => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('storage', this.handleStorageSync);
+        window.removeEventListener('focus', this.handleWindowFocus);
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
       }
       this.stopCountdown();
       this.stopPolling();
@@ -292,6 +296,18 @@ export class ActiveBookingService {
       } else {
         this.clearState();
       }
+    }
+  };
+
+  private readonly handleWindowFocus = (): void => {
+    if (this.authService.isLoggedIn) {
+      this.refreshActiveHold(true);
+    }
+  };
+
+  private readonly handleVisibilityChange = (): void => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible' && this.authService.isLoggedIn) {
+      this.refreshActiveHold(true);
     }
   };
 }
