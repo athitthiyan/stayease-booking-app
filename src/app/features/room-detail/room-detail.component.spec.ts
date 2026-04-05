@@ -9,6 +9,7 @@ import { RoomService } from '../../core/services/room.service';
 import { BookingService } from '../../core/services/booking.service';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { AuthService } from '../../core/services/auth.service';
+import { Booking } from '../../core/models/booking.model';
 import { Room } from '../../core/models/room.model';
 import { ROOM_IMAGE_PLACEHOLDER } from '../../shared/utils/image-fallback';
 
@@ -31,11 +32,35 @@ const mockRoom = (overrides: Partial<Room> = {}): Room => ({
   ...overrides,
 });
 
+const mockBooking = (overrides: Partial<Booking> = {}): Booking => ({
+  id: 18,
+  booking_ref: 'BKACTIVE',
+  user_name: 'Athit',
+  email: 'athit@example.com',
+  phone: '1234567890',
+  room_id: 5,
+  room: mockRoom(),
+  check_in: '2026-04-10T00:00:00.000Z',
+  check_out: '2026-04-12T00:00:00.000Z',
+  hold_expires_at: new Date(Date.now() + 300_000).toISOString(),
+  guests: 2,
+  nights: 2,
+  room_rate: 400,
+  taxes: 48,
+  service_fee: 20,
+  total_amount: 468,
+  status: 'pending',
+  payment_status: 'pending',
+  created_at: '2026-04-01T00:00:00.000Z',
+  ...overrides,
+});
+
 describe('RoomDetailComponent', () => {
   let roomService: { getRoom: jest.Mock };
   let bookingService: {
     setCheckoutState: jest.Mock;
     getUnavailableDates: jest.Mock;
+    getMyBookings: jest.Mock;
   };
   let mockWishlist: Partial<WishlistService>;
   let mockAuth: Partial<AuthService>;
@@ -46,6 +71,9 @@ describe('RoomDetailComponent', () => {
       setCheckoutState: jest.fn(),
       getUnavailableDates: jest.fn().mockReturnValue(
         of({ unavailable_dates: [], held_dates: [] }),
+      ),
+      getMyBookings: jest.fn().mockReturnValue(
+        of({ bookings: [], total: 0, upcoming: 0, past: 0, cancelled: 0 }),
       ),
     };
     mockWishlist = {
@@ -76,6 +104,7 @@ describe('RoomDetailComponent', () => {
   });
 
   afterEach(() => {
+    sessionStorage.clear();
     jest.restoreAllMocks();
   });
 
@@ -164,6 +193,67 @@ describe('RoomDetailComponent', () => {
     component.checkOut = '';
     component.bookNow();
     expect(component.formError()).toBe('Please select valid check-in and check-out dates.');
+  });
+
+  it('blocks logged-in users with an active booking hold and exposes a resume CTA', () => {
+    Object.defineProperty(mockAuth, 'isLoggedIn', { value: true, configurable: true });
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+    bookingService.getMyBookings.mockReturnValue(
+      of({ bookings: [mockBooking()], total: 1, upcoming: 0, past: 0, cancelled: 0 }),
+    );
+    const router = TestBed.inject(Router);
+    const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.checkIn = '2026-04-10';
+    component.checkOut = '2026-04-12';
+    component.onDateChange();
+    component.bookNow();
+
+    expect(bookingService.getMyBookings).toHaveBeenCalled();
+    expect(bookingService.setCheckoutState).not.toHaveBeenCalled();
+    expect(component.blockingActiveBooking()?.booking_ref).toBe('BKACTIVE');
+    expect(component.formError()).toContain('active reservation hold');
+    expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  it('redirects the user back to their previous booking from the CTA', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+    const router = TestBed.inject(Router);
+    const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.blockingActiveBooking.set(mockBooking());
+
+    component.resumePreviousBooking();
+
+    expect(bookingService.setCheckoutState).toHaveBeenCalledWith({
+      room: expect.objectContaining({ id: 5 }),
+      checkIn: '2026-04-10',
+      checkOut: '2026-04-12',
+      guests: 2,
+    });
+    expect(sessionStorage.getItem('pending_booking')).toContain('"booking_ref":"BKACTIVE"');
+    expect(navigateSpy).toHaveBeenCalledWith(['/checkout', 5]);
+  });
+
+  it('falls back to booking history when the previous booking has no room payload', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+    const router = TestBed.inject(Router);
+    const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.blockingActiveBooking.set(mockBooking({ room: undefined }));
+
+    component.resumePreviousBooking();
+
+    expect(navigateSpy).toHaveBeenCalledWith(['/booking-history']);
   });
 
   it('clears the inline form error after the user updates dates', () => {

@@ -6,6 +6,7 @@ import { RoomService } from '../../core/services/room.service';
 import { BookingService } from '../../core/services/booking.service';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { AuthService } from '../../core/services/auth.service';
+import { Booking } from '../../core/models/booking.model';
 import { Room } from '../../core/models/room.model';
 import { ReviewsSectionComponent } from '../../shared/components/reviews-section/reviews-section.component';
 import {
@@ -203,6 +204,22 @@ type ISODateString = string;
                   <span>{{ formError() }}</span>
                 </div>
               }
+              @if (blockingActiveBooking()) {
+                <div class="date-conflict-alert">
+                  <span>ðŸ”„</span>
+                  <span>
+                    Booking {{ blockingActiveBooking()!.booking_ref }} is still active. Complete payment or cancel that booking before starting a new one.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  style="width:100%;margin-top:12px"
+                  (click)="resumePreviousBooking()"
+                >
+                  Return to Previous Booking
+                </button>
+              }
               <div class="form-group" style="margin-top:12px">
                 <label for="room-detail-guests">Guests</label>
                 <select id="room-detail-guests" [(ngModel)]="guests" class="form-control">
@@ -237,7 +254,7 @@ type ISODateString = string;
               }
 
               <button class="btn btn--primary" style="width:100%;margin-top:20px;padding:16px"
-                (click)="bookNow()" [disabled]="!!dateConflict() || availabilityStatus() !== 'ready'">
+                (click)="bookNow()" [disabled]="!!dateConflict() || availabilityStatus() !== 'ready' || checkingExistingBooking()">
                 {{ nights() > 0 ? 'Book Now — $' + (totalAmount() | number:'1.0-0') : 'Select Dates to Book' }}
               </button>
 
@@ -287,6 +304,8 @@ export class RoomDetailComponent implements OnInit {
   /** Non-empty string = user's date range overlaps a taken date. */
   dateConflict = signal('');
   formError = signal('');
+  blockingActiveBooking = signal<Booking | null>(null);
+  checkingExistingBooking = signal(false);
 
   get guestOptions() {
     return Array.from({ length: this.room()?.max_guests || 4 }, (_, i) => i + 1);
@@ -332,6 +351,42 @@ export class RoomDetailComponent implements OnInit {
 
   onImageError(event: Event): void {
     applyRoomImageFallback(event);
+  }
+
+  private hasActivePendingBooking(booking: Booking): boolean {
+    return (
+      booking.status === 'pending' &&
+      booking.payment_status !== 'paid' &&
+      !!booking.hold_expires_at &&
+      new Date(booking.hold_expires_at).getTime() > Date.now()
+    );
+  }
+
+  resumePreviousBooking(): void {
+    const booking = this.blockingActiveBooking();
+    if (!booking || !booking.room) {
+      this.router.navigate(['/booking-history']);
+      return;
+    }
+
+    sessionStorage.setItem('pending_booking', JSON.stringify(booking));
+    this.bookingService.setCheckoutState({
+      room: booking.room,
+      checkIn: booking.check_in.slice(0, 10),
+      checkOut: booking.check_out.slice(0, 10),
+      guests: booking.guests,
+    });
+    this.router.navigate(['/checkout', booking.room_id]);
+  }
+
+  private beginCheckout(): void {
+    this.bookingService.setCheckoutState({
+      room: this.room()!,
+      checkIn: this.checkIn,
+      checkOut: this.checkOut,
+      guests: this.guests,
+    });
+    this.router.navigate(['/checkout', this.room()!.id]);
   }
 
   private loadUnavailableDates(roomId: number): void {
@@ -389,6 +444,7 @@ export class RoomDetailComponent implements OnInit {
 
   onDateChange() {
     this.formError.set('');
+    this.blockingActiveBooking.set(null);
     if (this.checkIn && this.checkOut) {
       const nights = Math.max(0, (new Date(this.checkOut).getTime() - new Date(this.checkIn).getTime()) / 86400000);
       this.nights.set(Math.floor(nights));
@@ -411,13 +467,30 @@ export class RoomDetailComponent implements OnInit {
       return; // Button should already be disabled; guard for keyboard/a11y activation
     }
     this.formError.set('');
-    this.bookingService.setCheckoutState({
-      room: this.room()!,
-      checkIn: this.checkIn,
-      checkOut: this.checkOut,
-      guests: this.guests,
-    });
-    this.router.navigate(['/checkout', this.room()!.id]);
+    this.blockingActiveBooking.set(null);
+    if (this.authService.isLoggedIn) {
+      this.checkingExistingBooking.set(true);
+      this.bookingService.getMyBookings().subscribe({
+        next: response => {
+          this.checkingExistingBooking.set(false);
+          const activeBooking = response.bookings.find(booking => this.hasActivePendingBooking(booking));
+          if (activeBooking) {
+            this.blockingActiveBooking.set(activeBooking);
+            this.formError.set(
+              'You already have an active reservation hold. Complete or cancel it before starting a new booking.',
+            );
+            return;
+          }
+          this.beginCheckout();
+        },
+        error: () => {
+          this.checkingExistingBooking.set(false);
+          this.formError.set('We couldn’t verify your active reservations right now. Please try again.');
+        },
+      });
+      return;
+    }
+    this.beginCheckout();
   }
 
   toggleWishlist(): void {
