@@ -9,7 +9,7 @@ import { RouterLink } from '@angular/router';
   template: `
     <section class="not-found">
       <div class="not-found__card">
-        <p class="not-found__eyebrow">StayEase</p>
+        <p class="not-found__eyebrow">Stayvora</p>
         <h1>Page not found</h1>
         <p class="not-found__copy">
           That link may be expired or incorrect. You can head back to search and continue your booking safely.

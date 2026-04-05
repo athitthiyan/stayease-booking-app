@@ -1,19 +1,19 @@
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 :root {
   // Brand Colors
-  --color-primary:        #c9a84c;   // Gold
-  --color-primary-light:  #e8c96e;
-  --color-primary-dark:   #9c7b30;
-  --color-secondary:      #1a2744;   // Navy
-  --color-accent:         #4f8ef7;   // Blue
+  --color-primary:        #d6b86b;
+  --color-primary-light:  #f0d58f;
+  --color-primary-dark:   #a7843c;
+  --color-secondary:      #133649;
+  --color-accent:         #63c7d4;
 
   // Dark Theme Base
-  --color-bg:             #080d1a;
-  --color-bg-2:           #0d1525;
-  --color-bg-3:           #131d35;
-  --color-bg-card:        #111827;
-  --color-surface:        #1a2337;
-  --color-surface-hover:  #1f2c45;
+  --color-bg:             #071119;
+  --color-bg-2:           #0b1622;
+  --color-bg-3:           #122538;
+  --color-bg-card:        #111d2d;
+  --color-surface:        #162435;
+  --color-surface-hover:  #1b2d44;
   --color-border:         rgba(255,255,255,0.07);
   --color-border-light:   rgba(255,255,255,0.12);
 
@@ -29,19 +29,19 @@
   --color-info:           #3b82f6;
 
   // Gradients
-  --gradient-gold:        linear-gradient(135deg, #c9a84c 0%, #e8c96e 50%, #c9a84c 100%);
-  --gradient-dark:        linear-gradient(180deg, #080d1a 0%, #0d1525 100%);
-  --gradient-hero:        linear-gradient(135deg, #080d1a 0%, #0d1525 40%, #1a2744 100%);
-  --gradient-card:        linear-gradient(145deg, #111827 0%, #1a2337 100%);
-  --gradient-glow:        radial-gradient(ellipse at top, rgba(201,168,76,0.15) 0%, transparent 70%);
+  --gradient-gold:        linear-gradient(135deg, #d6b86b 0%, #f0d58f 48%, #c89f4f 100%);
+  --gradient-dark:        linear-gradient(180deg, #071119 0%, #0b1622 100%);
+  --gradient-hero:        linear-gradient(135deg, #071119 0%, #0f1f2d 42%, #133649 100%);
+  --gradient-card:        linear-gradient(145deg, #111d2d 0%, #162435 100%);
+  --gradient-glow:        radial-gradient(ellipse at top, rgba(99,199,212,0.18) 0%, transparent 65%);
 
   // Shadows
   --shadow-sm:            0 1px 3px rgba(0,0,0,0.5);
   --shadow-md:            0 4px 20px rgba(0,0,0,0.4);
   --shadow-lg:            0 8px 40px rgba(0,0,0,0.5);
   --shadow-xl:            0 20px 60px rgba(0,0,0,0.6);
-  --shadow-gold:          0 0 30px rgba(201,168,76,0.3);
-  --shadow-glow:          0 0 60px rgba(201,168,76,0.15);
+  --shadow-gold:          0 0 30px rgba(214,184,107,0.34);
+  --shadow-glow:          0 0 60px rgba(99,199,212,0.14);
 
   // Spacing
   --space-xs:   4px;
@@ -97,7 +97,10 @@ body {
   font-size: 16px;
   line-height: 1.6;
   color: var(--color-text);
-  background: var(--color-bg);
+  background:
+    radial-gradient(circle at top left, rgba(99, 199, 212, 0.08), transparent 28%),
+    radial-gradient(circle at 80% 10%, rgba(214, 184, 107, 0.08), transparent 22%),
+    var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;

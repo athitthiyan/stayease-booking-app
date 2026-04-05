@@ -11,7 +11,7 @@ import { RouterLink } from '@angular/router';
       <div class="container">
         <div class="footer__grid">
           <div class="footer__brand">
-            <a routerLink="/" class="footer__logo">🏨 Stay<span>Ease</span></a>
+            <a routerLink="/" class="footer__logo">🏨 Stay<span>vora</span></a>
             <p>Discover luxury stays worldwide. Premium hotel bookings with unmatched service.</p>
             <div class="footer__socials">
               <a href="#" aria-label="Twitter">𝕏</a>
@@ -50,7 +50,7 @@ import { RouterLink } from '@angular/router';
         </div>
 
         <div class="footer__bottom">
-          <p>© 2026 StayEase. Built by Athitthiyan — Portfolio Demo Project.</p>
+          <p>© 2026 Stayvora. Built by Athitthiyan — Portfolio Demo Project.</p>
           <p>Powered by Angular 17 · FastAPI · Supabase</p>
         </div>
       </div>

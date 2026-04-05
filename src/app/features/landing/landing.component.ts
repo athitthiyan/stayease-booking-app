@@ -36,7 +36,7 @@ interface Destination {
 
       <div class="container hero__content">
         <div class="hero__eyebrow">
-          <span class="section-label">Premium Hotel Booking</span>
+          <span class="section-label">Stay Better. Travel Smarter.</span>
         </div>
 
         <h1 class="hero__title">
@@ -45,8 +45,8 @@ interface Destination {
         </h1>
 
         <p class="hero__subtitle">
-          Discover handpicked hotels and exclusive suites worldwide.<br />
-          Book instantly, stay unforgettably.
+          Stayvora helps you discover handpicked hotels and book with smarter timing,<br />
+          clearer value, and a smoother trip from search to stay.
         </p>
 
         <!-- Search Box -->
@@ -185,7 +185,7 @@ interface Destination {
       <div class="container">
         <div class="why-us">
           <div class="why-us__text">
-            <p class="section-label">Why StayEase</p>
+            <p class="section-label">Why Stayvora</p>
             <h2 class="section-title">The Premium<br /><span>Booking Experience</span></h2>
             <p class="section-subtitle">
               We curate only the finest properties so every stay exceeds expectations.
@@ -286,7 +286,7 @@ export class LandingComponent implements OnInit {
   testimonials = [
     { name: 'Sarah M.',  stay: 'Grand Azure Penthouse', text: 'Absolutely breathtaking views. The butler service was impeccable and the room was pure luxury.' },
     { name: 'James K.',  stay: 'Serenity Beach Resort',  text: 'Woke up to the sound of waves every morning. The infinity pool is even better in person.' },
-    { name: 'Priya R.',  stay: 'Kyoto Garden Inn',       text: 'The most authentic Japanese experience I\'ve ever had. StayEase made it effortless to book.' },
+    { name: 'Priya R.',  stay: 'Kyoto Garden Inn',       text: 'The most authentic Japanese experience I\'ve ever had. Stayvora made it effortless to book.' },
   ];
 
   ngOnInit() {

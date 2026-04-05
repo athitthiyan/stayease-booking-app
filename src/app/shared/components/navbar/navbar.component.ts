@@ -15,7 +15,7 @@ import { WishlistService } from '../../../core/services/wishlist.service';
         <!-- Logo -->
         <a routerLink="/" class="navbar__logo">
           <span class="navbar__logo-icon">🏨</span>
-          <span class="navbar__logo-text">Stay<span>Ease</span></span>
+          <span class="navbar__logo-text">Stay<span>vora</span></span>
         </a>
 
         <!-- Desktop Nav -->

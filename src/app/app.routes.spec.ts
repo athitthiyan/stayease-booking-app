@@ -31,7 +31,7 @@ describe('routes', () => {
     expect(routes.find(route => route.path === 'wishlist')?.canActivate?.length).toBe(1);
     expect(routes.find(route => route.path === '404')?.title).toContain('Page Not Found');
     expect(routes.find(route => route.path === '**')?.redirectTo).toBe('/404');
-    expect(routes.find(route => route.path === '')?.title).toContain('StayEase');
+    expect(routes.find(route => route.path === '')?.title).toContain('Stayvora');
   });
 
   it('lazy-loads every route component', async () => {
