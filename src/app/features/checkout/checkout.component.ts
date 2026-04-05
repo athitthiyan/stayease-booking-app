@@ -297,6 +297,25 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     applyRoomImageFallback(event);
   }
 
+  private normalizeDateInput(value: string): string {
+    return value.slice(0, 10);
+  }
+
+  private matchesCheckoutState(booking: Booking, state: CheckoutState): boolean {
+    return (
+      booking.room_id === state.room?.id &&
+      this.normalizeDateInput(booking.check_in) === this.normalizeDateInput(state.checkIn) &&
+      this.normalizeDateInput(booking.check_out) === this.normalizeDateInput(state.checkOut)
+    );
+  }
+
+  private applyBookingToForm(booking: Booking): void {
+    this.form.user_name = booking.user_name || this.form.user_name;
+    this.form.email = booking.email || this.form.email;
+    this.form.phone = booking.phone || '';
+    this.form.special_requests = booking.special_requests || '';
+  }
+
   ngOnInit() {
     const state = this.bookingService.getCheckoutState();
     if (!state) {
@@ -323,9 +342,15 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     if (pendingRaw) {
       try {
         const pending: Booking = JSON.parse(pendingRaw);
-        if (pending?.id && pending.payment_status !== 'paid' && pending.status !== 'confirmed') {
+        if (
+          pending?.id &&
+          pending.payment_status !== 'paid' &&
+          pending.status !== 'confirmed' &&
+          this.matchesCheckoutState(pending, state)
+        ) {
           if (pending.hold_expires_at && new Date(pending.hold_expires_at).getTime() > Date.now()) {
             this.resumableBooking.set(pending);
+            this.applyBookingToForm(pending);
             this.startCountdown(pending.hold_expires_at);
             this.submitError.set('Your previous payment failed. Complete checkout to retry.');
           } else {

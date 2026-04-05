@@ -465,6 +465,9 @@ describe('CheckoutComponent', () => {
     // Should have restored resumable booking
     expect(component.resumableBooking()?.id).toBe(42);
     expect(component.resumableBooking()?.booking_ref).toBe('BKPENDING');
+    expect(component.form.user_name).toBe('Athit');
+    expect(component.form.email).toBe('athit@example.com');
+    expect(component.form.phone).toBe('1234567890');
 
     // Hold countdown should be running
     expect(component.holdSecondsLeft()).toBeGreaterThan(0);
@@ -473,6 +476,36 @@ describe('CheckoutComponent', () => {
     expect(component.submitError()).toContain('previous payment failed');
 
     component.ngOnDestroy();
+  });
+
+  it('does not restore an unrelated pending booking into a new checkout flow', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    sessionStorage.setItem(
+      'pending_booking',
+      JSON.stringify(
+        makeBooking({
+          id: 43,
+          room_id: 99,
+          booking_ref: 'BKOTHER',
+          user_name: 'Previous Guest',
+          email: 'previous@example.com',
+          phone: '9999999999',
+          hold_expires_at: new Date(Date.now() + 300_000).toISOString(),
+        }),
+      ),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.resumableBooking()).toBeNull();
+    expect(component.form.user_name).toBe('');
+    expect(component.form.email).toBe('');
+    expect(component.form.phone).toBe('');
+    expect(component.submitError()).toBe('');
+    expect(sessionStorage.getItem('pending_booking')).toContain('"booking_ref":"BKOTHER"');
   });
 
   it('ignores expired pending_booking in sessionStorage and removes it', () => {
