@@ -169,6 +169,12 @@ type ISODateString = string;
                   <span>{{ dateConflict() }}</span>
                 </div>
               }
+              @if (formError()) {
+                <div class="date-conflict-alert">
+                  <span>⚠️</span>
+                  <span>{{ formError() }}</span>
+                </div>
+              }
               <div class="form-group" style="margin-top:12px">
                 <label>Guests</label>
                 <select [(ngModel)]="guests" class="form-control">
@@ -250,6 +256,7 @@ export class RoomDetailComponent implements OnInit {
   heldDates = signal<ISODateString[]>([]);
   /** Non-empty string = user's date range overlaps a taken date. */
   dateConflict = signal('');
+  formError = signal('');
 
   get guestOptions() {
     return Array.from({ length: this.room()?.max_guests || 4 }, (_, i) => i + 1);
@@ -350,6 +357,7 @@ export class RoomDetailComponent implements OnInit {
   }
 
   onDateChange() {
+    this.formError.set('');
     if (this.checkIn && this.checkOut) {
       const nights = Math.max(0, (new Date(this.checkOut).getTime() - new Date(this.checkIn).getTime()) / 86400000);
       this.nights.set(Math.floor(nights));
@@ -361,12 +369,13 @@ export class RoomDetailComponent implements OnInit {
 
   bookNow() {
     if (!this.checkIn || !this.checkOut || this.nights() < 1) {
-      alert('Please select check-in and check-out dates');
+      this.formError.set('Please select valid check-in and check-out dates.');
       return;
     }
     if (this.dateConflict()) {
       return; // Button should already be disabled; guard for keyboard/a11y activation
     }
+    this.formError.set('');
     this.bookingService.setCheckoutState({
       room: this.room()!,
       checkIn: this.checkIn,

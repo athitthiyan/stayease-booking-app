@@ -85,5 +85,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
 
-  { path: '**', redirectTo: '' },
+  {
+    path: '404',
+    loadComponent: () =>
+      import('./features/not-found/not-found.component').then(m => m.NotFoundComponent),
+    title: 'Page Not Found â€” StayEase',
+  },
+  { path: '**', redirectTo: '/404' },
 ];

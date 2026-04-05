@@ -17,6 +17,7 @@ describe('routes', () => {
       'profile',
       'bookings',
       'wishlist',
+      '404',
       '**',
     ]);
   });
@@ -28,7 +29,8 @@ describe('routes', () => {
     expect(routes.find(route => route.path === 'profile')?.canActivate?.length).toBe(1);
     expect(routes.find(route => route.path === 'bookings')?.canActivate?.length).toBe(1);
     expect(routes.find(route => route.path === 'wishlist')?.canActivate?.length).toBe(1);
-    expect(routes.find(route => route.path === '**')?.redirectTo).toBe('');
+    expect(routes.find(route => route.path === '404')?.title).toContain('Page Not Found');
+    expect(routes.find(route => route.path === '**')?.redirectTo).toBe('/404');
     expect(routes.find(route => route.path === '')?.title).toContain('StayEase');
   });
 
@@ -39,7 +41,7 @@ describe('routes', () => {
         .map(route => route.loadComponent!())
     );
 
-    expect(loaded).toHaveLength(12);
+    expect(loaded).toHaveLength(13);
     expect(loaded.every(component => !!component)).toBe(true);
   });
 });

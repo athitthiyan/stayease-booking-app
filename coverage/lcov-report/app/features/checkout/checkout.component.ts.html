@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">7.62% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/118</span>
+                <span class='fraction'>9/118</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">6.08% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/115</span>
+                <span class='fraction'>7/115</span>
             </div>
         
             
@@ -499,13 +499,13 @@
 <a name='L434'></a><a href='#L434'>434</a>
 <a name='L435'></a><a href='#L435'>435</a>
 <a name='L436'></a><a href='#L436'>436</a>
-<a name='L437'></a><a href='#L437'>437</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<a name='L437'></a><a href='#L437'>437</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -697,7 +697,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -935,13 +935,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';</span>
-<span class="cstat-no" title="statement not covered" >import { CommonModule } from '@angular/common';</span>
-<span class="cstat-no" title="statement not covered" >import { ActivatedRoute, Router, RouterLink } from '@angular/router';</span>
-<span class="cstat-no" title="statement not covered" >import { FormsModule } from '@angular/forms';</span>
-<span class="cstat-no" title="statement not covered" >import { BookingService, CheckoutState } from '../../core/services/booking.service';</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { BookingService, CheckoutState } from '../../core/services/booking.service';
 import { Booking } from '../../core/models/booking.model';
-<span class="cstat-no" title="statement not covered" >import { environment } from '../../../environments/environment';</span>
+import { environment } from '../../../environments/environment';
 &nbsp;
 @Component({
   selector: 'app-checkout',
@@ -1133,7 +1133,7 @@ import { Booking } from '../../core/models/booking.model';
   `,
   styleUrl: './checkout.component.scss',
 })
-export <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >class <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" >C</span>heckoutComponent </span>implements OnInit, OnDestroy {</span></span>
+export <span class="fstat-no" title="function not covered" >class C</span>heckoutComponent implements OnInit, OnDestroy {
   private <span class="cstat-no" title="statement not covered" >route = inject(ActivatedRoute);</span>
   private <span class="cstat-no" title="statement not covered" >router = inject(Router);</span>
   private <span class="cstat-no" title="statement not covered" >bookingService = inject(BookingService);</span>
@@ -1378,7 +1378,7 @@ export <span class="cstat-no" title="statement not covered" ><span class="fstat-
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-04T20:54:04.655Z
+                at 2026-04-05T10:47:59.059Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

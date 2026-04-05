@@ -136,7 +136,6 @@ describe('RoomDetailComponent', () => {
     );
     const router = TestBed.inject(Router);
     const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
-    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
 
     const fixture = TestBed.createComponent(RoomDetailComponent);
     const component = fixture.componentInstance;
@@ -155,7 +154,24 @@ describe('RoomDetailComponent', () => {
     component.checkIn = '';
     component.checkOut = '';
     component.bookNow();
-    expect(alertSpy).toHaveBeenCalled();
+    expect(component.formError()).toBe('Please select valid check-in and check-out dates.');
+  });
+
+  it('clears the inline form error after the user updates dates', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.bookNow();
+    expect(component.formError()).toBeTruthy();
+
+    component.checkIn = '2026-04-10';
+    component.checkOut = '2026-04-12';
+    component.onDateChange();
+
+    expect(component.formError()).toBe('');
   });
 
   it('returns an empty amenities list when room amenities JSON is invalid', () => {
