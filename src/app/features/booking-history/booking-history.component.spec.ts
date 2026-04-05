@@ -6,6 +6,25 @@ import { BookingHistoryComponent } from './booking-history.component';
 import { BookingService } from '../../core/services/booking.service';
 import { AuthService } from '../../core/services/auth.service';
 import { WishlistService } from '../../core/services/wishlist.service';
+import { MyBookingsResponse } from '../../core/models/booking.model';
+import { Room } from '../../core/models/room.model';
+
+const bookingRoom = (overrides: Partial<Room> = {}): Room => ({
+  id: 1,
+  hotel_name: 'Azure Stay',
+  room_type: 'suite',
+  price: 200,
+  availability: true,
+  rating: 4.5,
+  review_count: 10,
+  location: 'NYC',
+  beds: 1,
+  bathrooms: 1,
+  max_guests: 2,
+  is_featured: false,
+  created_at: '2026-04-01T00:00:00.000Z',
+  ...overrides,
+});
 
 describe('BookingHistoryComponent', () => {
   const bookingService = {
@@ -20,18 +39,18 @@ describe('BookingHistoryComponent', () => {
     isSaved: jest.fn(() => false),
   };
 
-  const response = {
+  const response: MyBookingsResponse = {
     total: 4,
     upcoming: 1,
     past: 2,
     cancelled: 1,
     bookings: [
-      { id: 1, booking_ref: 'BK1', status: 'confirmed', payment_status: 'paid', check_in: '2030-01-01', check_out: '2030-01-03', nights: 2, guests: 2, total_amount: 200, room: {} },
-      { id: 2, booking_ref: 'BK2', status: 'completed', payment_status: 'paid', check_in: '2020-01-01', check_out: '2020-01-03', nights: 2, guests: 2, total_amount: 200, room: {} },
-      { id: 3, booking_ref: 'BK3', status: 'confirmed', payment_status: 'paid', check_in: '2020-01-01', check_out: '2020-01-02', nights: 1, guests: 1, total_amount: 100, room: {} },
-      { id: 4, booking_ref: 'BK4', status: 'cancelled', payment_status: 'failed', check_in: '2020-02-01', check_out: '2020-02-02', nights: 1, guests: 1, total_amount: 100, room: {} },
+      { id: 1, booking_ref: 'BK1', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'confirmed', payment_status: 'paid', check_in: '2030-01-01', check_out: '2030-01-03', nights: 2, guests: 2, room_rate: 200, taxes: 24, service_fee: 10, total_amount: 200, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
+      { id: 2, booking_ref: 'BK2', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'completed', payment_status: 'paid', check_in: '2020-01-01', check_out: '2020-01-03', nights: 2, guests: 2, room_rate: 200, taxes: 24, service_fee: 10, total_amount: 200, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
+      { id: 3, booking_ref: 'BK3', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'confirmed', payment_status: 'paid', check_in: '2020-01-01', check_out: '2020-01-02', nights: 1, guests: 1, room_rate: 100, taxes: 12, service_fee: 5, total_amount: 100, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
+      { id: 4, booking_ref: 'BK4', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'cancelled', payment_status: 'failed', check_in: '2020-02-01', check_out: '2020-02-02', nights: 1, guests: 1, room_rate: 100, taxes: 12, service_fee: 5, total_amount: 100, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
     ],
-  } as any;
+  };
 
   beforeEach(async () => {
     bookingService.getMyBookings.mockReset();

@@ -122,9 +122,13 @@ export class BookingService {
   getMonthAvailability(roomId: number, yearMonth: string): Observable<UnavailableDatesResponse> {
     // yearMonth format: "2026-05"
     const [year, month] = yearMonth.split('-').map(Number);
-    const fromDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
     const lastDay = new Date(year, month, 0).getDate();
-    const toDate = new Date(year, month - 1, lastDay).toISOString().split('T')[0];
+    const fromDate = this.formatCalendarDate(year, month, 1);
+    const toDate = this.formatCalendarDate(year, month, lastDay);
     return this.getUnavailableDates(roomId, fromDate, toDate);
+  }
+
+  private formatCalendarDate(year: number, month: number, day: number): string {
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
 }

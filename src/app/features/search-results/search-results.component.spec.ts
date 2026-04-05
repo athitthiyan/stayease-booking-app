@@ -148,6 +148,30 @@ describe('SearchResultsComponent', () => {
     expect(navigateSpy).toHaveBeenCalled();
   });
 
+  it('uses default price bounds in active tags when only one side of the range is set', () => {
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.draftFilters.min_price = 1500;
+    component.draftFilters.max_price = undefined;
+
+    expect(component.activeFilterTags()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'price', label: 'Price: ₹1500 - ₹30000' }),
+      ]),
+    );
+
+    component.draftFilters.min_price = undefined;
+    component.draftFilters.max_price = 4500;
+
+    expect(component.activeFilterTags()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'price', label: 'Price: ₹0 - ₹4500' }),
+      ]),
+    );
+  });
+
   it('removes the price filter tag and resets both price boundaries', () => {
     const fixture = TestBed.createComponent(SearchResultsComponent);
     const component = fixture.componentInstance;
@@ -228,6 +252,17 @@ describe('SearchResultsComponent', () => {
     expect(component.draftFilters.query).toBe('');
   });
 
+  it('returns the default suggestion list when no city or query text is present', () => {
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.draftFilters.city = '';
+    component.draftFilters.query = '';
+
+    expect(component.visibleSuggestions()).toEqual(component.searchSuggestions);
+  });
+
   it('keeps empty-state scenarios stable when the backend returns no matches', () => {
     roomService.getRooms.mockReturnValue(of({ rooms: [], total: 0, page: 1, per_page: 9 }));
 
@@ -288,5 +323,167 @@ describe('SearchResultsComponent', () => {
     expect(component.page()).toBe(3);
     expect(scrollSpy).toHaveBeenCalled();
     expect(roomService.getRooms).toHaveBeenCalledTimes(2);
+  });
+
+  it('derives headings, accents, and page numbers across helper states', () => {
+    roomService.getRooms.mockReturnValue(of({ ...roomsResponse, total: 99 }));
+
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.totalPages()).toBe(11);
+    expect(component.pageNumbers()).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(component.resultsHeading()).toBe('Stays in');
+    expect(component.resultsAccent()).toBe('Paris');
+
+    component.draftFilters.city = '';
+    component.draftFilters.landmark = 'Marina Beach';
+    expect(component.resultsHeading()).toBe('Nearby stays for');
+    expect(component.resultsAccent()).toBe('Marina Beach');
+
+    component.draftFilters.landmark = '';
+    component.draftFilters.query = '';
+    expect(component.resultsHeading()).toBe('Explore');
+    expect(component.resultsAccent()).toBe('curated results');
+  });
+
+  it('normalizes legacy sort aliases from query params and syncs date and page filters', async () => {
+    for (const [rawSort, expected] of [
+      ['price_asc', 'price_low_to_high'],
+      ['price_desc', 'price_high_to_low'],
+      ['rating_desc', 'top_rated'],
+      ['featured', 'most_popular'],
+      ['unknown', 'recommended'],
+    ] as const) {
+      TestBed.resetTestingModule();
+      roomService = { getRooms: jest.fn().mockReturnValue(of(roomsResponse)) };
+      wishlistService = {
+        loadStatus: jest.fn().mockReturnValue(of({})),
+        isSaved: jest.fn().mockReturnValue(false),
+        toggle: jest.fn(),
+      };
+
+      await TestBed.configureTestingModule({
+        imports: [SearchResultsComponent],
+        providers: [
+          provideRouter([]),
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          { provide: RoomService, useValue: roomService },
+          { provide: WishlistService, useValue: wishlistService },
+          { provide: AuthService, useValue: authService },
+          {
+            provide: ActivatedRoute,
+            useValue: {
+              queryParams: of({ sort_by: rawSort, check_in: '2026-04-10', check_out: '2026-04-12', page: '2' }),
+              snapshot: {},
+            },
+          },
+        ],
+      }).compileComponents();
+
+      const router = TestBed.inject(Router);
+      const localNavigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+      const fixture = TestBed.createComponent(SearchResultsComponent);
+      const component = fixture.componentInstance;
+      component.ngOnInit();
+
+      expect(component.draftFilters.sort_by).toBe(expected);
+      expect(component.draftFilters.check_in).toBe('2026-04-10');
+      expect(component.draftFilters.check_out).toBe('2026-04-12');
+      expect(component.page()).toBe(2);
+
+      component.showMap.set(true);
+      component.applyFilters();
+      expect(localNavigateSpy).toHaveBeenCalledWith(
+        [],
+        expect.objectContaining({
+          queryParams: expect.objectContaining({
+            check_in: '2026-04-10',
+            check_out: '2026-04-12',
+            view: 'map',
+          }),
+        }),
+      );
+
+      jest.restoreAllMocks();
+    }
+  });
+
+  it('parses numeric min and max price filters from query params', async () => {
+    TestBed.resetTestingModule();
+    roomService = { getRooms: jest.fn().mockReturnValue(of(roomsResponse)) };
+    wishlistService = {
+      loadStatus: jest.fn().mockReturnValue(of({})),
+      isSaved: jest.fn().mockReturnValue(false),
+      toggle: jest.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [SearchResultsComponent],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: RoomService, useValue: roomService },
+        { provide: WishlistService, useValue: wishlistService },
+        { provide: AuthService, useValue: authService },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            queryParams: of({ min_price: '1200', max_price: '3400' }),
+            snapshot: {},
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.draftFilters.min_price).toBe(1200);
+    expect(component.draftFilters.max_price).toBe(3400);
+  });
+
+  it('removes remaining filter types and falls back to recommended sort labels', () => {
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.draftFilters.city = 'Paris';
+    component.draftFilters.landmark = 'Harbor';
+    component.draftFilters.room_type = 'suite';
+    component.draftFilters.guests = 4;
+    component.draftFilters.sort_by = 'recommended';
+
+    component.removeFilter('city');
+    component.removeFilter('landmark');
+    component.removeFilter('room_type');
+    component.removeFilter('guests');
+    component.removeFilter('sort');
+
+    expect(component.draftFilters.city).toBe('');
+    expect(component.draftFilters.landmark).toBe('');
+    expect(component.draftFilters.room_type).toBe('');
+    expect(component.draftFilters.guests).toBeUndefined();
+    expect(component.draftFilters.sort_by).toBe('recommended');
+    expect(component.currentSortLabel()).toBe('Recommended');
+  });
+
+  it('falls back to recommended sort text and request params when sort_by is empty', () => {
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.draftFilters.sort_by = undefined as unknown as typeof component.draftFilters.sort_by;
+    expect(component.currentSortLabel()).toBe('Recommended');
+
+    component.loadRoomsPublic();
+
+    expect(roomService.getRooms).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sort_by: 'recommended' }),
+    );
   });
 });

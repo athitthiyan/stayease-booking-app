@@ -9,16 +9,24 @@ import { RoomService } from '../../core/services/room.service';
 import { BookingService } from '../../core/services/booking.service';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { AuthService } from '../../core/services/auth.service';
+import { Room } from '../../core/models/room.model';
 
-const mockRoom = (overrides: Partial<any> = {}) => ({
+const mockRoom = (overrides: Partial<Room> = {}): Room => ({
   id: 5,
   hotel_name: 'The Grand Azure',
   room_type: 'suite',
+  availability: true,
+  rating: 4.8,
+  review_count: 24,
   image_url: 'https://example.com/main.jpg',
   gallery_urls: JSON.stringify(['https://example.com/main.jpg', 'https://example.com/2.jpg']),
   amenities: JSON.stringify(['WiFi', 'Spa']),
   price: 200,
   max_guests: 3,
+  beds: 1,
+  bathrooms: 1,
+  is_featured: false,
+  created_at: '2026-04-01T00:00:00.000Z',
   ...overrides,
 });
 
@@ -186,6 +194,19 @@ describe('RoomDetailComponent', () => {
     expect(component.amenities()).toEqual([]);
   });
 
+  it('returns empty amenities and gallery lists when optional JSON fields are missing', () => {
+    roomService.getRoom.mockReturnValue(
+      of(mockRoom({ amenities: undefined, gallery_urls: undefined, image_url: '' })),
+    );
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.amenities()).toEqual([]);
+    expect(component.galleryImages()).toEqual([]);
+  });
+
   it('falls back to an empty gallery image when both main image and gallery are missing', () => {
     roomService.getRoom.mockReturnValue(
       of(mockRoom({ image_url: '', gallery_urls: 'invalid-json' })),
@@ -241,6 +262,7 @@ describe('RoomDetailComponent', () => {
     expect(bookingService.getUnavailableDates).toHaveBeenCalledWith(5, expect.any(String), expect.any(String));
     expect(component.unavailableDates()).toEqual([]);
     expect(component.heldDates()).toEqual([]);
+    expect(component.availabilityStatus()).toBe('ready');
   });
 
   it('shows error when a selected night falls in unavailable_dates', () => {
@@ -351,9 +373,11 @@ describe('RoomDetailComponent', () => {
     expect(component.totalAmount()).toBe(0);
   });
 
-  it('gracefully handles unavailable-dates API error (no conflict shown)', () => {
+  it('blocks booking when unavailable-dates API fails', () => {
     bookingService.getUnavailableDates.mockReturnValue(throwError(() => new Error('network')));
     roomService.getRoom.mockReturnValue(of(mockRoom()));
+    const router = TestBed.inject(Router);
+    const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
 
     const fixture = TestBed.createComponent(RoomDetailComponent);
     const component = fixture.componentInstance;
@@ -362,10 +386,13 @@ describe('RoomDetailComponent', () => {
     component.checkIn = '2026-04-10';
     component.checkOut = '2026-04-12';
     component.onDateChange();
+    component.bookNow();
 
-    // No conflict should be shown when the API fails
     expect(component.dateConflict()).toBe('');
     expect(component.unavailableDates()).toEqual([]);
+    expect(component.availabilityStatus()).toBe('error');
+    expect(component.formError()).toContain('live availability');
+    expect(navigateSpy).not.toHaveBeenCalled();
   });
 
   it('toggles the wishlist only when a room is loaded', () => {

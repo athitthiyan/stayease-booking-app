@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { RoomCardComponent } from './room-card.component';
 import { WishlistService } from '../../../core/services/wishlist.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { Room } from '../../../core/models/room.model';
 
 describe('RoomCardComponent', () => {
   const wishlistService = {
@@ -16,15 +17,17 @@ describe('RoomCardComponent', () => {
     isLoggedIn: true,
   };
 
-  const room = {
+  const room: Room = {
     id: 7,
     room_type: 'suite',
+    description: 'Premium suite',
     rating: 4.4,
     original_price: 400,
     price: 300,
     hotel_name: 'Azure Stay',
     city: 'Kyoto',
     country: 'Japan',
+    availability: true,
     review_count: 10,
     beds: 2,
     bathrooms: 1,
@@ -32,7 +35,8 @@ describe('RoomCardComponent', () => {
     size_sqft: 500,
     image_url: '',
     is_featured: true,
-  } as any;
+    created_at: '2026-04-01T00:00:00.000Z',
+  };
 
   beforeEach(async () => {
     wishlistService.isSaved.mockReset().mockReturnValue(false);
@@ -64,7 +68,13 @@ describe('RoomCardComponent', () => {
   it('falls back to the raw room type and no discount when needed', () => {
     const fixture = TestBed.createComponent(RoomCardComponent);
     const component = fixture.componentInstance;
-    component.room = { ...room, room_type: 'villa', original_price: 200, price: 300, rating: 5 };
+    component.room = {
+      ...room,
+      room_type: 'villa' as unknown as Room['room_type'],
+      original_price: 200,
+      price: 300,
+      rating: 5,
+    };
 
     component.ngOnInit();
 

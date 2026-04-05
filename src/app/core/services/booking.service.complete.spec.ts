@@ -13,6 +13,7 @@ import {
 } from '@angular/common/http/testing';
 
 import { BookingService, CheckoutState } from './booking.service';
+import { CreateBookingRequest } from '../models/booking.model';
 import { environment } from '../../../environments/environment';
 
 describe('BookingService (extended branches)', () => {
@@ -57,14 +58,13 @@ describe('BookingService (extended branches)', () => {
 
   describe('createBooking', () => {
     it('POSTs to /bookings and returns the created booking', () => {
-      const payload: any = {
+      const payload: CreateBookingRequest = {
         room_id: 5,
         check_in: '2027-01-10',
         check_out: '2027-01-12',
         guests: 2,
         user_name: 'Athit',
         email: 'athit@example.com',
-        total_amount: 468,
       };
       service.createBooking(payload).subscribe(booking => {
         expect(booking).toEqual({ id: 99, booking_ref: 'BK999' });

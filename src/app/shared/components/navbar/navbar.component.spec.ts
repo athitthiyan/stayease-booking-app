@@ -118,4 +118,19 @@ describe('NavbarComponent', () => {
     expect(component.firstName()).toBe('');
     expect(component.userInitials()).toBe('');
   });
+
+  it('closes the user menu and the mobile menu explicitly', () => {
+    const fixture = TestBed.createComponent(NavbarComponent);
+    const component = fixture.componentInstance;
+
+    component.toggleUserMenu();
+    component.toggleMenu();
+    component.closeUserMenu();
+    component.closeMenu();
+
+    expect(component.userMenuOpen()).toBe(false);
+    expect(component.menuOpen()).toBe(false);
+    expect(document.documentElement.style.overflow).toBe('');
+    expect(document.body.style.overflow).toBe('');
+  });
 });

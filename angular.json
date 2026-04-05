@@ -21,20 +21,32 @@
             "outputPath": "dist/stayease-booking-app",
             "index": "src/index.html",
             "browser": "src/main.ts",
-            "polyfills": ["zone.js"],
+            "polyfills": [
+              "zone.js"
+            ],
             "tsConfig": "tsconfig.app.json",
             "assets": [
               "src/favicon.ico",
               "src/assets"
             ],
-            "styles": ["src/styles.scss"],
+            "styles": [
+              "src/styles.scss"
+            ],
             "scripts": []
           },
           "configurations": {
             "production": {
               "budgets": [
-                { "type": "initial", "maximumWarning": "500kb", "maximumError": "1mb" },
-                { "type": "anyComponentStyle", "maximumWarning": "8kb", "maximumError": "10kb" }
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kb",
+                  "maximumError": "1mb"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "8kb",
+                  "maximumError": "10kb"
+                }
               ],
               "outputHashing": "all"
             },
@@ -49,15 +61,31 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
-            "production": { "buildTarget": "stayease-booking-app:build:production" },
-            "development": { "buildTarget": "stayease-booking-app:build:development" }
+            "production": {
+              "buildTarget": "stayease-booking-app:build:production"
+            },
+            "development": {
+              "buildTarget": "stayease-booking-app:build:development"
+            }
           },
           "defaultConfiguration": "development"
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": [
+              "src/**/*.ts",
+              "src/**/*.html"
+            ]
+          }
         }
       }
     }
   },
   "cli": {
-    "analytics": "b6abb979-e1ef-43c3-ad0d-de07d3c7adc6"
+    "analytics": "b6abb979-e1ef-43c3-ad0d-de07d3c7adc6",
+    "schematicCollections": [
+      "@angular-eslint/schematics"
+    ]
   }
 }

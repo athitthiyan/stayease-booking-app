@@ -159,7 +159,7 @@ interface ActiveFilterTag {
             </div>
 
             <div class="adv-section adv-section--wide">
-              <label class="adv-label">Amenity filters</label>
+              <div class="adv-label">Amenity filters</div>
               <div class="amenity-chips">
                 @for (amenity of amenityOptions; track amenity.value) {
                   <button

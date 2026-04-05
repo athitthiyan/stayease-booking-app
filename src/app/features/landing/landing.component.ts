@@ -52,8 +52,9 @@ interface Destination {
         <!-- Search Box -->
         <div class="search-box">
           <div class="search-box__field">
-            <label>📍 Destination</label>
+            <label for="landing-destination">📍 Destination</label>
             <input
+              id="landing-destination"
               type="text"
               placeholder="Where are you going?"
               [(ngModel)]="searchCity"
@@ -62,18 +63,18 @@ interface Destination {
           </div>
           <div class="search-box__divider"></div>
           <div class="search-box__field">
-            <label>📅 Check-in</label>
-            <input type="date" [(ngModel)]="checkIn" [min]="today" class="search-box__input" />
+            <label for="landing-check-in">📅 Check-in</label>
+            <input id="landing-check-in" type="date" [(ngModel)]="checkIn" [min]="today" class="search-box__input" />
           </div>
           <div class="search-box__divider"></div>
           <div class="search-box__field">
-            <label>📅 Check-out</label>
-            <input type="date" [(ngModel)]="checkOut" [min]="tomorrow" class="search-box__input" />
+            <label for="landing-check-out">📅 Check-out</label>
+            <input id="landing-check-out" type="date" [(ngModel)]="checkOut" [min]="tomorrow" class="search-box__input" />
           </div>
           <div class="search-box__divider"></div>
           <div class="search-box__field">
-            <label>👤 Guests</label>
-            <select [(ngModel)]="guests" class="search-box__input">
+            <label for="landing-guests">👤 Guests</label>
+            <select id="landing-guests" [(ngModel)]="guests" class="search-box__input">
               <option [value]="1">1 Guest</option>
               <option [value]="2">2 Guests</option>
               <option [value]="3">3 Guests</option>

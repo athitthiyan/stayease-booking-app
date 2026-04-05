@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { ProfileComponent } from './profile.component';
 import { AuthService } from '../../core/services/auth.service';
 import { WishlistService } from '../../core/services/wishlist.service';
+import { UserResponse } from '../../core/models/auth.model';
 
 describe('ProfileComponent', () => {
   const authService = {
@@ -19,7 +20,16 @@ describe('ProfileComponent', () => {
     isSaved: jest.fn(() => false),
   };
 
-  const user = { full_name: 'Alex Doe', email: 'alex@example.com', phone: '123', created_at: '2024-01-01T00:00:00.000Z', avatar_url: null };
+  const user: UserResponse = {
+    id: 1,
+    full_name: 'Alex Doe',
+    email: 'alex@example.com',
+    phone: '123',
+    created_at: '2024-01-01T00:00:00.000Z',
+    avatar_url: null,
+    is_admin: false,
+    is_active: true,
+  };
 
   beforeEach(async () => {
     authService.getMe.mockReset();
@@ -62,9 +72,17 @@ describe('ProfileComponent', () => {
   it('returns empty memberSince when user has no date', () => {
     const fixture = TestBed.createComponent(ProfileComponent);
     const component = fixture.componentInstance;
-    component.user.set({ ...user, created_at: undefined } as any);
+    component.user.set(null);
 
     expect(component.memberSince()).toBe('');
+  });
+
+  it('returns empty initials when the user has no name', () => {
+    const fixture = TestBed.createComponent(ProfileComponent);
+    const component = fixture.componentInstance;
+    component.user.set({ ...user, full_name: undefined as unknown as string });
+
+    expect(component.initials()).toBe('');
   });
 
   it('validates password fields', () => {

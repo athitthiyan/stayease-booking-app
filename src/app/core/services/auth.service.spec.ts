@@ -77,6 +77,11 @@ describe('AuthService', () => {
 
   it('should return null when localStorage contains invalid JSON', () => {
     localStorage.setItem('se_user', 'not-json');
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [AuthService, { provide: Router, useValue: routerSpy }],
+    });
     const s = TestBed.inject(AuthService);
     expect(s.currentUser).toBeNull();
   });

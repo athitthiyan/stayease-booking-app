@@ -45,9 +45,15 @@ type ISODateString = string;
           @if (galleryImages().length > 1) {
             <div class="gallery__thumbs">
               @for (img of galleryImages(); track img; let i = $index) {
-                <img [src]="img" [alt]="'Gallery ' + i" class="gallery__thumb"
+                <button
+                  type="button"
+                  class="gallery__thumb-btn"
                   [class.active]="activeImageIdx() === i"
-                  (click)="setActiveImage(i)" loading="lazy" />
+                  (click)="setActiveImage(i)"
+                  [attr.aria-label]="'View gallery image ' + (i + 1)"
+                >
+                  <img [src]="img" [alt]="'Gallery ' + i" class="gallery__thumb" loading="lazy" />
+                </button>
               }
             </div>
           }
@@ -154,19 +160,25 @@ type ISODateString = string;
 
               <!-- Dates -->
               <div class="form-group">
-                <label>Check-in</label>
-                <input type="date" [(ngModel)]="checkIn" [min]="today" class="form-control"
+                <label for="room-detail-check-in">Check-in</label>
+                <input id="room-detail-check-in" type="date" [(ngModel)]="checkIn" [min]="today" class="form-control"
                   [class.input--error]="dateConflict()" (change)="onDateChange()" />
               </div>
               <div class="form-group" style="margin-top:12px">
-                <label>Check-out</label>
-                <input type="date" [(ngModel)]="checkOut" [min]="checkIn || tomorrow" class="form-control"
+                <label for="room-detail-check-out">Check-out</label>
+                <input id="room-detail-check-out" type="date" [(ngModel)]="checkOut" [min]="checkIn || tomorrow" class="form-control"
                   [class.input--error]="dateConflict()" (change)="onDateChange()" />
               </div>
               @if (dateConflict()) {
                 <div class="date-conflict-alert">
                   <span>⚠️</span>
                   <span>{{ dateConflict() }}</span>
+                </div>
+              }
+              @if (availabilityStatus() === 'error') {
+                <div class="date-conflict-alert">
+                  <span>⚠️</span>
+                  <span>We can't verify live availability right now. Please try again in a moment.</span>
                 </div>
               }
               @if (formError()) {
@@ -176,8 +188,8 @@ type ISODateString = string;
                 </div>
               }
               <div class="form-group" style="margin-top:12px">
-                <label>Guests</label>
-                <select [(ngModel)]="guests" class="form-control">
+                <label for="room-detail-guests">Guests</label>
+                <select id="room-detail-guests" [(ngModel)]="guests" class="form-control">
                   @for (g of guestOptions; track g) {
                     <option [value]="g">{{ g }} Guest{{ g > 1 ? 's' : '' }}</option>
                   }
@@ -209,7 +221,7 @@ type ISODateString = string;
               }
 
               <button class="btn btn--primary" style="width:100%;margin-top:20px;padding:16px"
-                (click)="bookNow()" [disabled]="!!dateConflict()">
+                (click)="bookNow()" [disabled]="!!dateConflict() || availabilityStatus() !== 'ready'">
                 {{ nights() > 0 ? 'Book Now — $' + (totalAmount() | number:'1.0-0') : 'Select Dates to Book' }}
               </button>
 
@@ -254,6 +266,7 @@ export class RoomDetailComponent implements OnInit {
   unavailableDates = signal<ISODateString[]>([]);
   /** Dates temporarily held by another user's active booking hold. */
   heldDates = signal<ISODateString[]>([]);
+  availabilityStatus = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
   /** Non-empty string = user's date range overlaps a taken date. */
   dateConflict = signal('');
   formError = signal('');
@@ -309,17 +322,20 @@ export class RoomDetailComponent implements OnInit {
   private loadUnavailableDates(roomId: number): void {
     const fromDate = this.today;
     const toDate = new Date(Date.now() + 180 * 86400000).toISOString().split('T')[0];
+    this.availabilityStatus.set('loading');
     this.bookingService.getUnavailableDates(roomId, fromDate, toDate).subscribe({
       next: res => {
         this.unavailableDates.set(res.unavailable_dates);
         this.heldDates.set(res.held_dates);
+        this.availabilityStatus.set('ready');
         // Re-run validation in case dates were already selected
         this.validateDateConflict();
       },
       error: () => {
-        // Non-critical — date picker still works; we just won't show conflict warnings
         this.unavailableDates.set([]);
         this.heldDates.set([]);
+        this.availabilityStatus.set('error');
+        this.dateConflict.set('');
       },
     });
   }
@@ -370,6 +386,10 @@ export class RoomDetailComponent implements OnInit {
   bookNow() {
     if (!this.checkIn || !this.checkOut || this.nights() < 1) {
       this.formError.set('Please select valid check-in and check-out dates.');
+      return;
+    }
+    if (this.availabilityStatus() !== 'ready') {
+      this.formError.set('We can’t confirm this room’s live availability right now. Please try again shortly.');
       return;
     }
     if (this.dateConflict()) {

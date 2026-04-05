@@ -98,4 +98,14 @@ describe('SignupComponent', () => {
     component.onSubmit();
     expect(component.errorMsg()).toBe('Signup failed. Please try again.');
   });
+
+  it('treats null password values as invalid strength input', () => {
+    const fixture = TestBed.createComponent(SignupComponent);
+    const component = fixture.componentInstance;
+
+    component.form.controls.password.setValue(null as unknown as string);
+    component.form.controls.password.markAsTouched();
+
+    expect(component.isFieldInvalid('password')).toBe(true);
+  });
 });

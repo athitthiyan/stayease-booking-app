@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { BookingService, CheckoutState } from '../../core/services/booking.service';
-import { Booking } from '../../core/models/booking.model';
+import { ApiErrorDetail, ApiErrorResponse, Booking } from '../../core/models/booking.model';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -115,8 +115,8 @@ import { environment } from '../../../environments/environment';
               }
             </div>
             <div class="form-group" style="margin-top:16px">
-              <label>Special Requests (Optional)</label>
-              <textarea [(ngModel)]="form.special_requests" class="form-control" rows="3" placeholder="Any special requirements or preferences..."></textarea>
+              <label for="checkout-special-requests">Special Requests (Optional)</label>
+              <textarea id="checkout-special-requests" [(ngModel)]="form.special_requests" class="form-control" rows="3" placeholder="Any special requirements or preferences..."></textarea>
             </div>
           </section>
 
@@ -439,24 +439,25 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
   // ── Error mapping ─────────────────────────────────────────────────────────
 
-  private mapApiError(err: any): string {
-    const detail = err?.error?.detail;
+  private mapApiError(err: unknown): string {
+    const detail = (err as { error?: ApiErrorResponse })?.error?.detail;
     if (typeof detail === 'object' && detail?.code) {
+      const errorDetail = detail as ApiErrorDetail;
       const messages: Record<string, string> = {
         BOOKING_CONFLICT: 'These dates are no longer available. Please go back and choose different dates.',
         HOLD_EXISTS: 'You already have an active reservation for these dates. Please complete or cancel it first.',
         ROOM_UNAVAILABLE: 'This room is no longer available for booking.',
         ROOM_NOT_FOUND: 'This room could not be found. Please go back and try again.',
         CHECK_IN_PAST: 'Check-in date must be in the future.',
-        GUEST_CAPACITY_EXCEEDED: detail.message || 'Guest count exceeds room capacity.',
+        GUEST_CAPACITY_EXCEEDED: errorDetail.message || 'Guest count exceeds room capacity.',
         INVALID_DATE_RANGE: 'Check-out date must be after check-in date.',
         MINIMUM_STAY: 'Minimum stay is 1 night.',
         AUTH_REQUIRED: 'Please log in to continue with your booking.',
       };
-      return messages[detail.code] || detail.message || 'Booking failed. Please try again.';
+      return messages[errorDetail.code] || errorDetail.message || 'Booking failed. Please try again.';
     }
     if (typeof detail === 'string') return detail;
-    if (err?.status === 409) {
+    if ((err as { status?: number })?.status === 409) {
       return 'These dates are no longer available. Please go back and choose different dates.';
     }
     return 'Unable to create the booking right now. Please try again.';

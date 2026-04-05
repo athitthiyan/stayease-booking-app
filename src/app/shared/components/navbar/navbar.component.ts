@@ -39,10 +39,10 @@ import { WishlistService } from '../../../core/services/wishlist.service';
                 <span>▾</span>
               </button>
               @if (userMenuOpen()) {
-                <div class="navbar__dropdown" (click)="userMenuOpen.set(false)">
-                  <a routerLink="/profile" class="dropdown-item">👤 Profile</a>
-                  <a routerLink="/bookings" class="dropdown-item">📋 My Bookings</a>
-                  <a routerLink="/wishlist" class="dropdown-item">❤️ Saved Stays</a>
+                <div class="navbar__dropdown">
+                  <a routerLink="/profile" class="dropdown-item" (click)="closeUserMenu()">👤 Profile</a>
+                  <a routerLink="/bookings" class="dropdown-item" (click)="closeUserMenu()">📋 My Bookings</a>
+                  <a routerLink="/wishlist" class="dropdown-item" (click)="closeUserMenu()">❤️ Saved Stays</a>
                   <div class="dropdown-divider"></div>
                   <button class="dropdown-item dropdown-item--danger" (click)="logout()">🚪 Sign out</button>
                 </div>
@@ -368,6 +368,10 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   toggleUserMenu(): void {
     this.userMenuOpen.update(v => !v);
+  }
+
+  closeUserMenu(): void {
+    this.userMenuOpen.set(false);
   }
 
   logout(): void {

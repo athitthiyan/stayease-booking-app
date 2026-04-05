@@ -3,38 +3,68 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 
 import { CheckoutComponent } from './checkout.component';
-import { BookingService } from '../../core/services/booking.service';
+import { BookingService, CheckoutState } from '../../core/services/booking.service';
+import { Booking } from '../../core/models/booking.model';
 
-const makeBooking = (overrides: Partial<any> = {}) => ({
+const makeBooking = (overrides: Partial<Booking> = {}): Booking => ({
   id: 12,
   booking_ref: 'BK123',
   room_id: 5,
   hold_expires_at: new Date(Date.now() + 600_000).toISOString(), // 10 min from now
+  user_name: 'Athit',
+  email: 'athit@example.com',
+  phone: '1234567890',
+  check_in: '2026-04-10T00:00:00.000Z',
+  check_out: '2026-04-12T00:00:00.000Z',
+  guests: 2,
+  nights: 2,
+  room_rate: 400,
+  taxes: 48,
+  service_fee: 20,
+  total_amount: 468,
   status: 'pending',
   payment_status: 'pending',
+  created_at: '2026-04-01T00:00:00.000Z',
   ...overrides,
 });
 
+const redirectSpyFor = (component: CheckoutComponent) =>
+  jest
+    .spyOn(
+      component as CheckoutComponent & { redirectToPayment: (booking: Booking) => void },
+      'redirectToPayment',
+    )
+    .mockImplementation((() => undefined) as never);
+
 describe('CheckoutComponent', () => {
-  const checkoutState = {
+  const checkoutState: CheckoutState = {
     room: {
       id: 5,
       price: 200,
       image_url: 'https://example.com/room.jpg',
       hotel_name: 'The Grand Azure',
+      availability: true,
+      rating: 4.8,
+      review_count: 20,
       room_type: 'suite',
       location: 'New York',
+      max_guests: 2,
+      beds: 1,
+      bathrooms: 1,
+      is_featured: true,
+      created_at: '2026-04-01T00:00:00.000Z',
     },
     checkIn: '2026-04-10',
     checkOut: '2026-04-12',
     guests: 2,
-  } as any;
+  };
 
   let bookingService: {
     getCheckoutState: jest.Mock;
     createBooking: jest.Mock;
     findResumableBooking: jest.Mock;
     extendHold: jest.Mock;
+    cancelBooking: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -43,6 +73,7 @@ describe('CheckoutComponent', () => {
       createBooking: jest.fn(),
       findResumableBooking: jest.fn().mockReturnValue(of(null)),
       extendHold: jest.fn(),
+      cancelBooking: jest.fn(),
     };
 
     await TestBed.configureTestingModule({
@@ -147,6 +178,23 @@ describe('CheckoutComponent', () => {
     expect(component.emailError()).toBe('Please enter a valid email address.');
   });
 
+  it('trims guest details and validates phone format', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = '  Athit  ';
+    component.form.email = '  athit@example.com  ';
+    component.form.phone = 'bad-phone';
+
+    component.proceedToPayment();
+
+    expect(component.form.user_name).toBe('Athit');
+    expect(component.form.email).toBe('athit@example.com');
+    expect(component.phoneError()).toBe('Please enter a valid phone number.');
+  });
+
   it('creates booking and redirects to payment app', () => {
     bookingService.getCheckoutState.mockReturnValue(checkoutState);
     bookingService.findResumableBooking.mockReturnValue(of(null));
@@ -154,7 +202,7 @@ describe('CheckoutComponent', () => {
 
     const fixture = TestBed.createComponent(CheckoutComponent);
     const component = fixture.componentInstance;
-    const redirectSpy = jest.spyOn(component as any, 'redirectToPayment').mockImplementation(() => {});
+    const redirectSpy = redirectSpyFor(component);
     component.ngOnInit();
     component.form.user_name = 'Athit';
     component.form.email = 'athit@example.com';
@@ -215,7 +263,7 @@ describe('CheckoutComponent', () => {
 
     const fixture = TestBed.createComponent(CheckoutComponent);
     const component = fixture.componentInstance;
-    const redirectSpy = jest.spyOn(component as any, 'redirectToPayment').mockImplementation(() => {});
+    const redirectSpy = redirectSpyFor(component);
     component.ngOnInit();
     component.form.user_name = 'Athit';
     component.form.email = 'athit@example.com';
@@ -246,7 +294,7 @@ describe('CheckoutComponent', () => {
 
     const fixture = TestBed.createComponent(CheckoutComponent);
     const component = fixture.componentInstance;
-    const redirectSpy = jest.spyOn(component as any, 'redirectToPayment').mockImplementation(() => {});
+    const redirectSpy = redirectSpyFor(component);
     component.ngOnInit();
     component.form.user_name = 'Athit';
     component.form.email = 'athit@example.com';
@@ -339,7 +387,7 @@ describe('CheckoutComponent', () => {
 
     const fixture = TestBed.createComponent(CheckoutComponent);
     const component = fixture.componentInstance;
-    jest.spyOn(component as any, 'redirectToPayment').mockImplementation(() => {});
+    redirectSpyFor(component);
     component.ngOnInit();
     component.form.user_name = 'Athit';
     component.form.email = 'athit@example.com';
@@ -467,7 +515,7 @@ describe('CheckoutComponent', () => {
       'pending_booking',
       JSON.stringify(
         makeBooking({
-          hold_expires_at: null,
+          hold_expires_at: undefined,
           payment_status: 'pending',
         }),
       ),
@@ -479,6 +527,17 @@ describe('CheckoutComponent', () => {
 
     expect(component.resumableBooking()).toBeNull();
     expect(component.holdSecondsLeft()).toBe(0);
+  });
+
+  it('clears booking auth redirect flags during init', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    sessionStorage.setItem('booking_auth_redirect', '1');
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(sessionStorage.getItem('booking_auth_redirect')).toBeNull();
   });
 
   it('formats the hold countdown helpers with leading zeroes', () => {
@@ -499,7 +558,7 @@ describe('CheckoutComponent', () => {
     const fixture = TestBed.createComponent(CheckoutComponent);
     const component = fixture.componentInstance;
     component.resumableBooking.set(
-      makeBooking({ hold_expires_at: new Date(Date.now() - 1000).toISOString() }) as any,
+      makeBooking({ hold_expires_at: new Date(Date.now() - 1000).toISOString() }),
     );
 
     component.startCountdown(new Date(Date.now() - 1000).toISOString());
@@ -550,5 +609,154 @@ describe('CheckoutComponent', () => {
 
     expect(component.submitError()).toContain('Unable to check existing reservations');
     expect(component.submitting()).toBe(false);
+  });
+
+  it('maps structured booking API errors and falls back to backend messages for unknown codes', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.findResumableBooking.mockReturnValue(of(null));
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    bookingService.createBooking.mockReturnValueOnce(
+      throwError(() => ({
+        error: { detail: { code: 'AUTH_REQUIRED', message: 'ignored' } },
+      })),
+    );
+    component.proceedToPayment();
+    expect(component.submitError()).toBe('Please log in to continue with your booking.');
+
+    bookingService.createBooking.mockReturnValueOnce(
+      throwError(() => ({
+        error: { detail: { code: 'UNEXPECTED', message: 'Backend exploded' } },
+      })),
+    );
+    component.proceedToPayment();
+    expect(component.submitError()).toBe('Backend exploded');
+
+    bookingService.createBooking.mockReturnValueOnce(
+      throwError(() => ({
+        error: { detail: { code: 'GUEST_CAPACITY_EXCEEDED', message: '' } },
+      })),
+    );
+    component.proceedToPayment();
+    expect(component.submitError()).toBe('Guest count exceeds room capacity.');
+
+    bookingService.createBooking.mockReturnValueOnce(
+      throwError(() => ({
+        error: { detail: { code: 'UNEXPECTED', message: '' } },
+      })),
+    );
+    component.proceedToPayment();
+    expect(component.submitError()).toBe('Booking failed. Please try again.');
+  });
+
+  it('writes the pending booking and payment url when redirecting to payment', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    const originalLocation = window.location;
+
+    delete (window as Partial<Window>).location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { href: '' },
+    });
+
+    try {
+      (
+        component as unknown as { redirectToPayment: (booking: Booking) => void }
+      ).redirectToPayment(makeBooking({ id: 91, booking_ref: 'BKPAY' }));
+
+      expect(sessionStorage.getItem('pending_booking')).toContain('"id":91');
+      expect(window.location.href).toContain('booking_id=91');
+      expect(window.location.href).toContain('ref=BKPAY');
+    } finally {
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+    }
+  });
+
+  it('cancels a held booking and returns to the room page', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.cancelBooking.mockReturnValue(of({}));
+    const router = TestBed.inject(Router);
+    const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.resumableBooking.set(makeBooking({ id: 17 }));
+    component.holdSecondsLeft.set(50);
+    component.holdExpired.set(true);
+
+    component.cancelHold();
+
+    expect(bookingService.cancelBooking).toHaveBeenCalledWith(17);
+    expect(component.resumableBooking()).toBeNull();
+    expect(component.holdSecondsLeft()).toBe(0);
+    expect(component.holdExpired()).toBe(false);
+    expect(navigateSpy).toHaveBeenCalledWith(['/rooms', 5]);
+  });
+
+  it('falls back to search after cancel when checkout state has no room', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.cancelBooking.mockReturnValue(of({}));
+    const router = TestBed.inject(Router);
+    const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.checkoutState.set(null);
+    component.resumableBooking.set(makeBooking({ id: 18 }));
+
+    component.cancelHold();
+
+    expect(navigateSpy).toHaveBeenCalledWith(['/search']);
+  });
+
+  it('surfaces cancel-booking failures and ignores duplicate cancel attempts', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.cancelBooking.mockReturnValue(throwError(() => new Error('boom')));
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.cancelHold();
+    expect(bookingService.cancelBooking).not.toHaveBeenCalled();
+
+    component.resumableBooking.set(makeBooking({ id: 19 }));
+    component.cancellingHold.set(true);
+    component.cancelHold();
+    expect(bookingService.cancelBooking).not.toHaveBeenCalled();
+
+    component.cancellingHold.set(false);
+    component.cancelHold();
+    expect(component.submitError()).toBe('Could not cancel the booking. Please try again.');
+    expect(component.cancellingHold()).toBe(false);
+  });
+
+  it('tries to extend resumable bookings that have no hold expiry timestamp', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    const existing = makeBooking({ id: 23, hold_expires_at: undefined });
+    bookingService.findResumableBooking.mockReturnValue(of(existing));
+    bookingService.extendHold.mockReturnValue(of(makeBooking({ id: 23 })));
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    expect(bookingService.extendHold).toHaveBeenCalledWith(23, 'athit@example.com');
   });
 });

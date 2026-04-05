@@ -6,6 +6,7 @@ import {
 } from '@angular/common/http/testing';
 
 import { RoomService } from './room.service';
+import { RoomSearchParams } from '../models/room.model';
 import { environment } from '../../../environments/environment';
 
 describe('RoomService', () => {
@@ -36,7 +37,7 @@ describe('RoomService', () => {
         landmark: 'Marina Beach',
         amenities: 'WiFi,Breakfast',
         min_rating: 4,
-      } as any)
+      } as RoomSearchParams)
       .subscribe();
 
     const req = httpMock.expectOne(
@@ -67,5 +68,13 @@ describe('RoomService', () => {
     const roomReq = httpMock.expectOne(`${environment.apiUrl}/rooms/8`);
     expect(roomReq.request.method).toBe('GET');
     roomReq.flush({});
+  });
+
+  it('uses the default featured-room limit when none is provided', () => {
+    service.getFeaturedRooms().subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/rooms/featured?limit=6`);
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
   });
 });

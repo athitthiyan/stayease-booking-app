@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 
 import { ReviewsSectionComponent } from './reviews-section.component';
 import { ReviewService } from '../../../core/services/review.service';
+import { ReviewResponse } from '../../../core/models/review.model';
 
 describe('ReviewsSectionComponent', () => {
   const reviewService = {
@@ -209,7 +210,7 @@ describe('ReviewsSectionComponent', () => {
 
     expect(component.barWidth(5)).toBe(67);
     expect(component.barWidth(1)).toBe(0);
-    expect(component.initials(pageOne.reviews[0] as any)).toBe('AD');
+    expect(component.initials(pageOne.reviews[0] as ReviewResponse)).toBe('AD');
     expect(component.starArray(3)).toEqual(['full', 'full', 'full', 'empty', 'empty']);
     expect(component.formatDate('2026-04-01T00:00:00.000Z')).toContain('2026');
   });
@@ -223,5 +224,24 @@ describe('ReviewsSectionComponent', () => {
     });
 
     expect(component.barWidth(2)).toBe(0);
+  });
+
+  it('returns zero bar width when there are no reviews yet', () => {
+    const fixture = TestBed.createComponent(ReviewsSectionComponent);
+    const component = fixture.componentInstance;
+    component.data.set({
+      ...pageOne,
+      total: 0,
+      rating_breakdown: {},
+    });
+
+    expect(component.barWidth(5)).toBe(0);
+  });
+
+  it('returns zero bar width when review data has not loaded yet', () => {
+    const fixture = TestBed.createComponent(ReviewsSectionComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.barWidth(5)).toBe(0);
   });
 });

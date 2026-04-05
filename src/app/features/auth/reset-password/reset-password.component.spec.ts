@@ -113,4 +113,15 @@ describe('ResetPasswordComponent', () => {
     component.onSubmit();
     expect(component.errorMsg()).toBe('Reset failed. The link may have expired.');
   });
+
+  it('treats null password values as invalid strength input', () => {
+    const fixture = TestBed.createComponent(ResetPasswordComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.form.controls.new_password.setValue(null as unknown as string);
+    component.form.controls.new_password.markAsTouched();
+
+    expect(component.isFieldInvalid('new_password')).toBe(true);
+  });
 });

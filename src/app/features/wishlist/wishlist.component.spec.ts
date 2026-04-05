@@ -5,6 +5,25 @@ import { provideRouter } from '@angular/router';
 import { WishlistComponent } from './wishlist.component';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { AuthService } from '../../core/services/auth.service';
+import { WishlistResponse } from '../../core/models/wishlist.model';
+import { Room } from '../../core/models/room.model';
+
+const wishlistRoom = (overrides: Partial<Room> = {}): Room => ({
+  id: 10,
+  hotel_name: 'Azure',
+  room_type: 'suite',
+  price: 200,
+  availability: true,
+  rating: 4.5,
+  review_count: 8,
+  location: 'NYC',
+  beds: 1,
+  bathrooms: 1,
+  max_guests: 2,
+  is_featured: false,
+  created_at: '2026-04-01T00:00:00.000Z',
+  ...overrides,
+});
 
 describe('WishlistComponent', () => {
   const wishlistService = {
@@ -17,12 +36,13 @@ describe('WishlistComponent', () => {
     logout: jest.fn(),
   };
 
-  const response = {
+  const response: WishlistResponse = {
     items: [
-      { id: 1, room_id: 10, room: { hotel_name: 'Azure', location: 'NYC', rating: 4.5, room_type: 'suite', price: 200 } },
-      { id: 2, room_id: 11, room: { hotel_name: 'Bali Stay', location: 'Bali', rating: 4.8, room_type: 'villa', price: 300 } },
+      { id: 1, room_id: 10, room: wishlistRoom(), created_at: '2026-04-01T00:00:00.000Z' },
+      { id: 2, room_id: 11, room: wishlistRoom({ id: 11, hotel_name: 'Bali Stay', location: 'Bali', rating: 4.8, room_type: 'penthouse', price: 300 }), created_at: '2026-04-02T00:00:00.000Z' },
     ],
-  } as any;
+    total: 2,
+  };
 
   beforeEach(async () => {
     wishlistService.getWishlist.mockReset();
