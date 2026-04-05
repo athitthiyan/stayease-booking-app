@@ -5,6 +5,7 @@ import { provideRouter, Router } from '@angular/router';
 import { CheckoutComponent } from './checkout.component';
 import { BookingService, CheckoutState } from '../../core/services/booking.service';
 import { Booking } from '../../core/models/booking.model';
+import { ROOM_IMAGE_PLACEHOLDER } from '../../shared/utils/image-fallback';
 
 const makeBooking = (overrides: Partial<Booking> = {}): Booking => ({
   id: 12,
@@ -135,6 +136,27 @@ describe('CheckoutComponent', () => {
     expect(component.taxes()).toBe(0);
     expect(component.serviceFee()).toBe(0);
     expect(component.total()).toBe(0);
+  });
+
+  it('uses the placeholder image when checkout room artwork is missing or invalid', () => {
+    bookingService.getCheckoutState.mockReturnValue({
+      ...checkoutState,
+      room: {
+        ...checkoutState.room,
+        image_url: 'invalid-image-url',
+      },
+    });
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.resolveRoomImage('invalid-image-url')).toBe(ROOM_IMAGE_PLACEHOLDER);
+
+    const image = document.createElement('img');
+    image.src = 'https://example.com/broken.jpg';
+    component.onImageError({ target: image } as unknown as Event);
+    expect(image.src).toBe(ROOM_IMAGE_PLACEHOLDER);
   });
 
   it('renders trust badges in the checkout summary', () => {

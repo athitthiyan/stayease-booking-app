@@ -8,6 +8,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { MyBookingsResponse } from '../../core/models/booking.model';
 import { Room } from '../../core/models/room.model';
+import { ROOM_IMAGE_PLACEHOLDER } from '../../shared/utils/image-fallback';
 
 const bookingRoom = (overrides: Partial<Room> = {}): Room => ({
   id: 1,
@@ -129,5 +130,18 @@ describe('BookingHistoryComponent', () => {
     expect(component.tabCount('upcoming')).toBe(0);
     expect(component.tabCount('past')).toBe(0);
     expect(component.tabCount('cancelled')).toBe(0);
+  });
+
+  it('falls back to the placeholder image for broken booking artwork', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    const image = document.createElement('img');
+    image.src = 'https://example.com/broken-booking.jpg';
+
+    expect(component.resolveRoomImage('invalid-room-image')).toBe(ROOM_IMAGE_PLACEHOLDER);
+
+    component.onImageError({ target: image } as unknown as Event);
+
+    expect(image.src).toBe(ROOM_IMAGE_PLACEHOLDER);
   });
 });

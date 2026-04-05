@@ -10,6 +10,7 @@ import { BookingService } from '../../core/services/booking.service';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Room } from '../../core/models/room.model';
+import { ROOM_IMAGE_PLACEHOLDER } from '../../shared/utils/image-fallback';
 
 const mockRoom = (overrides: Partial<Room> = {}): Room => ({
   id: 5,
@@ -204,7 +205,8 @@ describe('RoomDetailComponent', () => {
     component.ngOnInit();
 
     expect(component.amenities()).toEqual([]);
-    expect(component.galleryImages()).toEqual([]);
+    expect(component.galleryImages()).toEqual([ROOM_IMAGE_PLACEHOLDER]);
+    expect(component.activeImage()).toBe(ROOM_IMAGE_PLACEHOLDER);
   });
 
   it('falls back to an empty gallery image when both main image and gallery are missing', () => {
@@ -216,8 +218,8 @@ describe('RoomDetailComponent', () => {
     const component = fixture.componentInstance;
     component.ngOnInit();
 
-    expect(component.galleryImages()).toEqual([]);
-    expect(component.activeImage()).toBe('');
+    expect(component.galleryImages()).toEqual([ROOM_IMAGE_PLACEHOLDER]);
+    expect(component.activeImage()).toBe(ROOM_IMAGE_PLACEHOLDER);
   });
 
   it('keeps gallery images when the main image is absent but gallery JSON is valid', () => {
@@ -236,6 +238,24 @@ describe('RoomDetailComponent', () => {
 
     expect(component.galleryImages()).toEqual(['https://example.com/gallery-only.jpg']);
     expect(component.activeImage()).toBe('https://example.com/gallery-only.jpg');
+  });
+
+  it('falls back to the placeholder when room image URLs are malformed', () => {
+    roomService.getRoom.mockReturnValue(
+      of(
+        mockRoom({
+          image_url: 'bad-image-value',
+          gallery_urls: JSON.stringify(['still-bad']),
+        }),
+      ),
+    );
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.galleryImages()).toEqual([ROOM_IMAGE_PLACEHOLDER]);
+    expect(component.activeImage()).toBe(ROOM_IMAGE_PLACEHOLDER);
   });
 
   it('sets the active image when a thumbnail is selected', () => {
@@ -408,5 +428,18 @@ describe('RoomDetailComponent', () => {
     component.ngOnInit();
     component.toggleWishlist();
     expect(mockWishlist.toggle).toHaveBeenCalledWith(5);
+  });
+
+  it('replaces broken room images with the placeholder', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    const image = document.createElement('img');
+    image.src = 'https://example.com/broken.jpg';
+
+    component.onImageError({ target: image } as unknown as Event);
+
+    expect(image.src).toBe(ROOM_IMAGE_PLACEHOLDER);
   });
 });

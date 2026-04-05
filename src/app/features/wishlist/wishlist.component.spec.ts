@@ -7,6 +7,7 @@ import { WishlistService } from '../../core/services/wishlist.service';
 import { AuthService } from '../../core/services/auth.service';
 import { WishlistResponse } from '../../core/models/wishlist.model';
 import { Room } from '../../core/models/room.model';
+import { ROOM_IMAGE_PLACEHOLDER } from '../../shared/utils/image-fallback';
 
 const wishlistRoom = (overrides: Partial<Room> = {}): Room => ({
   id: 10,
@@ -105,5 +106,18 @@ describe('WishlistComponent', () => {
 
     expect(component.items()).toHaveLength(2);
     expect(component.removing().has(10)).toBe(false);
+  });
+
+  it('falls back to the placeholder image for broken wishlist artwork', () => {
+    const fixture = TestBed.createComponent(WishlistComponent);
+    const component = fixture.componentInstance;
+    const image = document.createElement('img');
+    image.src = 'https://example.com/broken-wishlist.jpg';
+
+    expect(component.resolveRoomImage('invalid-room-image')).toBe(ROOM_IMAGE_PLACEHOLDER);
+
+    component.onImageError({ target: image } as unknown as Event);
+
+    expect(image.src).toBe(ROOM_IMAGE_PLACEHOLDER);
   });
 });
