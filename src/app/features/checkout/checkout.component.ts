@@ -456,6 +456,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       return messages[detail.code] || detail.message || 'Booking failed. Please try again.';
     }
     if (typeof detail === 'string') return detail;
+    if (err?.status === 409) {
+      return 'These dates are no longer available. Please go back and choose different dates.';
+    }
     return 'Unable to create the booking right now. Please try again.';
   }
 
