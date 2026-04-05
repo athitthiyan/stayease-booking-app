@@ -294,6 +294,39 @@ test.describe('StayEase End-to-End Journeys', () => {
     await expect(page).toHaveURL(/ref=BK-PLAYWRIGHT-001/);
   });
 
+  test('shows a duplicate-booking conflict when checkout create booking returns 409', async ({ page }) => {
+    await mockRoomsApi(page);
+    await page.route('**/bookings/resumable**', async (route: Route) => {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'No resumable booking found' }),
+      });
+    });
+    await page.route('**/bookings', async (route: Route) => {
+      if (route.request().method() === 'POST') {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Room is already reserved for the selected dates' }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.goto('/');
+    await seedCheckoutState(page);
+    await page.goto('/checkout/1');
+
+    await page.getByPlaceholder('John Doe').fill('Conflict User');
+    await page.getByPlaceholder('john@example.com').fill('conflict@example.com');
+    await page.getByRole('button', { name: /Proceed to Payment/i }).click();
+
+    await expect(page.getByText(/already reserved/i)).toBeVisible();
+    await expect(page).not.toHaveURL(/booking_id=/);
+  });
+
   test('booking confirmation shows booking details for valid ref', async ({ page }) => {
     await mockRoomsApi(page);
     await mockBookingApi(page);

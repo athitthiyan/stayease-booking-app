@@ -87,6 +87,25 @@ describe('CheckoutComponent', () => {
     expect(component.total()).toBe(468);
   });
 
+  it('falls back to zero subtotal when room price is missing', () => {
+    bookingService.getCheckoutState.mockReturnValue({
+      ...checkoutState,
+      room: {
+        ...checkoutState.room,
+        price: undefined,
+      },
+    });
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.subtotal()).toBe(0);
+    expect(component.taxes()).toBe(0);
+    expect(component.serviceFee()).toBe(0);
+    expect(component.total()).toBe(0);
+  });
+
   it('renders trust badges in the checkout summary', () => {
     bookingService.getCheckoutState.mockReturnValue(checkoutState);
 
@@ -101,16 +120,31 @@ describe('CheckoutComponent', () => {
     expect(element.textContent).toContain('Best price guaranteed');
   });
 
-  it('shows alert when required fields are missing', () => {
+  it('shows inline validation when required fields are missing', () => {
     bookingService.getCheckoutState.mockReturnValue(checkoutState);
-    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
 
     const fixture = TestBed.createComponent(CheckoutComponent);
     const component = fixture.componentInstance;
     component.ngOnInit();
     component.proceedToPayment();
 
-    expect(alertSpy).toHaveBeenCalled();
+    expect(component.nameError()).toBe('Please enter the guest name.');
+    expect(component.emailError()).toBe('Please enter the guest email.');
+  });
+
+  it('shows inline validation when email format is invalid', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Athit';
+    component.form.email = 'invalid-email';
+
+    component.proceedToPayment();
+
+    expect(component.nameError()).toBe('');
+    expect(component.emailError()).toBe('Please enter a valid email address.');
   });
 
   it('creates booking and redirects to payment app', () => {
@@ -120,6 +154,7 @@ describe('CheckoutComponent', () => {
 
     const fixture = TestBed.createComponent(CheckoutComponent);
     const component = fixture.componentInstance;
+    const redirectSpy = jest.spyOn(component as any, 'redirectToPayment').mockImplementation(() => {});
     component.ngOnInit();
     component.form.user_name = 'Athit';
     component.form.email = 'athit@example.com';
@@ -127,7 +162,9 @@ describe('CheckoutComponent', () => {
     component.proceedToPayment();
 
     expect(bookingService.createBooking).toHaveBeenCalled();
-    expect(sessionStorage.getItem('pending_booking')).toContain('BK123');
+    expect(redirectSpy).toHaveBeenCalled();
+    expect(component.nameError()).toBe('');
+    expect(component.emailError()).toBe('');
   });
 
   it('handles booking creation error', () => {
@@ -147,6 +184,28 @@ describe('CheckoutComponent', () => {
     expect(component.submitting()).toBe(false);
   });
 
+  it('uses the fallback conflict message when booking creation returns 409 without a detail', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.findResumableBooking.mockReturnValue(of(null));
+    bookingService.createBooking.mockReturnValue(
+      throwError(() => ({
+        status: 409,
+        error: {},
+      })),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    expect(component.submitError()).toContain('no longer available');
+    expect(component.submitting()).toBe(false);
+  });
+
   // ── Resumable booking ────────────────────────────────────────────────────────
 
   it('reuses resumable booking when hold is valid', () => {
@@ -156,6 +215,7 @@ describe('CheckoutComponent', () => {
 
     const fixture = TestBed.createComponent(CheckoutComponent);
     const component = fixture.componentInstance;
+    const redirectSpy = jest.spyOn(component as any, 'redirectToPayment').mockImplementation(() => {});
     component.ngOnInit();
     component.form.user_name = 'Athit';
     component.form.email = 'athit@example.com';
@@ -166,8 +226,7 @@ describe('CheckoutComponent', () => {
     expect(bookingService.createBooking).not.toHaveBeenCalled();
     // resumableBooking signal should be set
     expect(component.resumableBooking()?.id).toBe(99);
-    // sessionStorage should carry the resumable booking
-    expect(sessionStorage.getItem('pending_booking')).toContain('BKRESUME');
+    expect(redirectSpy).toHaveBeenCalledWith(existing);
   });
 
   it('extends hold when resumable booking hold has expired', () => {
@@ -187,6 +246,7 @@ describe('CheckoutComponent', () => {
 
     const fixture = TestBed.createComponent(CheckoutComponent);
     const component = fixture.componentInstance;
+    const redirectSpy = jest.spyOn(component as any, 'redirectToPayment').mockImplementation(() => {});
     component.ngOnInit();
     component.form.user_name = 'Athit';
     component.form.email = 'athit@example.com';
@@ -196,6 +256,7 @@ describe('CheckoutComponent', () => {
     expect(bookingService.extendHold).toHaveBeenCalledWith(77, 'athit@example.com');
     expect(component.resumableBooking()?.id).toBe(77);
     expect(component.holdExpired()).toBe(false);
+    expect(redirectSpy).not.toHaveBeenCalled();
   });
 
   it('shows 409 error message when extend-hold fails (dates taken)', () => {
@@ -209,6 +270,32 @@ describe('CheckoutComponent', () => {
       throwError(() => ({
         status: 409,
         error: { detail: 'These dates are no longer available — another booking was confirmed' },
+      })),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    expect(component.submitError()).toContain('no longer available');
+    expect(component.resumableBooking()).toBeNull();
+  });
+
+  it('uses the generic unavailable message when extend-hold returns 409 without detail', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    const expired = makeBooking({
+      id: 77,
+      hold_expires_at: new Date(Date.now() - 1000).toISOString(),
+    });
+    bookingService.findResumableBooking.mockReturnValue(of(expired));
+    bookingService.extendHold.mockReturnValue(
+      throwError(() => ({
+        status: 409,
+        error: {},
       })),
     );
 
@@ -252,6 +339,7 @@ describe('CheckoutComponent', () => {
 
     const fixture = TestBed.createComponent(CheckoutComponent);
     const component = fixture.componentInstance;
+    jest.spyOn(component as any, 'redirectToPayment').mockImplementation(() => {});
     component.ngOnInit();
     component.form.user_name = 'Athit';
     component.form.email = 'athit@example.com';
@@ -371,6 +459,26 @@ describe('CheckoutComponent', () => {
 
     expect(sessionStorage.getItem('pending_booking')).toBeNull();
     expect(component.resumableBooking()).toBeNull();
+  });
+
+  it('does not auto-restore a pending booking without a hold expiry', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    sessionStorage.setItem(
+      'pending_booking',
+      JSON.stringify(
+        makeBooking({
+          hold_expires_at: null,
+          payment_status: 'pending',
+        }),
+      ),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.resumableBooking()).toBeNull();
+    expect(component.holdSecondsLeft()).toBe(0);
   });
 
   it('formats the hold countdown helpers with leading zeroes', () => {

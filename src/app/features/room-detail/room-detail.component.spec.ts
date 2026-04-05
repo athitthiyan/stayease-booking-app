@@ -186,6 +186,37 @@ describe('RoomDetailComponent', () => {
     expect(component.amenities()).toEqual([]);
   });
 
+  it('falls back to an empty gallery image when both main image and gallery are missing', () => {
+    roomService.getRoom.mockReturnValue(
+      of(mockRoom({ image_url: '', gallery_urls: 'invalid-json' })),
+    );
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.galleryImages()).toEqual([]);
+    expect(component.activeImage()).toBe('');
+  });
+
+  it('keeps gallery images when the main image is absent but gallery JSON is valid', () => {
+    roomService.getRoom.mockReturnValue(
+      of(
+        mockRoom({
+          image_url: '',
+          gallery_urls: JSON.stringify(['https://example.com/gallery-only.jpg']),
+        }),
+      ),
+    );
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.galleryImages()).toEqual(['https://example.com/gallery-only.jpg']);
+    expect(component.activeImage()).toBe('https://example.com/gallery-only.jpg');
+  });
+
   it('sets the active image when a thumbnail is selected', () => {
     roomService.getRoom.mockReturnValue(of(mockRoom()));
 
@@ -303,6 +334,21 @@ describe('RoomDetailComponent', () => {
     component.checkOut = '2026-04-10';
     component.onDateChange();
     expect(component.dateConflict()).toBe('');
+  });
+
+  it('calculates a zero total when the room price is missing', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom({ price: undefined })));
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.checkIn = '2026-04-10';
+    component.checkOut = '2026-04-12';
+    component.onDateChange();
+
+    expect(component.nights()).toBe(2);
+    expect(component.totalAmount()).toBe(0);
   });
 
   it('gracefully handles unavailable-dates API error (no conflict shown)', () => {

@@ -69,10 +69,16 @@ import { environment } from '../../../environments/environment';
               <div class="form-group">
                 <label>Full Name *</label>
                 <input type="text" [(ngModel)]="form.user_name" class="form-control" placeholder="John Doe" required />
+                @if (nameError()) {
+                  <p class="checkout-error">{{ nameError() }}</p>
+                }
               </div>
               <div class="form-group">
                 <label>Email Address *</label>
                 <input type="email" [(ngModel)]="form.email" class="form-control" placeholder="john@example.com" required />
+                @if (emailError()) {
+                  <p class="checkout-error">{{ emailError() }}</p>
+                }
               </div>
             </div>
             <div class="form-group" style="margin-top:16px">
@@ -204,6 +210,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   checkoutState = signal<CheckoutState | null>(null);
   submitting = signal(false);
   submitError = signal('');
+  nameError = signal('');
+  emailError = signal('');
 
   nights = signal(0);
   subtotal = signal(0);
@@ -349,11 +357,31 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     window.location.href = paymentUrl;
   }
 
+  private validateGuestDetails(): boolean {
+    const trimmedName = this.form.user_name.trim();
+    const trimmedEmail = this.form.email.trim();
+    this.nameError.set('');
+    this.emailError.set('');
+
+    if (!trimmedName) {
+      this.nameError.set('Please enter the guest name.');
+    }
+
+    if (!trimmedEmail) {
+      this.emailError.set('Please enter the guest email.');
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      this.emailError.set('Please enter a valid email address.');
+    }
+
+    this.form.user_name = trimmedName;
+    this.form.email = trimmedEmail;
+    return !this.nameError() && !this.emailError();
+  }
+
   // ── Main flow ─────────────────────────────────────────────────────────────
 
   proceedToPayment() {
-    if (!this.form.user_name || !this.form.email) {
-      alert('Please fill in your name and email');
+    if (!this.validateGuestDetails()) {
       return;
     }
 
