@@ -55,30 +55,6 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
           </div>
         </aside>
       </section>
-    } @else if (activeBookingService.loadError()) {
-      <section class="active-booking-shell" aria-live="polite">
-        <aside class="active-booking-bar active-booking-bar--error">
-          <div class="active-booking-bar__content">
-            <div class="active-booking-bar__status">
-              <span class="active-booking-bar__pulse active-booking-bar__pulse--error" aria-hidden="true"></span>
-              <div>
-                <p class="active-booking-bar__eyebrow">Booking recovery</p>
-                <h3>Unable to retrieve active booking</h3>
-              </div>
-            </div>
-
-            <div class="active-booking-bar__details active-booking-bar__details--error">
-              <span>Please retry to check whether you still have a live hold.</span>
-            </div>
-
-            <div class="active-booking-bar__actions">
-              <button class="btn btn--primary btn--sm" type="button" (click)="activeBookingService.retryLoad()">
-                Retry
-              </button>
-            </div>
-          </div>
-        </aside>
-      </section>
     }
 
     @if (activeBookingService.toastMessage()) {
@@ -109,14 +85,6 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
       backdrop-filter: blur(18px);
       pointer-events: auto;
     }
-
-    .active-booking-bar--error {
-      border-color: rgba(248, 113, 113, 0.3);
-      background:
-        radial-gradient(circle at top left, rgba(248, 113, 113, 0.12), transparent 28%),
-        linear-gradient(135deg, rgba(28, 18, 22, 0.98), rgba(39, 22, 32, 0.96));
-    }
-
     .active-booking-bar__content {
       display: grid;
       align-items: center;
@@ -141,11 +109,6 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
       animation: active-booking-pulse 1.8s infinite;
     }
 
-    .active-booking-bar__pulse--error {
-      background: #f87171;
-      box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.45);
-    }
-
     .active-booking-bar__eyebrow {
       margin-bottom: 6px !important;
       color: var(--color-primary) !important;
@@ -168,10 +131,6 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
       gap: 4px;
       min-width: 0;
       color: var(--color-text-muted);
-    }
-
-    .active-booking-bar__details--error {
-      justify-content: center;
     }
 
     .active-booking-bar__hotel {

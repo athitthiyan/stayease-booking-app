@@ -89,19 +89,16 @@ describe('ActiveBookingCtaBarComponent', () => {
     expect(activeBookingService.cancelActiveBooking).toHaveBeenCalled();
   });
 
-  it('renders the retry bar when active booking retrieval fails', () => {
+  it('does not render the CTA bar when no active booking exists, even if recovery failed', () => {
     loadError.set('Unable to retrieve active booking.');
 
     const fixture = TestBed.createComponent(ActiveBookingCtaBarComponent);
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
-    expect(element.textContent).toContain('Unable to retrieve active booking');
-    expect(element.textContent).toContain('Retry');
-
-    const retryButton = element.querySelector('button') as HTMLButtonElement;
-    retryButton.click();
-    expect(activeBookingService.retryLoad).toHaveBeenCalled();
+    expect(element.textContent).not.toContain('Unable to retrieve active booking');
+    expect(element.textContent).not.toContain('Retry');
+    expect(element.querySelector('.active-booking-bar')).toBeNull();
   });
 
   it('renders transient toast messages', () => {
