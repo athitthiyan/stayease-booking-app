@@ -66,9 +66,11 @@ describe('ActiveBookingCtaBarComponent', () => {
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
-    expect(element.textContent).toContain('You already have an active booking hold');
+    expect(element.textContent).toContain('You already have an active booking in progress');
     expect(element.textContent).toContain('08:43');
     expect(element.textContent).toContain('Serenity Beach Resort');
+    expect(element.textContent).toContain('Suite');
+    expect(element.textContent).toContain('2026-05-01 to 2026-05-03');
   });
 
   it('triggers continue and cancel actions', () => {

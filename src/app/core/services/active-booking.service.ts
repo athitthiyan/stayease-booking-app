@@ -114,7 +114,7 @@ export class ActiveBookingService {
 
   private refreshActiveHold(silent: boolean): void {
     if (!this.authService.isLoggedIn) {
-      this.clearState();
+      this.clearState(false);
       return;
     }
 
