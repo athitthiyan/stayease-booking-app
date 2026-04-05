@@ -45,7 +45,7 @@ import { RouterLink } from '@angular/router';
         <div class="support-contact">
           <div>
             <span class="support-contact__label">Email support</span>
-            <a href="mailto:support@stayvora.co.in">support@stayvora.co.in</a>
+            <a href="mailto:support@stayvora.co.in">support&#64;stayvora.co.in</a>
           </div>
           <div>
             <span class="support-contact__label">Response target</span>

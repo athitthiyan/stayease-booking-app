@@ -32,6 +32,8 @@ describe('BookingHistoryComponent', () => {
     getMyBookings: jest.fn(),
     cancelBooking: jest.fn(),
     requestBookingSupport: jest.fn(),
+    downloadInvoice: jest.fn(),
+    downloadVoucher: jest.fn(),
   };
   const authService = {
     isLoggedIn: false,
@@ -59,6 +61,8 @@ describe('BookingHistoryComponent', () => {
     bookingService.getMyBookings.mockReset();
     bookingService.cancelBooking.mockReset();
     bookingService.requestBookingSupport.mockReset();
+    bookingService.downloadInvoice.mockReset();
+    bookingService.downloadVoucher.mockReset();
 
     await TestBed.configureTestingModule({
       imports: [BookingHistoryComponent],
@@ -231,5 +235,67 @@ describe('BookingHistoryComponent', () => {
 
     component.requestCancellationHelp(response.bookings[0]);
     expect(component.actionError()).toContain('could not send your support request');
+  });
+
+  it('downloads invoice and voucher for paid bookings', () => {
+    bookingService.downloadInvoice.mockReturnValue(of(new Blob(['invoice'])));
+    bookingService.downloadVoucher.mockReturnValue(of(new Blob(['voucher'])));
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: jest.fn(() => 'blob:test'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: jest.fn(),
+    });
+    const clickSpy = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.canDownloadDocuments(response.bookings[0])).toBe(true);
+    component.downloadInvoice(response.bookings[0]);
+    component.downloadVoucher(response.bookings[0]);
+
+    expect(bookingService.downloadInvoice).toHaveBeenCalledWith(1);
+    expect(bookingService.downloadVoucher).toHaveBeenCalledWith(1);
+    expect(clickSpy).toHaveBeenCalledTimes(2);
+
+    clickSpy.mockRestore();
+  });
+
+  it('renders refund timeline helpers for refunded bookings', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    const refundedBooking = {
+      ...response.bookings[0],
+      payment_status: 'refunded' as const,
+      refund_status: 'refund_processing' as const,
+      refund_amount: 180,
+      refund_requested_at: '2026-04-01T00:00:00.000Z',
+      refund_initiated_at: '2026-04-02T00:00:00.000Z',
+      refund_expected_settlement_at: '2026-04-05T00:00:00.000Z',
+      refund_gateway_reference: 'RFND-001',
+    };
+
+    expect(component.hasRefundTimeline(refundedBooking)).toBe(true);
+    expect(component.refundStatusLabel(refundedBooking)).toBe('Refund Processing');
+    expect(component.refundAmount(refundedBooking)).toBe(180);
+    expect(component.isRefundStepComplete(refundedBooking, 'initiated')).toBe(true);
+    expect(component.formatDateTime(refundedBooking.refund_requested_at!)).toContain('2026');
+  });
+
+  it('reports document download failures', () => {
+    bookingService.downloadInvoice.mockReturnValue(throwError(() => new Error('boom')));
+    bookingService.downloadVoucher.mockReturnValue(throwError(() => new Error('boom')));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+
+    component.downloadInvoice(response.bookings[0]);
+    expect(component.actionError()).toContain('could not download the invoice');
+
+    component.downloadVoucher(response.bookings[0]);
+    expect(component.actionError()).toContain('could not download the voucher');
   });
 });

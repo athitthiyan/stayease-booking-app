@@ -129,6 +129,54 @@ type TabKey = 'all' | 'upcoming' | 'past' | 'cancelled';
                   <div class="total">Total: <strong>{{ booking.total_amount | currency }}</strong></div>
                 </div>
 
+                @if (hasRefundTimeline(booking)) {
+                  <div class="refund-timeline">
+                    <div class="refund-timeline__header">
+                      <strong>Refund timeline</strong>
+                      <span class="refund-status">{{ refundStatusLabel(booking) }}</span>
+                    </div>
+                    <div class="refund-timeline__meta">
+                      <span>Amount: {{ refundAmount(booking) | currency }}</span>
+                      @if (booking.refund_expected_settlement_at && booking.refund_status !== 'refund_success') {
+                        <span>Expected settlement: {{ formatDateTime(booking.refund_expected_settlement_at) }}</span>
+                      }
+                      @if (booking.refund_gateway_reference) {
+                        <span>Reference: {{ booking.refund_gateway_reference }}</span>
+                      }
+                    </div>
+                    <ul class="refund-timeline__steps">
+                      <li [class.is-complete]="!!booking.refund_requested_at">
+                        Refund requested
+                        @if (booking.refund_requested_at) {
+                          <span>{{ formatDateTime(booking.refund_requested_at) }}</span>
+                        }
+                      </li>
+                      <li [class.is-complete]="isRefundStepComplete(booking, 'initiated')">
+                        Bank processing
+                        @if (booking.refund_initiated_at) {
+                          <span>{{ formatDateTime(booking.refund_initiated_at) }}</span>
+                        }
+                      </li>
+                      <li [class.is-complete]="booking.refund_status === 'refund_success'">
+                        Refund completed
+                        @if (booking.refund_completed_at) {
+                          <span>{{ formatDateTime(booking.refund_completed_at) }}</span>
+                        }
+                      </li>
+                    </ul>
+                    @if (booking.refund_status === 'refund_failed') {
+                      <p class="refund-timeline__issue">
+                        Refund failed: {{ booking.refund_failed_reason || 'Please contact support for help.' }}
+                      </p>
+                    }
+                    @if (booking.refund_status === 'refund_reversed') {
+                      <p class="refund-timeline__issue">
+                        Refund reversed: {{ booking.refund_failed_reason || 'Manual finance correction applied.' }}
+                      </p>
+                    }
+                  </div>
+                }
+
                 @if (actionMessage() && busyBookingId() === booking.id) {
                   <p class="booking-feedback booking-feedback--success">{{ actionMessage() }}</p>
                 }
@@ -162,6 +210,25 @@ type TabKey = 'all' | 'upcoming' | 'past' | 'cancelled';
                     <a class="btn btn--ghost btn--sm" routerLink="/cancellation-policy">
                       View Policy
                     </a>
+                  }
+
+                  @if (canDownloadDocuments(booking)) {
+                    <button
+                      type="button"
+                      class="btn btn--ghost btn--sm"
+                      [disabled]="busyBookingId() === booking.id"
+                      (click)="downloadInvoice(booking)"
+                    >
+                      Invoice
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn--ghost btn--sm"
+                      [disabled]="busyBookingId() === booking.id"
+                      (click)="downloadVoucher(booking)"
+                    >
+                      Voucher
+                    </button>
                   }
                 </div>
               </div>
@@ -339,6 +406,61 @@ type TabKey = 'all' | 'upcoming' | 'past' | 'cancelled';
       margin-top: 4px;
     }
 
+    .refund-timeline {
+      border: 1px solid rgba(129, 140, 248, 0.25);
+      border-radius: 16px;
+      padding: 14px;
+      background: rgba(99, 102, 241, 0.08);
+    }
+
+    .refund-timeline__header,
+    .refund-timeline__meta {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .refund-timeline__meta {
+      margin-top: 8px;
+      color: var(--color-text-muted);
+      font-size: 12px;
+    }
+
+    .refund-status {
+      font-size: 12px;
+      text-transform: capitalize;
+      color: #c4b5fd;
+    }
+
+    .refund-timeline__steps {
+      list-style: none;
+      margin: 12px 0 0;
+      padding: 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .refund-timeline__steps li {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--color-text-muted);
+      font-size: 13px;
+    }
+
+    .refund-timeline__steps li.is-complete {
+      color: #bfdbfe;
+      font-weight: 600;
+    }
+
+    .refund-timeline__issue {
+      margin: 10px 0 0;
+      color: #fda4af;
+      font-size: 13px;
+    }
+
     .booking-feedback {
       margin: 0;
       font-size: 13px;
@@ -500,5 +622,81 @@ export class BookingHistoryComponent implements OnInit {
           );
         },
       });
+  }
+
+  canDownloadDocuments(booking: Booking): boolean {
+    return booking.payment_status === 'paid' || booking.payment_status === 'refunded';
+  }
+
+  hasRefundTimeline(booking: Booking): boolean {
+    return !!booking.refund_status;
+  }
+
+  refundStatusLabel(booking: Booking): string {
+    return (booking.refund_status || 'refund_requested')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, character => character.toUpperCase());
+  }
+
+  refundAmount(booking: Booking): number {
+    return booking.refund_amount ?? booking.total_amount;
+  }
+
+  isRefundStepComplete(booking: Booking, step: 'initiated'): boolean {
+    if (step === 'initiated') {
+      return !!booking.refund_initiated_at
+        || booking.refund_status === 'refund_processing'
+        || booking.refund_status === 'refund_success'
+        || booking.refund_status === 'refund_failed'
+        || booking.refund_status === 'refund_reversed';
+    }
+    return false;
+  }
+
+  formatDateTime(dateStr: string): string {
+    return new Date(dateStr).toLocaleString('en-US', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+
+  downloadInvoice(booking: Booking): void {
+    this.busyBookingId.set(booking.id);
+    this.actionError.set('');
+    this.bookingService.downloadInvoice(booking.id).subscribe({
+      next: blob => {
+        this.actionMessage.set('Invoice download started.');
+        this.saveDocument(blob, `invoice-${booking.booking_ref}.pdf`);
+      },
+      error: () => {
+        this.actionError.set('We could not download the invoice right now. Please try again.');
+      },
+    });
+  }
+
+  downloadVoucher(booking: Booking): void {
+    this.busyBookingId.set(booking.id);
+    this.actionError.set('');
+    this.bookingService.downloadVoucher(booking.id).subscribe({
+      next: blob => {
+        this.actionMessage.set('Voucher download started.');
+        this.saveDocument(blob, `voucher-${booking.booking_ref}.pdf`);
+      },
+      error: () => {
+        this.actionError.set('We could not download the voucher right now. Please try again.');
+      },
+    });
+  }
+
+  private saveDocument(blob: Blob, filename: string): void {
+    const downloadUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = downloadUrl;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(downloadUrl);
   }
 }

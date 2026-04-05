@@ -58,6 +58,28 @@ export class BookingService {
     return this.http.get<Booking>(`${this.base}/${id}`);
   }
 
+  downloadInvoice(bookingId: number, bookingRef?: string): Observable<Blob> {
+    let params = new HttpParams();
+    if (bookingRef) {
+      params = params.set('booking_ref', bookingRef);
+    }
+    return this.http.get(`${this.base}/${bookingId}/invoice`, {
+      params,
+      responseType: 'blob',
+    });
+  }
+
+  downloadVoucher(bookingId: number, bookingRef?: string): Observable<Blob> {
+    let params = new HttpParams();
+    if (bookingRef) {
+      params = params.set('booking_ref', bookingRef);
+    }
+    return this.http.get(`${this.base}/${bookingId}/voucher`, {
+      params,
+      responseType: 'blob',
+    });
+  }
+
   getBookingHistory(email: string): Observable<BookingListResponse> {
     return this.http.get<BookingListResponse>(`${this.base}/history`, {
       params: new HttpParams().set('email', email),

@@ -26,6 +26,14 @@ export type PaymentStatus =
   | 'refunded'
   | 'expired';
 
+export type RefundStatus =
+  | 'refund_requested'
+  | 'refund_initiated'
+  | 'refund_processing'
+  | 'refund_success'
+  | 'refund_failed'
+  | 'refund_reversed';
+
 export type BookingSupportCategory =
   | 'payment_help'
   | 'cancellation_help'
@@ -63,6 +71,14 @@ export interface Booking {
   total_amount: number;
   status: BookingStatus;
   payment_status: PaymentStatus;
+  refund_status?: RefundStatus;
+  refund_amount?: number;
+  refund_requested_at?: string;
+  refund_initiated_at?: string;
+  refund_expected_settlement_at?: string;
+  refund_completed_at?: string;
+  refund_failed_reason?: string;
+  refund_gateway_reference?: string;
   special_requests?: string;
   created_at: string;
 }

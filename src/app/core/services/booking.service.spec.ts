@@ -68,6 +68,29 @@ describe('BookingService', () => {
     req.flush({});
   });
 
+  it('downloads invoice with optional booking reference', () => {
+    let blobResult: Blob | undefined;
+    service.downloadInvoice(42, 'BK42').subscribe(blob => (blobResult = blob));
+    const req = httpMock.expectOne(
+      r => r.url === `${environment.apiUrl}/bookings/42/invoice` && r.params.get('booking_ref') === 'BK42',
+    );
+    expect(req.request.method).toBe('GET');
+    expect(req.request.responseType).toBe('blob');
+    req.flush(new Blob(['invoice']));
+    expect(blobResult).toBeInstanceOf(Blob);
+  });
+
+  it('downloads voucher without booking reference when auth is available', () => {
+    let blobResult: Blob | undefined;
+    service.downloadVoucher(42).subscribe(blob => (blobResult = blob));
+    const req = httpMock.expectOne(`${environment.apiUrl}/bookings/42/voucher`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.has('booking_ref')).toBe(false);
+    expect(req.request.responseType).toBe('blob');
+    req.flush(new Blob(['voucher']));
+    expect(blobResult).toBeInstanceOf(Blob);
+  });
+
   it('creates booking with correct payload', () => {
     const payload = {
       user_name: 'Test User', email: 'test@example.com', phone: '+1234567890',

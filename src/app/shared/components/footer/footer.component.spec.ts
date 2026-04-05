@@ -16,10 +16,10 @@ describe('FooterComponent', () => {
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
-    expect(element.textContent).toContain('Stay');
+    expect(element.textContent).toContain('Stayvora');
     expect(element.textContent).toContain('Explore');
-    expect(element.textContent).toContain('Destinations');
-    expect(element.textContent).toContain('Portfolio');
+    expect(element.textContent).toContain('Policies');
+    expect(element.textContent).toContain('Support');
     expect(element.querySelectorAll('.footer__socials a').length).toBe(3);
     expect(Array.from(element.querySelectorAll('a')).some(anchor => anchor.textContent?.includes('PayFlow'))).toBe(true);
   });

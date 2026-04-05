@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>13/13</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/5</span>
+                <span class='fraction'>5/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/11</span>
+                <span class='fraction'>11/11</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -102,49 +102,49 @@
 <a name='L37'></a><a href='#L37'>37</a>
 <a name='L38'></a><a href='#L38'>38</a>
 <a name='L39'></a><a href='#L39'>39</a>
-<a name='L40'></a><a href='#L40'>40</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<a name='L40'></a><a href='#L40'>40</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { Injectable, inject } from '@angular/core';</span>
-<span class="cstat-no" title="statement not covered" >import { HttpClient, HttpParams } from '@angular/common/http';</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Injectable, inject } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-<span class="cstat-no" title="statement not covered" >import { environment } from '../../../environments/environment';</span>
+import { environment } from '../../../environments/environment';
 import {
   HostReplyRequest,
   ReviewCreate,
@@ -153,31 +153,31 @@ import {
 } from '../models/review.model';
 &nbsp;
 @Injectable({ providedIn: 'root' })
-export <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >class <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" >R</span>eviewService </span>{</span></span>
-  private <span class="cstat-no" title="statement not covered" >http = inject(HttpClient);</span>
-  private <span class="cstat-no" title="statement not covered" >base = `${environment.apiUrl}/reviews`;</span>
+export class ReviewService {
+  private http = inject(HttpClient);
+  private base = `${environment.apiUrl}/reviews`;
 &nbsp;
-<span class="fstat-no" title="function not covered" >  getRoomReviews(</span>
+  getRoomReviews(
     roomId: number,
-    page = <span class="branch-0 cbranch-no" title="branch not covered" >1,</span>
-    perPage = <span class="branch-0 cbranch-no" title="branch not covered" >10</span>
+    page = 1,
+    perPage = 10
   ): Observable&lt;ReviewListResponse&gt; {
-    const params = <span class="cstat-no" title="statement not covered" >new HttpParams()</span>
+    const params = new HttpParams()
       .set('page', page)
       .set('per_page', perPage);
-<span class="cstat-no" title="statement not covered" >    return this.http.get&lt;ReviewListResponse&gt;(`${this.base}/rooms/${roomId}`, { params });</span>
+    return this.http.get&lt;ReviewListResponse&gt;(`${this.base}/rooms/${roomId}`, { params });
   }
 &nbsp;
-<span class="fstat-no" title="function not covered" >  createReview(</span>payload: ReviewCreate): Observable&lt;ReviewResponse&gt; {
-<span class="cstat-no" title="statement not covered" >    return this.http.post&lt;ReviewResponse&gt;(this.base, payload);</span>
+  createReview(payload: ReviewCreate): Observable&lt;ReviewResponse&gt; {
+    return this.http.post&lt;ReviewResponse&gt;(this.base, payload);
   }
 &nbsp;
-<span class="fstat-no" title="function not covered" >  hostReply(</span>reviewId: number, payload: HostReplyRequest): Observable&lt;ReviewResponse&gt; {
-<span class="cstat-no" title="statement not covered" >    return this.http.post&lt;ReviewResponse&gt;(`${this.base}/${reviewId}/host-reply`, payload);</span>
+  hostReply(reviewId: number, payload: HostReplyRequest): Observable&lt;ReviewResponse&gt; {
+    return this.http.post&lt;ReviewResponse&gt;(`${this.base}/${reviewId}/host-reply`, payload);
   }
 &nbsp;
-<span class="fstat-no" title="function not covered" >  deleteReview(</span>reviewId: number): Observable&lt;void&gt; {
-<span class="cstat-no" title="statement not covered" >    return this.http.delete&lt;void&gt;(`${this.base}/${reviewId}`);</span>
+  deleteReview(reviewId: number): Observable&lt;void&gt; {
+    return this.http.delete&lt;void&gt;(`${this.base}/${reviewId}`);
   }
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -187,7 +187,7 @@ export <span class="cstat-no" title="statement not covered" ><span class="fstat-
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-05T22:32:03.800Z
+                at 2026-04-05T23:15:12.721Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -75,6 +75,33 @@ describe('BookingService (extended branches)', () => {
     });
   });
 
+  describe('document downloads', () => {
+    it('GETs invoice as a blob', () => {
+      service.downloadInvoice(7, 'BK7').subscribe(blob => {
+        expect(blob).toBeInstanceOf(Blob);
+      });
+      const req = httpMock.expectOne(
+        request =>
+          request.url === `${environment.apiUrl}/bookings/7/invoice` &&
+          request.params.get('booking_ref') === 'BK7',
+      );
+      expect(req.request.method).toBe('GET');
+      expect(req.request.responseType).toBe('blob');
+      req.flush(new Blob(['pdf']));
+    });
+
+    it('GETs voucher as a blob without extra params by default', () => {
+      service.downloadVoucher(8).subscribe(blob => {
+        expect(blob).toBeInstanceOf(Blob);
+      });
+      const req = httpMock.expectOne(`${environment.apiUrl}/bookings/8/voucher`);
+      expect(req.request.method).toBe('GET');
+      expect(req.request.params.keys().length).toBe(0);
+      expect(req.request.responseType).toBe('blob');
+      req.flush(new Blob(['pdf']));
+    });
+  });
+
   describe('getBookingHistory', () => {
     it('GETs /bookings/history with email param', () => {
       service.getBookingHistory('athit@example.com').subscribe();

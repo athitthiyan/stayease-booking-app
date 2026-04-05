@@ -10,6 +10,7 @@ describe('BookingConfirmationComponent', () => {
     const bookingService = {
       getBookingByRef: jest.fn().mockReturnValue(
         of({
+          id: 99,
           booking_ref: 'BK123',
           room: { hotel_name: 'The Grand Azure', location: 'New York' },
           check_in: '2026-04-10T00:00:00Z',
@@ -20,6 +21,8 @@ describe('BookingConfirmationComponent', () => {
           payment_status: 'paid',
         })
       ),
+      downloadInvoice: jest.fn().mockReturnValue(of(new Blob(['invoice']))),
+      downloadVoucher: jest.fn().mockReturnValue(of(new Blob(['voucher']))),
     };
 
     await TestBed.configureTestingModule({
@@ -48,6 +51,67 @@ describe('BookingConfirmationComponent', () => {
     expect(component.bookingRef).toBe('BK123');
     expect(component.booking?.payment_status).toBe('paid');
     expect(component.loading).toBe(false);
+  });
+
+  it('downloads invoice and voucher for the confirmed booking', async () => {
+    const bookingService = {
+      getBookingByRef: jest.fn().mockReturnValue(
+        of({
+          id: 77,
+          booking_ref: 'BK777',
+          room: { hotel_name: 'The Grand Azure', location: 'New York' },
+          check_in: '2026-04-10T00:00:00Z',
+          check_out: '2026-04-12T00:00:00Z',
+          guests: 2,
+          total_amount: 450,
+          status: 'confirmed',
+          payment_status: 'paid',
+        }),
+      ),
+      downloadInvoice: jest.fn().mockReturnValue(of(new Blob(['invoice']))),
+      downloadVoucher: jest.fn().mockReturnValue(of(new Blob(['voucher']))),
+    };
+
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: jest.fn(() => 'blob:invoice'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: jest.fn(),
+    });
+    const clickSpy = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+    await TestBed.configureTestingModule({
+      imports: [BookingConfirmationComponent],
+      providers: [
+        provideRouter([]),
+        { provide: BookingService, useValue: bookingService },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              queryParamMap: {
+                get: (key: string) => ({ ref: 'BK777' } as Record<string, string>)[key] ?? null,
+              },
+            },
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(BookingConfirmationComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.downloadInvoice();
+    component.downloadVoucher();
+
+    expect(bookingService.downloadInvoice).toHaveBeenCalledWith(77, 'BK777');
+    expect(bookingService.downloadVoucher).toHaveBeenCalledWith(77, 'BK777');
+    expect(clickSpy).toHaveBeenCalledTimes(2);
+
+    clickSpy.mockRestore();
   });
 
   it('shows an error when booking lookup fails', async () => {

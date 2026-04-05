@@ -79,6 +79,17 @@ import { BookingService } from '../../core/services/booking.service';
             <a routerLink="/search" class="btn btn--secondary btn--lg">Browse More Rooms</a>
           </div>
 
+          @if (booking) {
+            <div class="confirm-card__actions confirm-card__actions--documents">
+              <button class="btn btn--ghost btn--lg" type="button" (click)="downloadInvoice()">
+                Download Invoice
+              </button>
+              <button class="btn btn--ghost btn--lg" type="button" (click)="downloadVoucher()">
+                Download Voucher
+              </button>
+            </div>
+          }
+
           <div class="confirm-card__links">
             <p>View the payment for this booking at:</p>
             <a href="https://payflow-payment-app.vercel.app" target="_blank" class="text-gold">
@@ -272,5 +283,28 @@ export class BookingConfirmationComponent implements OnInit {
         this.loading = false;
       },
     });
+  }
+
+  downloadInvoice(): void {
+    if (!this.booking) return;
+    this.bookingService.downloadInvoice(this.booking.id, this.booking.booking_ref).subscribe(blob => {
+      this.saveDocument(blob, `invoice-${this.booking?.booking_ref}.pdf`);
+    });
+  }
+
+  downloadVoucher(): void {
+    if (!this.booking) return;
+    this.bookingService.downloadVoucher(this.booking.id, this.booking.booking_ref).subscribe(blob => {
+      this.saveDocument(blob, `voucher-${this.booking?.booking_ref}.pdf`);
+    });
+  }
+
+  private saveDocument(blob: Blob, filename: string): void {
+    const downloadUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = downloadUrl;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(downloadUrl);
   }
 }
