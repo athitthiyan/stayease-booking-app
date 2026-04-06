@@ -218,7 +218,7 @@ describe('AuthService', () => {
     expect(localStorage.getItem('se_refresh_token')).toBeNull();
     expect(localStorage.getItem('se_user')).toBeNull();
     expect(service.isLoggedIn).toBe(false);
-    expect(routerSpy.navigate).toHaveBeenCalledWith(['/']);
+    expect(routerSpy.navigate).toHaveBeenCalledWith(['/auth/login']);
   });
 
   // ─── token accessors ──────────────────────────────────────────────────────
@@ -243,6 +243,64 @@ describe('AuthService', () => {
     service.login({ email: 'a@b.com', password: 'pw' }).subscribe();
     http.expectOne(`${environment.apiUrl}/auth/login`).flush(mockTokenResponse);
     expect(service.isAdmin).toBe(false);
+  });
+
+  // ─── phone OTP ─────────────────────────────────────────────────────────
+
+  it('should call the phone OTP request endpoint', () => {
+    service.requestPhoneOtp({ phone: '+1234567890' }).subscribe();
+    const req = http.expectOne(`${environment.apiUrl}/auth/phone/request-otp`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ phone: '+1234567890' });
+    req.flush({ message: 'sent', otp_id: 'otp-1' });
+  });
+
+  it('should update user and localStorage on verifyPhoneOtp', () => {
+    const verifiedUser = { ...mockUser, phone: '+1234567890', phone_verified: true };
+    service.verifyPhoneOtp({ otp_id: 'otp-1', otp_code: '123456' }).subscribe();
+
+    const req = http.expectOne(`${environment.apiUrl}/auth/phone/verify`);
+    expect(req.request.method).toBe('POST');
+    req.flush(verifiedUser);
+
+    expect(service.currentUser).toEqual(verifiedUser);
+    expect(JSON.parse(localStorage.getItem('se_user')!)).toEqual(verifiedUser);
+  });
+
+  // ─── Microsoft + social login with token ──────────────────────────────
+
+  it('should throw on loginWithApple', async () => {
+    await expect(service.loginWithApple()).rejects.toThrow('Apple Sign-In requires native integration');
+  });
+
+  it('should redirect to Microsoft OAuth on loginWithMicrosoft', async () => {
+    const originalLocation = window.location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      writable: true,
+      value: { href: '', origin: 'http://localhost' },
+    });
+
+    await service.loginWithMicrosoft();
+
+    expect(window.location.href).toContain('login.microsoftonline.com');
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      writable: true,
+      value: originalLocation,
+    });
+  });
+
+  it('should post and persist session on socialLoginWithToken', () => {
+    service.socialLoginWithToken('google', 'test-id-token').subscribe();
+
+    const req = http.expectOne(`${environment.apiUrl}/auth/social-login`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ provider: 'google', id_token: 'test-id-token' });
+    req.flush(mockTokenResponse);
+
+    expect(localStorage.getItem('se_access_token')).toBe('access-token-abc');
+    expect(service.isLoggedIn).toBe(true);
   });
 
   it('isAdmin should be true for admin user', () => {

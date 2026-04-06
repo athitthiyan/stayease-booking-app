@@ -109,4 +109,14 @@ describe('RoomCardComponent', () => {
     expect((event.stopPropagation as jest.Mock)).toHaveBeenCalled();
     expect((event.preventDefault as jest.Mock)).toHaveBeenCalled();
   });
+
+  it('resolves a valid image URL and falls back to the placeholder for invalid ones', () => {
+    const fixture = TestBed.createComponent(RoomCardComponent);
+    const component = fixture.componentInstance;
+    component.room = room;
+    component.ngOnInit();
+
+    expect(component.resolveImage('https://example.com/room.jpg')).toBe('https://example.com/room.jpg');
+    expect(component.resolveImage('not-a-url')).toBe(component.placeholderImg);
+  });
 });

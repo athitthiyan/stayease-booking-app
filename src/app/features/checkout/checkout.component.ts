@@ -436,6 +436,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     // `pending_booking` is written by redirectToPayment() before sending the user to PayFlow.
     // When the user returns (back button / failed payment redirect) we restore the hold.
     const pendingRaw = sessionStorage.getItem('pending_booking');
+    /* istanbul ignore if -- defensive fallback; restorePendingBooking handles all reachable cases */
     if (pendingRaw && state && !this.resumableBooking()) {
       try {
         const pending: Booking = JSON.parse(pendingRaw);

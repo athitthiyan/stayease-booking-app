@@ -55,6 +55,7 @@ export interface PhoneOtpRequest {
 export interface PhoneOtpResponse {
   message: string;
   otp_id: string;
+  dev_code?: string;
 }
 
 export interface PhoneOtpVerifyRequest {

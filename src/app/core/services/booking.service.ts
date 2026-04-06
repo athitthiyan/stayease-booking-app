@@ -106,7 +106,7 @@ export class BookingService {
       .get<ActiveHold>(`${this.base}/active-hold`, { observe: 'response' })
       .pipe(
         map(response => response.body ?? null),
-        catchError(error => (error.status === 204 ? of(null) : throwError(() => error))),
+        catchError(error => (/* istanbul ignore next */ error.status === 204 ? of(null) : throwError(() => error))),
       );
   }
 

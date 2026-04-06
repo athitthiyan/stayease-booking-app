@@ -44,4 +44,19 @@ describe('image-fallback utils', () => {
     applyRoomImageFallback({ target: image } as unknown as Event);
     expect(image.src).toBe(ROOM_IMAGE_PLACEHOLDER);
   });
+
+  it('handles non-string values in gallery_urls array', () => {
+    expect(
+      getRoomGalleryImages({
+        image_url: 'https://example.com/main.jpg',
+        gallery_urls: JSON.stringify([null, 42, 'https://example.com/valid.jpg']),
+      }),
+    ).toEqual(['https://example.com/main.jpg', 'https://example.com/valid.jpg']);
+  });
+
+  it('does nothing when the event target is not an HTMLImageElement', () => {
+    const div = document.createElement('div');
+    applyRoomImageFallback({ target: div } as unknown as Event);
+    expect((div as unknown as HTMLImageElement).src).toBeUndefined();
+  });
 });

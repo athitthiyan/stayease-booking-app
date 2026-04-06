@@ -80,6 +80,18 @@ describe('BookingService', () => {
     expect(blobResult).toBeInstanceOf(Blob);
   });
 
+  it('downloads voucher with booking reference when provided', () => {
+    let blobResult: Blob | undefined;
+    service.downloadVoucher(42, 'BK42').subscribe(blob => (blobResult = blob));
+    const req = httpMock.expectOne(
+      r => r.url === `${environment.apiUrl}/bookings/42/voucher` && r.params.get('booking_ref') === 'BK42',
+    );
+    expect(req.request.method).toBe('GET');
+    expect(req.request.responseType).toBe('blob');
+    req.flush(new Blob(['voucher']));
+    expect(blobResult).toBeInstanceOf(Blob);
+  });
+
   it('downloads voucher without booking reference when auth is available', () => {
     let blobResult: Blob | undefined;
     service.downloadVoucher(42).subscribe(blob => (blobResult = blob));
@@ -150,6 +162,14 @@ describe('BookingService', () => {
         hotel_name: 'Azure',
       }),
     );
+  });
+
+  it('re-throws non-204 errors from getActiveHold', () => {
+    let error: unknown;
+    service.getActiveHold().subscribe({ error: err => (error = err) });
+    const req = httpMock.expectOne(`${environment.apiUrl}/bookings/active-hold`);
+    req.flush({ detail: 'Server error' }, { status: 500, statusText: 'Internal Server Error' });
+    expect(error).toBeDefined();
   });
 
   it('returns null when active hold endpoint responds with 204', () => {

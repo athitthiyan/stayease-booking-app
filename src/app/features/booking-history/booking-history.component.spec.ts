@@ -298,4 +298,87 @@ describe('BookingHistoryComponent', () => {
     component.downloadVoucher(response.bookings[0]);
     expect(component.actionError()).toContain('could not download the voucher');
   });
+
+  it('canResumeBooking returns false for paid or confirmed bookings', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.canResumeBooking({ ...response.bookings[0], payment_status: 'paid', status: 'confirmed' } as never)).toBe(false);
+  });
+
+  it('canResumeBooking returns false when hold_expires_at is missing', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.canResumeBooking({
+      ...response.bookings[0],
+      status: 'pending',
+      payment_status: 'failed',
+      hold_expires_at: undefined,
+    } as never)).toBe(false);
+  });
+
+  it('canRequestCancellationHelp returns false when not confirmed/paid', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.canRequestCancellationHelp({
+      ...response.bookings[0],
+      status: 'pending',
+      payment_status: 'failed',
+    } as never)).toBe(false);
+  });
+
+  it('canRequestCancellationHelp returns false when past check-out', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.canRequestCancellationHelp({
+      ...response.bookings[0],
+      status: 'confirmed',
+      payment_status: 'paid',
+      check_out: '2020-01-01',
+    } as never)).toBe(false);
+  });
+
+  it('refundStatusLabel falls back when refund_status is undefined', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    expect(component.refundStatusLabel({ ...response.bookings[0], refund_status: undefined } as never)).toBe('Refund Requested');
+  });
+
+  it('refundAmount falls back to total_amount when refund_amount is undefined', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    expect(component.refundAmount({ ...response.bookings[0], refund_amount: undefined, total_amount: 500 } as never)).toBe(500);
+  });
+
+  it('isRefundStepComplete returns true via refund_status when refund_initiated_at is absent', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    const booking = {
+      ...response.bookings[0],
+      refund_initiated_at: undefined,
+      refund_status: 'refund_processing' as const,
+    };
+    expect(component.isRefundStepComplete(booking as never, 'initiated')).toBe(true);
+  });
+
+  it('isRefundStepComplete returns false when no initiated_at and unrelated refund_status', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    const booking = {
+      ...response.bookings[0],
+      refund_initiated_at: undefined,
+      refund_status: 'refund_requested' as const,
+    };
+    expect(component.isRefundStepComplete(booking as never, 'initiated')).toBe(false);
+  });
+
+  it('isRefundStepComplete returns false for unknown step', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.isRefundStepComplete(response.bookings[0], 'unknown' as never)).toBe(false);
+  });
 });

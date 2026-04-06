@@ -198,4 +198,35 @@ describe('BookingConfirmationComponent', () => {
     expect(component.error).toContain('reference is missing');
     expect(component.loading).toBe(false);
   });
+
+  it('does not download when booking is null', async () => {
+    const bookingService = {
+      getBookingByRef: jest.fn(),
+      downloadInvoice: jest.fn(),
+      downloadVoucher: jest.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [BookingConfirmationComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ActiveBookingService, useValue: { markBookingConfirmed: jest.fn() } },
+        { provide: BookingService, useValue: bookingService },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: { get: () => null } } },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(BookingConfirmationComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.downloadInvoice();
+    component.downloadVoucher();
+
+    expect(bookingService.downloadInvoice).not.toHaveBeenCalled();
+    expect(bookingService.downloadVoucher).not.toHaveBeenCalled();
+  });
 });

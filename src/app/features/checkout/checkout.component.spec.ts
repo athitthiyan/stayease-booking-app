@@ -903,4 +903,113 @@ describe('CheckoutComponent', () => {
 
     expect(bookingService.extendHold).toHaveBeenCalledWith(23, 'athit@example.com');
   });
+
+  it('navigates to bookings when getBooking fails for a direct booking URL', async () => {
+    TestBed.resetTestingModule();
+
+    const bs = {
+      getCheckoutState: jest.fn().mockReturnValue(null),
+      getBooking: jest.fn().mockReturnValue(throwError(() => new Error('not found'))),
+      setCheckoutState: jest.fn(),
+      createBooking: jest.fn(),
+      findResumableBooking: jest.fn().mockReturnValue(of(null)),
+      extendHold: jest.fn(),
+      cancelBooking: jest.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [CheckoutComponent],
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ id: '42' }) } },
+        },
+        { provide: BookingService, useValue: bs },
+      ],
+    }).compileComponents();
+
+    const router = TestBed.inject(Router);
+    const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    fixture.componentInstance.ngOnInit();
+
+    expect(bs.getBooking).toHaveBeenCalledWith(42);
+    expect(fixture.componentInstance.submitError()).toBe('This booking is no longer available.');
+    expect(navigateSpy).toHaveBeenCalledWith(['/bookings']);
+  });
+
+  it('preserves existing form values when pending booking fields are empty', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Existing';
+    component.form.email = 'existing@example.com';
+
+    // Apply a booking with empty user details — should keep existing form values
+    (component as unknown as { applyBookingToForm: (b: Booking) => void }).applyBookingToForm(
+      makeBooking({ user_name: '', email: '', phone: '', special_requests: '' }),
+    );
+
+    expect(component.form.user_name).toBe('Existing');
+    expect(component.form.email).toBe('existing@example.com');
+    expect(component.form.phone).toBe('');
+  });
+
+  it('hydrates checkout from getBooking when state is missing but route has id', async () => {
+    TestBed.resetTestingModule();
+
+    const bs = {
+      getCheckoutState: jest.fn().mockReturnValue(null),
+      getBooking: jest.fn().mockReturnValue(of(makeBooking({ room: checkoutState.room! }))),
+      setCheckoutState: jest.fn(),
+      createBooking: jest.fn(),
+      findResumableBooking: jest.fn().mockReturnValue(of(null)),
+      extendHold: jest.fn(),
+      cancelBooking: jest.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [CheckoutComponent],
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ id: '12' }) } },
+        },
+        { provide: BookingService, useValue: bs },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    fixture.componentInstance.ngOnInit();
+
+    expect(bs.getBooking).toHaveBeenCalledWith(12);
+    expect(fixture.componentInstance.resumableBooking()?.id).toBe(12);
+  });
+
+  it('prevents payment when findResumableBooking returns a confirmed booking', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    const confirmedBooking = makeBooking({
+      id: 55,
+      payment_status: 'paid',
+      status: 'confirmed',
+    });
+    bookingService.findResumableBooking.mockReturnValue(of(confirmedBooking));
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    expect(component.submitError()).toBe('This booking has already been confirmed.');
+    expect(component.submitting()).toBe(false);
+    expect(sessionStorage.getItem('pending_booking')).toBeNull();
+  });
 });

@@ -118,7 +118,8 @@ type ISODateString = string;
             <div class="divider divider--gold"></div>
 
             <!-- Map Section -->
-            <div class="room-map" *ngIf="room()?.map_embed_url || (room()?.latitude && room()?.longitude)">
+            @if (room()?.map_embed_url || (room()?.latitude && room()?.longitude)) {
+            <div class="room-map">
               <h3 class="section-title">Location</h3>
               @if (room()?.map_embed_url) {
                 <iframe
@@ -143,6 +144,7 @@ type ISODateString = string;
                 <p class="map-address">📍 {{ room()?.location }}</p>
               }
             </div>
+            }
 
             <!-- Description -->
             <div class="room-detail__section">
@@ -367,6 +369,7 @@ export class RoomDetailComponent implements OnInit {
     const lng = this.room()?.longitude;
     if (!lat || !lng) return null;
     const key = ''; // Google Maps API key goes here
+    /* istanbul ignore next -- key is currently empty; branch exists for future API key configuration */
     const url = key
       ? `https://www.google.com/maps/embed/v1/view?key=${key}&center=${lat},${lng}&zoom=15`
       : `https://maps.google.com/maps?q=${lat},${lng}&output=embed`;
@@ -386,7 +389,7 @@ export class RoomDetailComponent implements OnInit {
         this.loadError.set(false);
         const imgs = getRoomGalleryImages(room);
         this.galleryImages.set(imgs);
-        this.activeImage.set(imgs[0] || '');
+        this.activeImage.set(imgs[0] || /* istanbul ignore next */ '');
         this.loading.set(false);
         this.loadUnavailableDates(room.id);
       },

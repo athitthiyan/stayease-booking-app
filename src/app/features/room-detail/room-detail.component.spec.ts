@@ -545,4 +545,64 @@ describe('RoomDetailComponent', () => {
 
     expect(image.src).toBe(ROOM_IMAGE_PLACEHOLDER);
   });
+
+  it('falls back to the placeholder when setActiveImage index is out of bounds', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.setActiveImage(999);
+
+    expect(component.activeImage()).toBe(ROOM_IMAGE_PLACEHOLDER);
+  });
+
+  it('returns a safe URL from safeMapUrl when room has a map_embed_url', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom({ map_embed_url: 'https://maps.google.com/embed?q=test' })));
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.safeMapUrl()).toBeTruthy();
+  });
+
+  it('returns null from safeMapUrl when room has no map_embed_url', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.safeMapUrl()).toBeNull();
+  });
+
+  it('returns null from coordinatesMapUrl when lat/lng are missing', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.coordinatesMapUrl()).toBeNull();
+  });
+
+  it('builds coordinatesMapUrl when latitude and longitude are present', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom({ latitude: 35.5, longitude: 139.7 })));
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.coordinatesMapUrl()).toBeTruthy();
+  });
+
+  it('does nothing when retryLiveAvailability is called without a loaded room', () => {
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+
+    component.retryLiveAvailability();
+
+    expect(bookingService.getUnavailableDates).not.toHaveBeenCalled();
+  });
 });

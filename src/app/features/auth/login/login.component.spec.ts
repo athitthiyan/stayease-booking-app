@@ -8,6 +8,7 @@ import { AuthService } from '../../../core/services/auth.service';
 describe('LoginComponent', () => {
   const authService = {
     login: jest.fn(),
+    loginWithMicrosoft: jest.fn(),
   };
 
   function configure(returnUrl: string | null = null) {
@@ -107,5 +108,19 @@ describe('LoginComponent', () => {
     authService.login.mockReturnValueOnce(throwError(() => ({ error: {} })));
     component.onSubmit();
     expect(component.errorMsg()).toBe('Login failed. Please try again.');
+  });
+
+  it('shows a placeholder message for Apple sign-in', () => {
+    const fixture = TestBed.createComponent(LoginComponent);
+    const component = fixture.componentInstance;
+    component.signInWithApple();
+    expect(component.errorMsg()).toBe('Apple Sign-In is coming soon on web. Use the mobile app.');
+  });
+
+  it('delegates Microsoft sign-in to the auth service', () => {
+    const fixture = TestBed.createComponent(LoginComponent);
+    const component = fixture.componentInstance;
+    component.signInWithMicrosoft();
+    expect(authService.loginWithMicrosoft).toHaveBeenCalled();
   });
 });
