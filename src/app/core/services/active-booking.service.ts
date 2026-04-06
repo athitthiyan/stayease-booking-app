@@ -5,12 +5,18 @@ import { filter } from 'rxjs/operators';
 import { AuthService } from './auth.service';
 import { BookingService } from './booking.service';
 import { ActiveHold, Booking } from '../models/booking.model';
+import {
+  ActiveHoldSyncReason,
+  activeHoldCacheKeys,
+  isActiveReservationVisible,
+  resolveActiveHoldSyncReason,
+} from './active-booking-visibility';
 
 const ACTIVE_BOOKING_SYNC_KEY = 'se_active_booking_sync';
 const ACTIVE_HOLD_POLL_MS = 30_000;
 const TOAST_DURATION_MS = 4_000;
 
-type SyncReason = 'refresh' | 'cancelled' | 'expired' | 'confirmed' | 'login' | 'logout';
+type SyncReason = ActiveHoldSyncReason;
 
 @Injectable({ providedIn: 'root' })
 export class ActiveBookingService {
@@ -24,12 +30,16 @@ export class ActiveBookingService {
   readonly loading = signal(false);
   readonly loadError = signal('');
   readonly toastMessage = signal('');
-  readonly canContinue = computed(() => !!this.activeHold() && this.remainingSeconds() > 0);
+  readonly shouldShowActiveReservation = computed(
+    () => isActiveReservationVisible(this.activeHold()) && this.remainingSeconds() > 0,
+  );
+  readonly canContinue = computed(() => this.shouldShowActiveReservation());
 
   private countdownHandle: ReturnType<typeof setInterval> | null = null;
   private pollHandle: ReturnType<typeof setInterval> | null = null;
   private toastHandle: ReturnType<typeof setTimeout> | null = null;
   private suppressedConfirmedBookingId: number | null = null;
+  private stateVersion = 0;
 
   constructor() {
     this.authService.currentUser$
@@ -86,7 +96,7 @@ export class ActiveBookingService {
     }
 
     this.suppressedConfirmedBookingId = booking.id;
-    sessionStorage.removeItem('pending_booking');
+    this.clearActiveBookingCache();
     if (this.activeHold()?.booking_id === booking.id) {
       this.clearState(false);
     }
@@ -115,14 +125,17 @@ export class ActiveBookingService {
       return;
     }
 
+    this.clearState(false);
+    this.clearActiveBookingCache();
+    this.broadcastSync('cancelled');
+
     this.bookingService.cancelBooking(hold.booking_id).subscribe({
       next: () => {
-        this.clearState();
         this.showToast('Booking cancelled successfully.');
-        this.broadcastSync('cancelled');
       },
       error: () => {
         this.showToast('Unable to cancel your active booking right now.');
+        this.refreshActiveHold(false);
       },
     });
   }
@@ -134,13 +147,22 @@ export class ActiveBookingService {
     }
 
     this.loading.set(!silent);
+    const requestVersion = this.stateVersion;
     this.bookingService.getActiveHold().subscribe({
       next: hold => {
+        if (requestVersion !== this.stateVersion) {
+          return;
+        }
+
         this.loading.set(false);
         this.loadError.set('');
         this.reconcileHoldState(hold);
       },
       error: () => {
+        if (requestVersion !== this.stateVersion) {
+          return;
+        }
+
         this.loading.set(false);
         this.loadError.set('Unable to retrieve active booking.');
       },
@@ -155,6 +177,12 @@ export class ActiveBookingService {
         this.resolveClosedHold(previousHold);
       }
       this.clearState(false);
+      return;
+    }
+
+    if (!isActiveReservationVisible(nextHold)) {
+      this.clearState(false);
+      this.broadcastSync(resolveActiveHoldSyncReason(nextHold));
       return;
     }
 
@@ -208,6 +236,7 @@ export class ActiveBookingService {
       !booking.room ||
       booking.status === 'cancelled' ||
       booking.status === 'expired' ||
+      booking.status === 'confirmed' ||
       booking.payment_status === 'paid'
     ) {
       this.clearState();
@@ -235,6 +264,7 @@ export class ActiveBookingService {
       if (seconds === 0) {
         this.stopCountdown();
         this.clearState(false);
+        this.clearActiveBookingCache();
         this.showToast('Booking hold expired.');
         this.broadcastSync('expired');
         this.refreshActiveHold(true);
@@ -270,15 +300,28 @@ export class ActiveBookingService {
   }
 
   private clearState(clearToast = true): void {
+    this.stateVersion += 1;
     this.activeHold.set(null);
     this.remainingSeconds.set(0);
     this.loadError.set('');
+    this.clearActiveBookingCache();
     this.stopCountdown();
     if (!this.authService.isLoggedIn) {
       this.stopPolling();
     }
     if (clearToast) {
       this.clearToast();
+    }
+  }
+
+  private clearActiveBookingCache(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    for (const key of activeHoldCacheKeys) {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
     }
   }
 

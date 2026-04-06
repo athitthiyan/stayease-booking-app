@@ -34,6 +34,18 @@ export type RefundStatus =
   | 'refund_failed'
   | 'refund_reversed';
 
+export type BookingLifecycleState =
+  | 'HOLD_CREATED'
+  | 'PAYMENT_PENDING'
+  | 'PAYMENT_FAILED'
+  | 'PAYMENT_RETRY'
+  | 'PAYMENT_COOLDOWN'
+  | 'PAYMENT_SUCCESS'
+  | 'CONFIRMED'
+  | 'CANCELLED'
+  | 'EXPIRED'
+  | 'REFUNDED';
+
 export type BookingSupportCategory =
   | 'payment_help'
   | 'cancellation_help'
@@ -93,6 +105,9 @@ export interface ActiveHold {
   guests: number;
   expires_at: string;
   remaining_seconds: number;
+  lifecycle_state?: BookingLifecycleState;
+  booking_status?: BookingStatus;
+  payment_status?: PaymentStatus;
 }
 
 export interface UnavailableDatesResponse {

@@ -22,12 +22,14 @@ describe('ActiveBookingCtaBarComponent', () => {
   let loadError: ReturnType<typeof signal<string>>;
   let toastMessage: ReturnType<typeof signal<string>>;
   let remainingSeconds: ReturnType<typeof signal<number>>;
+  let shouldShowActiveReservation: ReturnType<typeof signal<boolean>>;
   let canContinue: ReturnType<typeof signal<boolean>>;
   let activeBookingService: {
     activeHold: typeof activeHold;
     loadError: typeof loadError;
     toastMessage: typeof toastMessage;
     remainingSeconds: typeof remainingSeconds;
+    shouldShowActiveReservation: typeof shouldShowActiveReservation;
     canContinue: typeof canContinue;
     continueBooking: jest.Mock;
     cancelActiveBooking: jest.Mock;
@@ -39,12 +41,14 @@ describe('ActiveBookingCtaBarComponent', () => {
     loadError = signal('');
     toastMessage = signal('');
     remainingSeconds = signal(0);
+    shouldShowActiveReservation = signal(false);
     canContinue = signal(false);
     activeBookingService = {
       activeHold,
       loadError,
       toastMessage,
       remainingSeconds,
+      shouldShowActiveReservation,
       canContinue,
       continueBooking: jest.fn(),
       cancelActiveBooking: jest.fn(),
@@ -60,6 +64,7 @@ describe('ActiveBookingCtaBarComponent', () => {
   it('renders the active booking CTA bar with a live countdown', () => {
     activeHold.set(hold());
     remainingSeconds.set(523);
+    shouldShowActiveReservation.set(true);
     canContinue.set(true);
 
     const fixture = TestBed.createComponent(ActiveBookingCtaBarComponent);
@@ -76,6 +81,7 @@ describe('ActiveBookingCtaBarComponent', () => {
   it('triggers continue and cancel actions', () => {
     activeHold.set(hold());
     remainingSeconds.set(180);
+    shouldShowActiveReservation.set(true);
     canContinue.set(true);
 
     const fixture = TestBed.createComponent(ActiveBookingCtaBarComponent);
@@ -98,6 +104,20 @@ describe('ActiveBookingCtaBarComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     expect(element.textContent).not.toContain('Unable to retrieve active booking');
     expect(element.textContent).not.toContain('Retry');
+    expect(element.querySelector('.active-booking-bar')).toBeNull();
+  });
+
+  it('does not render a stale hold when the visibility guard is false', () => {
+    activeHold.set(hold({ lifecycle_state: 'CONFIRMED', payment_status: 'paid' }));
+    remainingSeconds.set(180);
+    shouldShowActiveReservation.set(false);
+    canContinue.set(false);
+
+    const fixture = TestBed.createComponent(ActiveBookingCtaBarComponent);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).not.toContain('You already have an active booking in progress');
     expect(element.querySelector('.active-booking-bar')).toBeNull();
   });
 

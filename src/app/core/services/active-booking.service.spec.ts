@@ -75,6 +75,23 @@ const mockHold = (overrides: Partial<ActiveHold> = {}): ActiveHold => ({
   ...overrides,
 });
 
+const staleCacheKeys = [
+  'activeBookingId',
+  'holdExpiry',
+  'activeHoldTimer',
+  'paymentRetryState',
+  'se_active_booking_visibility',
+  'se_active_booking_cache',
+  'pending_booking',
+];
+
+const seedStaleActiveBookingCache = (): void => {
+  for (const key of staleCacheKeys) {
+    localStorage.setItem(key, 'stale');
+    sessionStorage.setItem(key, 'stale');
+  }
+};
+
 describe('ActiveBookingService', () => {
   let service: ActiveBookingService;
   let authState$: BehaviorSubject<UserResponse | null>;
@@ -124,25 +141,67 @@ describe('ActiveBookingService', () => {
 
     service = TestBed.inject(ActiveBookingService);
     sessionStorage.clear();
-    localStorage.removeItem('se_active_booking_sync');
+    localStorage.clear();
   });
 
   afterEach(() => {
     jest.useRealTimers();
     sessionStorage.clear();
-    localStorage.removeItem('se_active_booking_sync');
+    localStorage.clear();
   });
 
   it('loads active hold on login and updates countdown from backend expiry time', () => {
-    bookingService.getActiveHold.mockReturnValue(of(mockHold()));
+    bookingService.getActiveHold.mockReturnValue(of(mockHold({ lifecycle_state: 'HOLD_CREATED' })));
 
     authState$.next(mockUser);
 
     expect(service.activeHold()?.booking_id).toBe(17);
     expect(service.remainingSeconds()).toBe(600);
+    expect(service.shouldShowActiveReservation()).toBe(true);
 
     jest.advanceTimersByTime(2_000);
     expect(service.remainingSeconds()).toBe(598);
+  });
+
+  it.each([
+    mockHold({ lifecycle_state: 'CONFIRMED', payment_status: 'paid' }),
+    mockHold({ lifecycle_state: 'CANCELLED', booking_status: 'cancelled' }),
+    mockHold({ lifecycle_state: 'EXPIRED', booking_status: 'expired' }),
+    mockHold({ lifecycle_state: 'REFUNDED', payment_status: 'refunded' }),
+    mockHold({ lifecycle_state: 'PAYMENT_SUCCESS' }),
+    mockHold({ lifecycle_state: 'PAYMENT_RETRY' }),
+    mockHold({ booking_status: 'confirmed' }),
+    mockHold({ payment_status: 'expired' }),
+    mockHold({ lifecycle_state: 'HOLD_CREATED', payment_status: 'paid' }),
+    mockHold({ remaining_seconds: 0 }),
+  ])('hides closed or non-renderable active hold states from backend', hold => {
+    seedStaleActiveBookingCache();
+    bookingService.getActiveHold.mockReturnValue(of(hold));
+
+    authState$.next(mockUser);
+
+    expect(service.activeHold()).toBeNull();
+    expect(service.shouldShowActiveReservation()).toBe(false);
+    for (const key of staleCacheKeys) {
+      expect(localStorage.getItem(key)).toBeNull();
+      expect(sessionStorage.getItem(key)).toBeNull();
+    }
+  });
+
+  it.each([
+    mockHold({ lifecycle_state: 'HOLD_CREATED', payment_status: 'pending' }),
+    mockHold({ lifecycle_state: 'PAYMENT_PENDING', payment_status: 'processing' }),
+    mockHold({ lifecycle_state: 'PAYMENT_FAILED', payment_status: 'failed' }),
+    mockHold({ lifecycle_state: 'PAYMENT_COOLDOWN', payment_status: 'failed' }),
+    mockHold({ payment_status: 'processing' }),
+    mockHold(),
+  ])('shows active reservation states that still need user action', hold => {
+    bookingService.getActiveHold.mockReturnValue(of(hold));
+
+    authState$.next(mockUser);
+
+    expect(service.activeHold()?.booking_id).toBe(17);
+    expect(service.shouldShowActiveReservation()).toBe(true);
   });
 
   it('refreshes active hold on route navigation when logged in', () => {
@@ -182,6 +241,7 @@ describe('ActiveBookingService', () => {
 
   it('cancels an active booking and broadcasts sync state', () => {
     service.activeHold.set(mockHold());
+    seedStaleActiveBookingCache();
     bookingService.cancelBooking.mockReturnValue(of(mockBooking({ status: 'cancelled' })));
 
     service.cancelActiveBooking();
@@ -190,6 +250,45 @@ describe('ActiveBookingService', () => {
     expect(service.activeHold()).toBeNull();
     expect(service.toastMessage()).toBe('Booking cancelled successfully.');
     expect(localStorage.getItem('se_active_booking_sync')).toContain('"cancelled"');
+    for (const key of staleCacheKeys) {
+      expect(localStorage.getItem(key)).toBeNull();
+      expect(sessionStorage.getItem(key)).toBeNull();
+    }
+  });
+
+  it('keeps the banner hidden immediately on cancel and revalidates if cancel fails', () => {
+    bookingService.getActiveHold.mockReturnValue(of(null));
+    authState$.next(mockUser);
+    bookingService.getActiveHold.mockClear();
+    service.activeHold.set(mockHold());
+    const cancelResult$ = new Subject<Booking>();
+    bookingService.cancelBooking.mockReturnValue(cancelResult$.asObservable());
+    bookingService.getActiveHold.mockReturnValue(of(mockHold({ lifecycle_state: 'HOLD_CREATED' })));
+
+    service.cancelActiveBooking();
+
+    expect(service.activeHold()).toBeNull();
+    expect(bookingService.getActiveHold).not.toHaveBeenCalled();
+
+    cancelResult$.error(new Error('network'));
+
+    expect(bookingService.getActiveHold).toHaveBeenCalledTimes(1);
+    expect(service.activeHold()?.booking_id).toBe(17);
+    expect(service.toastMessage()).toBe('Unable to cancel your active booking right now.');
+  });
+
+  it('ignores stale active-hold responses that complete after cancel cleanup', () => {
+    const staleRefresh$ = new Subject<ActiveHold | null>();
+    bookingService.getActiveHold.mockReturnValue(staleRefresh$.asObservable());
+    authState$.next(mockUser);
+    service.activeHold.set(mockHold());
+    bookingService.cancelBooking.mockReturnValue(of(mockBooking({ status: 'cancelled' })));
+
+    service.cancelActiveBooking();
+    staleRefresh$.next(mockHold({ lifecycle_state: 'HOLD_CREATED' }));
+
+    expect(service.activeHold()).toBeNull();
+    expect(service.shouldShowActiveReservation()).toBe(false);
   });
 
   it('shows load errors and supports retry', () => {
@@ -216,6 +315,7 @@ describe('ActiveBookingService', () => {
   });
 
   it('expires the CTA when the countdown reaches zero', () => {
+    seedStaleActiveBookingCache();
     service.activeHold.set(mockHold({ expires_at: '2026-05-01T10:00:01.000Z', remaining_seconds: 1 }));
     (service as unknown as { startCountdown: (expiresAt: string) => void }).startCountdown(
       '2026-05-01T10:00:01.000Z',
@@ -225,6 +325,10 @@ describe('ActiveBookingService', () => {
 
     expect(service.activeHold()).toBeNull();
     expect(service.toastMessage()).toBe('Booking hold expired.');
+    for (const key of staleCacheKeys) {
+      expect(localStorage.getItem(key)).toBeNull();
+      expect(sessionStorage.getItem(key)).toBeNull();
+    }
   });
 
   it('reacts to cross-tab sync events', () => {
@@ -257,5 +361,20 @@ describe('ActiveBookingService', () => {
       queryParams: { ref: 'BKACTIVE' },
     });
     expect(service.toastMessage()).toBe('Booking confirmed in another tab.');
+  });
+
+  it('clears stale hold caches when payment success is reported before redirect', () => {
+    seedStaleActiveBookingCache();
+    service.activeHold.set(mockHold());
+
+    service.markBookingConfirmed(mockBooking({ status: 'confirmed', payment_status: 'paid' }));
+
+    expect(service.activeHold()).toBeNull();
+    expect(service.shouldShowActiveReservation()).toBe(false);
+    expect(localStorage.getItem('se_active_booking_sync')).toContain('"confirmed"');
+    for (const key of staleCacheKeys) {
+      expect(localStorage.getItem(key)).toBeNull();
+      expect(sessionStorage.getItem(key)).toBeNull();
+    }
   });
 });

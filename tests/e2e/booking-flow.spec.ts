@@ -214,6 +214,47 @@ async function seedAuthUser(page: Page) {
   });
 }
 
+async function seedAuthUserBeforeLoad(page: Page) {
+  await page.addInitScript(() => {
+    localStorage.setItem('se_access_token', 'test-token');
+    localStorage.setItem('se_user', JSON.stringify({
+      id: 1, email: 'test@example.com', full_name: 'Test User',
+      is_admin: false, is_active: true,
+    }));
+  });
+}
+
+async function mockActiveHold(page: Page, status = 200, overrides: Record<string, unknown> = {}) {
+  const activeHold = {
+    booking_id: 42,
+    room_id: 1,
+    hotel_name: 'The Grand Azure',
+    room_name: 'suite',
+    check_in: '2027-06-01',
+    check_out: '2027-06-04',
+    guests: 2,
+    expires_at: new Date(Date.now() + 600000).toISOString(),
+    remaining_seconds: 600,
+    lifecycle_state: 'HOLD_CREATED',
+    booking_status: 'pending',
+    payment_status: 'pending',
+    ...overrides,
+  };
+
+  await page.route('**/bookings/active-hold', async (route: Route) => {
+    if (status === 204) {
+      await route.fulfill({ status: 204 });
+      return;
+    }
+
+    await route.fulfill({
+      status,
+      contentType: 'application/json',
+      body: JSON.stringify(activeHold),
+    });
+  });
+}
+
 test.describe('StayEase End-to-End Journeys', () => {
   test('renders landing page with featured rooms and destinations', async ({ page }) => {
     await mockRoomsApi(page);
@@ -571,6 +612,102 @@ test.describe('Phase 4 — Hold timer + resume + cancel', () => {
 });
 
 // ── Sprint: Booking Flow Hardening — Phase 1 (form validation) ───────────────
+
+test.describe('Active reservation CTA source-of-truth sync', () => {
+  test('stale local storage does not show CTA when backend has no active hold', async ({ page }) => {
+    await mockRoomsApi(page);
+    await seedAuthUserBeforeLoad(page);
+    await page.addInitScript(() => {
+      localStorage.setItem('activeBookingId', '42');
+      localStorage.setItem('holdExpiry', new Date(Date.now() + 600000).toISOString());
+      sessionStorage.setItem('pending_booking', JSON.stringify({ id: 42 }));
+    });
+    await mockActiveHold(page, 204);
+
+    await page.goto('/');
+
+    await expect(page.getByText(/active booking in progress/i)).not.toBeVisible();
+    await expect(page.getByRole('button', { name: /Continue Booking/i })).not.toBeVisible();
+  });
+
+  test('confirmed active-hold payload is hidden instead of rendering stale CTA', async ({ page }) => {
+    await mockRoomsApi(page);
+    await seedAuthUserBeforeLoad(page);
+    await mockActiveHold(page, 200, {
+      lifecycle_state: 'CONFIRMED',
+      booking_status: 'confirmed',
+      payment_status: 'paid',
+    });
+
+    await page.goto('/');
+
+    await expect(page.getByText(/active booking in progress/i)).not.toBeVisible();
+    await expect(page.getByRole('button', { name: /Cancel Booking/i })).not.toBeVisible();
+  });
+
+  test('refresh after CTA cancel keeps the active reservation banner hidden', async ({ page }) => {
+    await mockRoomsApi(page);
+    await seedAuthUserBeforeLoad(page);
+    let holdIsActive = true;
+    await page.route('**/bookings/active-hold', async (route: Route) => {
+      if (!holdIsActive) {
+        await route.fulfill({ status: 204 });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          booking_id: 42,
+          room_id: 1,
+          hotel_name: 'The Grand Azure',
+          room_name: 'suite',
+          check_in: '2027-06-01',
+          check_out: '2027-06-04',
+          guests: 2,
+          expires_at: new Date(Date.now() + 600000).toISOString(),
+          remaining_seconds: 600,
+          lifecycle_state: 'HOLD_CREATED',
+          booking_status: 'pending',
+          payment_status: 'pending',
+        }),
+      });
+    });
+    await page.route('**/bookings/42/cancel**', async (route: Route) => {
+      holdIsActive = false;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...MOCK_BOOKING, id: 42, status: 'cancelled', payment_status: 'pending' }),
+      });
+    });
+
+    await page.goto('/');
+    await expect(page.getByText(/active booking in progress/i)).toBeVisible();
+    await page.locator('.active-booking-bar').getByRole('button', { name: /Cancel Booking/i }).click();
+    holdIsActive = false;
+    await page.reload();
+
+    await expect(page.getByText(/active booking in progress/i)).not.toBeVisible();
+  });
+
+  test('expired active-hold payload is hidden after browser refresh', async ({ page }) => {
+    await mockRoomsApi(page);
+    await seedAuthUserBeforeLoad(page);
+    await mockActiveHold(page, 200, {
+      lifecycle_state: 'EXPIRED',
+      booking_status: 'expired',
+      remaining_seconds: 0,
+    });
+
+    await page.goto('/');
+    await page.reload();
+
+    await expect(page.getByText(/active booking in progress/i)).not.toBeVisible();
+    await expect(page.getByRole('button', { name: /Continue Booking/i })).not.toBeVisible();
+  });
+});
 
 test.describe('Phase 1 — Form validation UX', () => {
   test('shows name error when Full Name is empty on checkout submit', async ({ page }) => {

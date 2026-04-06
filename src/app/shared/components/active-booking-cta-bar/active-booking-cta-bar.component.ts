@@ -7,7 +7,7 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
   standalone: true,
   imports: [CommonModule],
   template: `
-    @if (activeBookingService.activeHold()) {
+    @if (activeBookingService.shouldShowActiveReservation()) {
       <section class="active-booking-shell" aria-live="polite">
         <aside class="active-booking-bar">
           <div class="active-booking-bar__content">

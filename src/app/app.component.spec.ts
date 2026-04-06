@@ -27,6 +27,7 @@ describe('AppComponent', () => {
             activeHold: jest.fn(() => null),
             loadError: jest.fn(() => ''),
             toastMessage: jest.fn(() => ''),
+            shouldShowActiveReservation: jest.fn(() => false),
             canContinue: jest.fn(() => false),
             continueBooking: jest.fn(),
             cancelActiveBooking: jest.fn(),
