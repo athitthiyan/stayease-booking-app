@@ -8,4 +8,5 @@ export const environment = {
   adminPortalUrl: 'https://admin.stayvora.co.in',
   partnerPortalUrl: 'https://partner.stayvora.co.in',
   microsoftClientId: '',
+  googleClientId: '',
 };

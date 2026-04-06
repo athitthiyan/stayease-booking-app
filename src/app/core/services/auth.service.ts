@@ -154,15 +154,63 @@ export class AuthService {
     }
   }
 
-  async loginWithApple(): Promise<void> {
-    throw new Error('Apple Sign-In requires native integration. Use the app.');
+  loginWithGoogle(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const clientId = environment.googleClientId;
+      if (!clientId) {
+        reject(new Error('Google Client ID is not configured.'));
+        return;
+      }
+
+      const initAndPrompt = () => {
+        const google = (window as unknown as { google?: { accounts: { id: GoogleIdentityServices } } }).google;
+        if (!google) {
+          reject(new Error('Google Identity Services failed to load.'));
+          return;
+        }
+
+        google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response: { credential: string }) => {
+            this.socialLoginWithToken('google', response.credential).subscribe({
+              next: () => {
+                this.router.navigate(['/']);
+                resolve();
+              },
+              error: (err: unknown) => reject(err),
+            });
+          },
+        });
+
+        google.accounts.id.prompt();
+      };
+
+      if ((window as unknown as { google?: unknown }).google) {
+        initAndPrompt();
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.onload = () => initAndPrompt();
+      script.onerror = () => reject(new Error('Failed to load Google Identity Services.'));
+      document.body.appendChild(script);
+    });
   }
 
   async loginWithMicrosoft(): Promise<void> {
     const clientId = environment.microsoftClientId || '';
     const redirectUri = encodeURIComponent(window.location.origin + '/auth/callback/microsoft');
     const scope = encodeURIComponent('openid email profile');
-    const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=id_token&redirect_uri=${redirectUri}&scope=${scope}&nonce=${Math.random().toString(36)}`;
+    const nonce = Math.random().toString(36).slice(2);
+    const authUrl =
+      `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` +
+      `?client_id=${clientId}` +
+      `&response_type=id_token` +
+      `&redirect_uri=${redirectUri}` +
+      `&scope=${scope}` +
+      `&response_mode=fragment` +
+      `&nonce=${nonce}`;
     window.location.href = authUrl;
   }
 
@@ -174,4 +222,9 @@ export class AuthService {
       tap(resp => this.persistSession(resp))
     );
   }
+}
+
+interface GoogleIdentityServices {
+  initialize(config: { client_id: string; callback: (response: { credential: string }) => void }): void;
+  prompt(): void;
 }

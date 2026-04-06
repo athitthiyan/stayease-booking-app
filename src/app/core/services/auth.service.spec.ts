@@ -269,8 +269,8 @@ describe('AuthService', () => {
 
   // ─── Microsoft + social login with token ──────────────────────────────
 
-  it('should throw on loginWithApple', async () => {
-    await expect(service.loginWithApple()).rejects.toThrow('Apple Sign-In requires native integration');
+  it('should reject when Google client ID is not configured', async () => {
+    await expect(service.loginWithGoogle()).rejects.toThrow('Google Client ID is not configured');
   });
 
   it('should redirect to Microsoft OAuth on loginWithMicrosoft', async () => {

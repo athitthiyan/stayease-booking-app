@@ -8,4 +8,5 @@ export const environment = {
   adminPortalUrl: 'http://localhost:4202',
   partnerPortalUrl: 'http://localhost:4203',
   microsoftClientId: '',
+  googleClientId: '',
 };

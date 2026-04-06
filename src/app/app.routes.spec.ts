@@ -19,6 +19,7 @@ describe('routes', () => {
       'auth/signup',
       'auth/forgot-password',
       'auth/reset-password',
+      'auth/callback/microsoft',
       'profile',
       'bookings',
       'wishlist',
@@ -49,7 +50,7 @@ describe('routes', () => {
         .map(route => route.loadComponent!())
     );
 
-    expect(loaded).toHaveLength(18);
+    expect(loaded).toHaveLength(19);
     expect(loaded.every(component => !!component)).toBe(true);
   });
 });

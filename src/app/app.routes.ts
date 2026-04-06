@@ -191,6 +191,12 @@ export const routes: Routes = [
     title: 'Set New Password - Stayvora',
   },
   {
+    path: 'auth/callback/microsoft',
+    loadComponent: () =>
+      import('./features/auth/sso-callback/sso-callback.component').then(m => m.SsoCallbackComponent),
+    title: 'Signing In - Stayvora',
+  },
+  {
     path: 'profile',
     loadComponent: () =>
       import('./features/profile/profile.component').then(m => m.ProfileComponent),

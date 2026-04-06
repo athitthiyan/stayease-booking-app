@@ -9,6 +9,7 @@ describe('SignupComponent', () => {
   const authService = {
     signup: jest.fn(),
     loginWithMicrosoft: jest.fn(),
+    loginWithGoogle: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -110,11 +111,23 @@ describe('SignupComponent', () => {
     expect(component.isFieldInvalid('password')).toBe(true);
   });
 
-  it('shows a placeholder message for Apple sign-in', () => {
+  it('delegates Google sign-in to the auth service', () => {
+    authService.loginWithGoogle.mockResolvedValue(undefined);
     const fixture = TestBed.createComponent(SignupComponent);
     const component = fixture.componentInstance;
-    component.signInWithApple();
-    expect(component.errorMsg()).toBe('Apple Sign-In is coming soon on web. Use the mobile app.');
+    component.signInWithGoogle();
+    expect(authService.loginWithGoogle).toHaveBeenCalled();
+    expect(component.socialLoading()).toBe(true);
+  });
+
+  it('shows error message when Google sign-in fails', async () => {
+    authService.loginWithGoogle.mockRejectedValue(new Error('Google Client ID is not configured.'));
+    const fixture = TestBed.createComponent(SignupComponent);
+    const component = fixture.componentInstance;
+    component.signInWithGoogle();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(component.errorMsg()).toBe('Google Client ID is not configured.');
+    expect(component.socialLoading()).toBe(false);
   });
 
   it('delegates Microsoft sign-in to the auth service', () => {

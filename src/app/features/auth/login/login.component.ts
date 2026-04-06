@@ -73,14 +73,14 @@ import { HttpErrorResponse } from '@angular/common/http';
         </div>
 
         <div class="social-buttons">
-          <!-- Apple Sign In -->
-          <button type="button" class="social-btn social-btn--apple" (click)="signInWithApple()" [disabled]="loading()">
-            <svg width="18" height="18" viewBox="0 0 814 1000"><path fill="currentColor" d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.3-155.8-97.2C156 390 140 250 140 200h-30c0 0-.7 200 68 400s200 350 420 350c0 0-100-150-100-350 0-200 148-350 148-350l142.1-209.1z"/></svg>
-            Apple
+          <!-- Google Sign In -->
+          <button type="button" class="social-btn social-btn--google" (click)="signInWithGoogle()" [disabled]="loading() || socialLoading()">
+            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#34A853" d="M10.53 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.9 7.35 2.56 10.52l7.97-5.93z"/><path fill="#FBBC05" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.93C6.51 42.62 14.62 48 24 48z"/></svg>
+            Google
           </button>
 
           <!-- Microsoft Sign In -->
-          <button type="button" class="social-btn social-btn--microsoft" (click)="signInWithMicrosoft()" [disabled]="loading()">
+          <button type="button" class="social-btn social-btn--microsoft" (click)="signInWithMicrosoft()" [disabled]="loading() || socialLoading()">
             <svg width="18" height="18" viewBox="0 0 23 23"><path fill="#f25022" d="M1 1h10v10H1z"/><path fill="#00a4ef" d="M12 1h10v10H12z"/><path fill="#7fba00" d="M1 12h10v10H1z"/><path fill="#ffb900" d="M12 12h10v10H12z"/></svg>
             Microsoft
           </button>
@@ -266,12 +266,12 @@ import { HttpErrorResponse } from '@angular/common/http';
     .social-btn:hover:not(:disabled) { background: var(--color-surface); }
     .social-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    .social-btn--apple {
-      background: #000;
-      color: #fff;
-      border: 1px solid #333;
+    .social-btn--google {
+      background: #fff;
+      color: #1f1f1f;
+      border: 1px solid #dadce0;
     }
-    .social-btn--apple:hover:not(:disabled) { background: #1a1a1a; }
+    .social-btn--google:hover:not(:disabled) { background: #f7f8f8; }
 
     .social-btn--microsoft {
       background: #2f2f2f;
@@ -290,6 +290,7 @@ export class LoginComponent {
   private route = inject(ActivatedRoute);
 
   loading = signal(false);
+  socialLoading = signal(false);
   errorMsg = signal('');
   showPassword = signal(false);
 
@@ -324,8 +325,13 @@ export class LoginComponent {
     });
   }
 
-  signInWithApple(): void {
-    this.errorMsg.set('Apple Sign-In is coming soon on web. Use the mobile app.');
+  signInWithGoogle(): void {
+    this.socialLoading.set(true);
+    this.errorMsg.set('');
+    this.authService.loginWithGoogle().catch((err: Error) => {
+      this.errorMsg.set(err.message || 'Google Sign-In failed. Please try again.');
+      this.socialLoading.set(false);
+    });
   }
 
   signInWithMicrosoft(): void {
