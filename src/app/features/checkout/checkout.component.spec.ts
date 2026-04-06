@@ -598,6 +598,30 @@ describe('CheckoutComponent', () => {
     expect(sessionStorage.getItem('pending_booking')).toBeNull();
   });
 
+  it('marks hydrated paid bookings as confirmed and clears any pending recovery state', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    sessionStorage.setItem('pending_booking', JSON.stringify(makeBooking()));
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    (
+      component as unknown as { hydrateCheckoutFromBooking: (booking: Booking) => void }
+    ).hydrateCheckoutFromBooking(
+      makeBooking({
+        room: checkoutState.room!,
+        payment_status: 'paid',
+        status: 'confirmed',
+      }),
+    );
+
+    expect(component.isPaymentConfirmed(component.resumableBooking())).toBe(true);
+    expect(component.submitError()).toBe('This booking has already been confirmed.');
+    expect(component.holdSecondsLeft()).toBe(0);
+    expect(sessionStorage.getItem('pending_booking')).toBeNull();
+  });
+
   it('removes invalid pending booking JSON from session storage', () => {
     bookingService.getCheckoutState.mockReturnValue(checkoutState);
     sessionStorage.setItem('pending_booking', '{invalid-json');
@@ -628,6 +652,25 @@ describe('CheckoutComponent', () => {
 
     expect(component.resumableBooking()).toBeNull();
     expect(component.holdSecondsLeft()).toBe(0);
+  });
+
+  it('does not try to continue payment once the booking is already confirmed', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.resumableBooking.set(
+      makeBooking({
+        payment_status: 'paid',
+        status: 'confirmed',
+      }),
+    );
+
+    component.proceedToPayment();
+
+    expect(component.submitError()).toBe('This booking has already been confirmed.');
+    expect(bookingService.findResumableBooking).not.toHaveBeenCalled();
+    expect(bookingService.createBooking).not.toHaveBeenCalled();
   });
 
   it('clears booking auth redirect flags during init', () => {

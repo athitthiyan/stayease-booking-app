@@ -34,10 +34,15 @@ import {
             <div class="hold-banner hold-banner--resume">
               <span class="hold-banner__icon">🔄</span>
               <div>
-                <strong>You have an active reservation for these dates.</strong>
-                <p>Booking {{ resumableBooking()!.booking_ref }} is still held.
-                  Complete payment to confirm it.
-                </p>
+                @if (isPaymentConfirmed(resumableBooking())) {
+                  <strong>This booking is already confirmed.</strong>
+                  <p>Booking {{ resumableBooking()!.booking_ref }} has already been paid and confirmed.</p>
+                } @else {
+                  <strong>You have an active reservation for these dates.</strong>
+                  <p>Booking {{ resumableBooking()!.booking_ref }} is still held.
+                    Complete payment to confirm it.
+                  </p>
+                }
               </div>
             </div>
           }
@@ -157,16 +162,18 @@ import {
           <div class="checkout-actions">
             <button class="btn btn--primary btn--lg"
               (click)="proceedToPayment()"
-              [disabled]="submitting() || extendingHold()">
+              [disabled]="submitting() || extendingHold() || isPaymentConfirmed(resumableBooking())">
               @if (submitting() || extendingHold()) {
                 <span class="spinner-sm"></span> {{ extendingHold() ? 'Extending hold…' : 'Processing...' }}
+              } @else if (isPaymentConfirmed(resumableBooking())) {
+                Payment Confirmed
               } @else if (resumableBooking()) {
                 Complete Payment →
               } @else {
                 Proceed to Payment →
               }
             </button>
-            @if (resumableBooking()) {
+            @if (resumableBooking() && !isPaymentConfirmed(resumableBooking())) {
               <button
                 class="btn btn--ghost btn--lg"
                 (click)="cancelHold()"
@@ -324,6 +331,10 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.form.special_requests = booking.special_requests || '';
   }
 
+  isPaymentConfirmed(booking: Booking | null): boolean {
+    return !!booking && (booking.payment_status === 'paid' || booking.status === 'confirmed');
+  }
+
   private initializePricing(state: CheckoutState): void {
     this.checkoutState.set(state);
     const nights = Math.floor(
@@ -386,6 +397,14 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.initializePricing(restoredState);
     this.resumableBooking.set(booking);
     this.applyBookingToForm(booking);
+    if (this.isPaymentConfirmed(booking)) {
+      sessionStorage.removeItem('pending_booking');
+      this.stopCountdown();
+      this.holdSecondsLeft.set(0);
+      this.holdExpired.set(false);
+      this.submitError.set('This booking has already been confirmed.');
+      return;
+    }
     sessionStorage.setItem('pending_booking', JSON.stringify(booking));
     if (booking.hold_expires_at) {
       this.startCountdown(booking.hold_expires_at);
@@ -613,6 +632,11 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   // ── Main flow ─────────────────────────────────────────────────────────────
 
   proceedToPayment() {
+    if (this.isPaymentConfirmed(this.resumableBooking())) {
+      this.submitError.set('This booking has already been confirmed.');
+      return;
+    }
+
     if (!this.validateGuestDetails()) {
       return;
     }
@@ -637,6 +661,15 @@ export class CheckoutComponent implements OnInit, OnDestroy {
           if (existing) {
             // ── Resume path: reuse the existing booking ──────────────────
             this.resumableBooking.set(existing);
+            if (this.isPaymentConfirmed(existing)) {
+              sessionStorage.removeItem('pending_booking');
+              this.stopCountdown();
+              this.holdSecondsLeft.set(0);
+              this.holdExpired.set(false);
+              this.submitError.set('This booking has already been confirmed.');
+              this.submitting.set(false);
+              return;
+            }
             if (existing.hold_expires_at) {
               this.startCountdown(existing.hold_expires_at);
             }
