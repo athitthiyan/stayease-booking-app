@@ -146,9 +146,4 @@ import { RouterLink } from '@angular/router';
     @media (max-width: 480px) {
       .footer__grid {
         grid-template-columns: 1fr;
-        gap: var(--space-xl);
-      }
-    }
-  `],
-})
-export class FooterComponent {}
+     
