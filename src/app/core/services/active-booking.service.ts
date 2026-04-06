@@ -29,6 +29,7 @@ export class ActiveBookingService {
   private countdownHandle: ReturnType<typeof setInterval> | null = null;
   private pollHandle: ReturnType<typeof setInterval> | null = null;
   private toastHandle: ReturnType<typeof setTimeout> | null = null;
+  private suppressedConfirmedBookingId: number | null = null;
 
   constructor() {
     this.authService.currentUser$
@@ -42,6 +43,7 @@ export class ActiveBookingService {
         }
 
         this.clearState();
+        this.suppressedConfirmedBookingId = null;
         this.broadcastSync('logout');
       });
 
@@ -76,6 +78,19 @@ export class ActiveBookingService {
 
   retryLoad(): void {
     this.refreshActiveHold(false);
+  }
+
+  markBookingConfirmed(booking: Booking): void {
+    if (booking.payment_status !== 'paid' && booking.status !== 'confirmed') {
+      return;
+    }
+
+    this.suppressedConfirmedBookingId = booking.id;
+    sessionStorage.removeItem('pending_booking');
+    if (this.activeHold()?.booking_id === booking.id) {
+      this.clearState(false);
+    }
+    this.broadcastSync('confirmed');
   }
 
   continueBooking(): void {
@@ -141,6 +156,18 @@ export class ActiveBookingService {
       }
       this.clearState(false);
       return;
+    }
+
+    if (this.suppressedConfirmedBookingId === nextHold.booking_id) {
+      this.clearState(false);
+      return;
+    }
+
+    if (
+      this.suppressedConfirmedBookingId !== null &&
+      this.suppressedConfirmedBookingId !== nextHold.booking_id
+    ) {
+      this.suppressedConfirmedBookingId = null;
     }
 
     this.activeHold.set(nextHold);
@@ -295,6 +322,7 @@ export class ActiveBookingService {
         this.startPolling();
       } else {
         this.clearState();
+        this.suppressedConfirmedBookingId = null;
       }
     }
   };

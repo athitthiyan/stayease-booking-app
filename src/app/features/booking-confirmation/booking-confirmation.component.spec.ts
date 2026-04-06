@@ -3,10 +3,14 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 
 import { BookingConfirmationComponent } from './booking-confirmation.component';
+import { ActiveBookingService } from '../../core/services/active-booking.service';
 import { BookingService } from '../../core/services/booking.service';
 
 describe('BookingConfirmationComponent', () => {
   it('loads booking details by reference', async () => {
+    const activeBookingService = {
+      markBookingConfirmed: jest.fn(),
+    };
     const bookingService = {
       getBookingByRef: jest.fn().mockReturnValue(
         of({
@@ -29,6 +33,7 @@ describe('BookingConfirmationComponent', () => {
       imports: [BookingConfirmationComponent],
       providers: [
         provideRouter([]),
+        { provide: ActiveBookingService, useValue: activeBookingService },
         { provide: BookingService, useValue: bookingService },
         {
           provide: ActivatedRoute,
@@ -48,12 +53,18 @@ describe('BookingConfirmationComponent', () => {
     component.ngOnInit();
 
     expect(bookingService.getBookingByRef).toHaveBeenCalledWith('BK123');
+    expect(activeBookingService.markBookingConfirmed).toHaveBeenCalledWith(
+      expect.objectContaining({ booking_ref: 'BK123', payment_status: 'paid' }),
+    );
     expect(component.bookingRef).toBe('BK123');
     expect(component.booking?.payment_status).toBe('paid');
     expect(component.loading).toBe(false);
   });
 
   it('downloads invoice and voucher for the confirmed booking', async () => {
+    const activeBookingService = {
+      markBookingConfirmed: jest.fn(),
+    };
     const bookingService = {
       getBookingByRef: jest.fn().mockReturnValue(
         of({
@@ -86,6 +97,7 @@ describe('BookingConfirmationComponent', () => {
       imports: [BookingConfirmationComponent],
       providers: [
         provideRouter([]),
+        { provide: ActiveBookingService, useValue: activeBookingService },
         { provide: BookingService, useValue: bookingService },
         {
           provide: ActivatedRoute,
@@ -115,6 +127,9 @@ describe('BookingConfirmationComponent', () => {
   });
 
   it('shows an error when booking lookup fails', async () => {
+    const activeBookingService = {
+      markBookingConfirmed: jest.fn(),
+    };
     const bookingService = {
       getBookingByRef: jest.fn().mockReturnValue(throwError(() => new Error('boom'))),
     };
@@ -123,6 +138,7 @@ describe('BookingConfirmationComponent', () => {
       imports: [BookingConfirmationComponent],
       providers: [
         provideRouter([]),
+        { provide: ActiveBookingService, useValue: activeBookingService },
         { provide: BookingService, useValue: bookingService },
         {
           provide: ActivatedRoute,
@@ -142,10 +158,14 @@ describe('BookingConfirmationComponent', () => {
     component.ngOnInit();
 
     expect(component.error).toContain('could not load');
+    expect(activeBookingService.markBookingConfirmed).not.toHaveBeenCalled();
     expect(component.loading).toBe(false);
   });
 
   it('shows an error when the confirmation link has no booking reference', async () => {
+    const activeBookingService = {
+      markBookingConfirmed: jest.fn(),
+    };
     const bookingService = {
       getBookingByRef: jest.fn(),
     };
@@ -154,6 +174,7 @@ describe('BookingConfirmationComponent', () => {
       imports: [BookingConfirmationComponent],
       providers: [
         provideRouter([]),
+        { provide: ActiveBookingService, useValue: activeBookingService },
         { provide: BookingService, useValue: bookingService },
         {
           provide: ActivatedRoute,
@@ -173,6 +194,7 @@ describe('BookingConfirmationComponent', () => {
     component.ngOnInit();
 
     expect(bookingService.getBookingByRef).not.toHaveBeenCalled();
+    expect(activeBookingService.markBookingConfirmed).not.toHaveBeenCalled();
     expect(component.error).toContain('reference is missing');
     expect(component.loading).toBe(false);
   });

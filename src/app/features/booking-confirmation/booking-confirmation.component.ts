@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Booking } from '../../core/models/booking.model';
+import { ActiveBookingService } from '../../core/services/active-booking.service';
 import { BookingService } from '../../core/services/booking.service';
 
 @Component({
@@ -260,6 +261,7 @@ import { BookingService } from '../../core/services/booking.service';
 export class BookingConfirmationComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private bookingService = inject(BookingService);
+  private activeBookingService = inject(ActiveBookingService);
   bookingRef = '';
   booking: Booking | null = null;
   loading = true;
@@ -276,6 +278,7 @@ export class BookingConfirmationComponent implements OnInit {
     this.bookingService.getBookingByRef(this.bookingRef).subscribe({
       next: (booking) => {
         this.booking = booking;
+        this.activeBookingService.markBookingConfirmed(booking);
         this.loading = false;
       },
       error: () => {
