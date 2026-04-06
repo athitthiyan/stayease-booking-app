@@ -15,8 +15,8 @@ function passwordStrengthValidator(ctrl: AbstractControl): ValidationErrors | nu
 }
 
 function passwordMatchValidator(ctrl: AbstractControl): ValidationErrors | null {
-  const pw = ctrl.get('password')?.value;
-  const confirm = ctrl.get('confirmPassword')?.value;
+  const pw = ctrl.get('password')?.value as string | undefined;
+  const confirm = ctrl.get('confirmPassword')?.value as string | undefined;
   return pw === confirm ? null : { passwordMismatch: true };
 }
 
