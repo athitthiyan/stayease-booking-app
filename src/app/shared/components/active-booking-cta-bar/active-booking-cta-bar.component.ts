@@ -67,7 +67,7 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
     .active-booking-shell {
       position: sticky;
       top: 84px;
-      z-index: calc(var(--z-nav) + 4);
+      z-index: calc(var(--z-nav) - 1);
       width: 100%;
       padding: 16px 16px 0;
       pointer-events: none;
@@ -192,7 +192,7 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
       left: 50%;
       top: 168px;
       transform: translateX(-50%);
-      z-index: calc(var(--z-nav) + 6);
+      z-index: calc(var(--z-nav) + 8);
       padding: 12px 18px;
       border-radius: 999px;
       background: rgba(12, 17, 31, 0.96);
@@ -273,6 +273,4 @@ export class ActiveBookingCtaBarComponent {
     const seconds = this.activeBookingService.remainingSeconds();
     const minutes = Math.floor(seconds / 60);
     const paddedSeconds = String(seconds % 60).padStart(2, '0');
-    return `${String(minutes).padStart(2, '0')}:${paddedSeconds}`;
-  }
-}
+    return `${String(minutes).padStart(2, '0')}:${padded

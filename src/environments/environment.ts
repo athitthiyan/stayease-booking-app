@@ -1,6 +1,11 @@
 export const environment = {
   production: false,
-  apiUrl: 'https://hotel-api-production-447d.up.railway.app',
-  paymentAppUrl: 'https://payflow-payment-app.vercel.app/',
-  stripePublishableKey: 'pk_test_51TH0UuBDYx3dIveAYRnmWFuHY6EB8yZigeKqjltdRnQpc3iidRxSDV6rdmZrH8bcRt9fg3HIBCp32GRpMTnjSGcy00KPKiGzPL',
+  apiUrl: 'http://127.0.0.1:8000',
+  apiBaseUrl: 'http://127.0.0.1:8000',
+  customerPortalUrl: 'http://localhost:4200',
+  paymentAppUrl: 'http://localhost:4201',
+  paymentPortalUrl: 'http://localhost:4201',
+  adminPortalUrl: 'http://localhost:4202',
+  partnerPortalUrl: 'http://localhost:4203',
+  microsoftClientId: '',
 };

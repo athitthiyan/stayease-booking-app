@@ -29,6 +29,9 @@ export interface Room {
   floor?: number;
   is_featured: boolean;
   created_at: string;
+  latitude?: number;
+  longitude?: number;
+  map_embed_url?: string;
 }
 
 export interface RoomListResponse {

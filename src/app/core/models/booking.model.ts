@@ -112,20 +112,4 @@ export interface ActiveHold {
 
 export interface UnavailableDatesResponse {
   /** Confirmed/permanently blocked dates — will not free up. */
-  unavailable_dates: string[];
-  /** Temporarily locked by an active hold — may free up. */
-  held_dates: string[];
-}
-
-export interface BookingListResponse {
-  bookings: Booking[];
-  total: number;
-}
-
-export interface MyBookingsResponse {
-  bookings: Booking[];
-  total: number;
-  upcoming: number;
-  past: number;
-  cancelled: number;
-}
+  u

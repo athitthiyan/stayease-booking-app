@@ -245,7 +245,10 @@ import { WishlistService } from '../../../core/services/wishlist.service';
     }
     .navbar__icon-btn:hover { background: rgba(255,255,255,0.08); }
 
-    .navbar__user-menu { position: relative; }
+    .navbar__user-menu {
+      position: relative;
+      z-index: calc(var(--z-nav) + 20);
+    }
 
     .navbar__user-btn {
       display: flex;
@@ -285,7 +288,7 @@ import { WishlistService } from '../../../core/services/wishlist.service';
       border-radius: var(--radius-xl);
       padding: var(--space-sm);
       box-shadow: 0 16px 40px rgba(0,0,0,0.4);
-      z-index: 1000;
+      z-index: calc(var(--z-nav) + 30);
       animation: fadeInUp 0.15s ease;
     }
 
@@ -448,7 +451,4 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   private unlockBodyScroll(): void {
-    document.documentElement.style.overflow = '';
-    document.body.style.overflow = '';
-  }
-}
+    document.documentEleme

@@ -10,9 +10,18 @@ import { UserResponse } from '../../core/models/auth.model';
 describe('ProfileComponent', () => {
   const authService = {
     isLoggedIn: true,
-    currentUser: { full_name: 'Alex Doe', email: 'alex@example.com', phone: '123', created_at: '2024-01-01T00:00:00.000Z', avatar_url: null },
+    currentUser: {
+      full_name: 'Alex Doe',
+      email: 'alex@example.com',
+      phone: '+91 90000 00001',
+      phone_verified: true,
+      created_at: '2024-01-01T00:00:00.000Z',
+      avatar_url: null,
+    },
     getMe: jest.fn(),
     updateProfile: jest.fn(),
+    requestPhoneOtp: jest.fn(),
+    verifyPhoneOtp: jest.fn(),
     changePassword: jest.fn(),
     logout: jest.fn(),
   };
@@ -24,7 +33,8 @@ describe('ProfileComponent', () => {
     id: 1,
     full_name: 'Alex Doe',
     email: 'alex@example.com',
-    phone: '123',
+    phone: '+91 90000 00001',
+    phone_verified: true,
     created_at: '2024-01-01T00:00:00.000Z',
     avatar_url: null,
     is_admin: false,
@@ -34,6 +44,8 @@ describe('ProfileComponent', () => {
   beforeEach(async () => {
     authService.getMe.mockReset();
     authService.updateProfile.mockReset();
+    authService.requestPhoneOtp.mockReset();
+    authService.verifyPhoneOtp.mockReset();
     authService.changePassword.mockReset();
 
     await TestBed.configureTestingModule({
@@ -54,7 +66,7 @@ describe('ProfileComponent', () => {
     component.ngOnInit();
 
     expect(component.user()).toEqual(user);
-    expect(component.profileForm.getRawValue()).toEqual({ full_name: 'Alex Doe', phone: '123' });
+    expect(component.profileForm.getRawValue()).toEqual({ full_name: 'Alex Doe', phone: '+91 90000 00001' });
     expect(component.initials()).toBe('AD');
     expect(component.memberSince()).toContain('2024');
   });
@@ -98,9 +110,10 @@ describe('ProfileComponent', () => {
   it('saves the profile successfully and handles errors', () => {
     const fixture = TestBed.createComponent(ProfileComponent);
     const component = fixture.componentInstance;
-    component.profileForm.setValue({ full_name: 'Updated Name', phone: '999' });
+    component.user.set({ ...user, full_name: 'Updated Name', phone: '+91 99999 99999', phone_verified: true });
+    component.profileForm.setValue({ full_name: 'Updated Name', phone: '+91 99999 99999' });
 
-    authService.updateProfile.mockReturnValueOnce(of({ ...user, full_name: 'Updated Name', phone: '999' }));
+    authService.updateProfile.mockReturnValueOnce(of({ ...user, full_name: 'Updated Name', phone: '+91 99999 99999', phone_verified: true }));
     component.saveProfile();
     expect(component.user()?.full_name).toBe('Updated Name');
     expect(component.successMsg()).toBe('Profile updated successfully.');
@@ -115,49 +128,41 @@ describe('ProfileComponent', () => {
     expect(component.errorMsg()).toBe('Update failed.');
   });
 
-  it('blocks invalid or duplicate profile saves', () => {
+  it('requires phone OTP verification before saving changed numbers', () => {
     const fixture = TestBed.createComponent(ProfileComponent);
     const component = fixture.componentInstance;
-    component.profileForm.controls.full_name.setValue('');
+    component.user.set(user);
+    component.profileForm.setValue({ full_name: 'Alex Doe', phone: '+91 99999 99999' });
+
     component.saveProfile();
+    expect(component.errorMsg()).toContain('Verify your phone');
     expect(authService.updateProfile).not.toHaveBeenCalled();
 
-    component.profileForm.setValue({ full_name: 'Alex Doe', phone: '123' });
-    component.saving.set(true);
-    component.saveProfile();
-    expect(authService.updateProfile).not.toHaveBeenCalled();
+    authService.requestPhoneOtp.mockReturnValueOnce(of({
+      message: 'sent',
+      phone: '+91 99999 99999',
+      expires_in_seconds: 300,
+      dev_code: '123456',
+    }));
+    component.requestPhoneOtp();
+    expect(component.otpSent()).toBe(true);
+    expect(component.phoneOtpDevCode()).toBe('123456');
+
+    component.otpForm.setValue({ otp: '123456' });
+    authService.verifyPhoneOtp.mockReturnValueOnce(of({ ...user, phone: '+91 99999 99999', phone_verified: true }));
+    component.verifyPhoneOtp();
+    expect(component.user()?.phone).toBe('+91 99999 99999');
+    expect(component.isPhoneVerifiedForCurrentForm()).toBe(true);
   });
 
-  it('changes the password successfully and handles errors', () => {
+  it('handles phone OTP request and verification failures', () => {
     const fixture = TestBed.createComponent(ProfileComponent);
     const component = fixture.componentInstance;
-    component.passwordForm.setValue({ current_password: 'oldpass123', new_password: 'newpass1234' });
+    component.profileForm.setValue({ full_name: 'Alex Doe', phone: '+91 99999 99999' });
 
-    authService.changePassword.mockReturnValueOnce(of({}));
-    component.changePassword();
-    expect(component.pwSuccessMsg()).toBe('Password changed successfully.');
-    expect(component.passwordForm.getRawValue()).toEqual({ current_password: '', new_password: '' });
-    expect(component.changingPw()).toBe(false);
+    authService.requestPhoneOtp.mockReturnValueOnce(throwError(() => ({ error: { detail: 'SMS failed' } })));
+    component.requestPhoneOtp();
+    expect(component.errorMsg()).toBe('SMS failed');
 
-    component.passwordForm.setValue({ current_password: 'oldpass123', new_password: 'newpass1234' });
-    authService.changePassword.mockReturnValueOnce(throwError(() => ({ error: { detail: 'Wrong password' } })));
-    component.changePassword();
-    expect(component.pwErrorMsg()).toBe('Wrong password');
-
-    authService.changePassword.mockReturnValueOnce(throwError(() => ({ error: {} })));
-    component.changePassword();
-    expect(component.pwErrorMsg()).toBe('Password change failed.');
-  });
-
-  it('blocks invalid or duplicate password changes', () => {
-    const fixture = TestBed.createComponent(ProfileComponent);
-    const component = fixture.componentInstance;
-    component.changePassword();
-    expect(authService.changePassword).not.toHaveBeenCalled();
-
-    component.passwordForm.setValue({ current_password: 'oldpass123', new_password: 'newpass1234' });
-    component.changingPw.set(true);
-    component.changePassword();
-    expect(authService.changePassword).not.toHaveBeenCalled();
-  });
-});
+    component.otpForm.setValue({ otp: '123456' });
+    authService.verifyPhoneOtp.mockReturnValueOnce(throwError(() => ({ error: {

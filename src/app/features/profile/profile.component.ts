@@ -49,10 +49,58 @@ import { HttpErrorResponse } from '@angular/common/http';
 
             <div class="form-group">
               <label for="phone">Phone number</label>
-              <input id="phone" type="tel" formControlName="phone" placeholder="+1 555 000 0000" />
+              <input
+                id="phone"
+                type="tel"
+                formControlName="phone"
+                placeholder="+91 98765 43210"
+                [class.is-invalid]="isProfileFieldInvalid('phone')"
+              />
+              @if (isProfileFieldInvalid('phone')) {
+                <span class="field-error">A valid phone number is required</span>
+              }
+              @if (isPhoneVerifiedForCurrentForm()) {
+                <span class="field-success">Phone verified</span>
+              } @else {
+                <div class="otp-panel">
+                  <p>Verify your phone with OTP before saving profile changes.</p>
+                  <button
+                    type="button"
+                    class="btn btn--secondary"
+                    (click)="requestPhoneOtp()"
+                    [disabled]="requestingOtp() || !profileForm.controls.phone.valid"
+                  >
+                    @if (requestingOtp()) { Sending OTP... } @else { Send OTP }
+                  </button>
+
+                  @if (otpSent()) {
+                    <div class="otp-inline" [formGroup]="otpForm">
+                      <input
+                        id="phone_otp"
+                        type="text"
+                        inputmode="numeric"
+                        maxlength="6"
+                        formControlName="otp"
+                        placeholder="Enter 6-digit OTP"
+                      />
+                      <button
+                        type="button"
+                        class="btn btn--secondary"
+                        (click)="verifyPhoneOtp()"
+                        [disabled]="verifyingPhone() || otpForm.invalid"
+                      >
+                        @if (verifyingPhone()) { Verifying... } @else { Verify OTP }
+                      </button>
+                    </div>
+                    @if (phoneOtpDevCode()) {
+                      <span class="otp-dev">Dev OTP: {{ phoneOtpDevCode() }}</span>
+                    }
+                  }
+                </div>
+              }
             </div>
 
-            <button type="submit" class="btn btn--primary" [disabled]="saving()">
+            <button type="submit" class="btn btn--primary" [disabled]="saving() || !isPhoneVerifiedForCurrentForm()">
               @if (saving()) { Saving… } @else { Save changes }
             </button>
           </form>
@@ -206,6 +254,34 @@ import { HttpErrorResponse } from '@angular/common/http';
     input.is-invalid { border-color: #ef4444; }
 
     .field-error { font-size: 12px; color: #f87171; }
+    .field-success { font-size: 12px; color: #4ade80; font-weight: 700; }
+
+    .otp-panel {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid rgba(201, 168, 76, 0.28);
+      border-radius: var(--radius-md);
+      background: rgba(201, 168, 76, 0.06);
+    }
+
+    .otp-panel p {
+      margin: 0;
+      color: var(--color-text-muted);
+      font-size: 13px;
+    }
+
+    .otp-inline {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+    }
+
+    .otp-dev {
+      color: var(--color-primary);
+      font-size: 12px;
+      font-weight: 700;
+    }
 
     .quick-links {
       display: flex;
@@ -232,97 +308,4 @@ import { HttpErrorResponse } from '@angular/common/http';
     }
 
     .ql-icon { font-size: 1.4rem; }
-  `],
-})
-export class ProfileComponent implements OnInit {
-  private fb = inject(FormBuilder);
-  private authService = inject(AuthService);
-
-  user = signal(this.authService.currentUser);
-  saving = signal(false);
-  successMsg = signal('');
-  errorMsg = signal('');
-  changingPw = signal(false);
-  pwSuccessMsg = signal('');
-  pwErrorMsg = signal('');
-
-  profileForm = this.fb.nonNullable.group({
-    full_name: ['', Validators.required],
-    phone: [''],
-  });
-
-  passwordForm = this.fb.nonNullable.group({
-    current_password: ['', Validators.required],
-    new_password: ['', [Validators.required, Validators.minLength(10)]],
-  });
-
-  ngOnInit(): void {
-    this.authService.getMe().subscribe(u => {
-      this.user.set(u);
-      this.profileForm.patchValue({ full_name: u.full_name, phone: u.phone ?? '' });
-    });
-  }
-
-  initials(): string {
-    const name = this.user()?.full_name ?? '';
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  }
-
-  memberSince(): string {
-    const d = this.user()?.created_at;
-    if (!d) return '';
-    return new Date(d).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  }
-
-  isPasswordFieldInvalid(field: 'current_password' | 'new_password'): boolean {
-    const ctrl = this.passwordForm.get(field);
-    return !!(ctrl?.invalid && ctrl.touched);
-  }
-
-  saveProfile(): void {
-    this.profileForm.markAllAsTouched();
-    if (this.profileForm.invalid || this.saving()) return;
-
-    this.saving.set(true);
-    this.successMsg.set('');
-    this.errorMsg.set('');
-
-    this.authService.updateProfile(this.profileForm.getRawValue()).subscribe({
-      next: u => {
-        this.user.set(u);
-        this.successMsg.set('Profile updated successfully.');
-        this.saving.set(false);
-      },
-      error: (err: HttpErrorResponse) => {
-        this.errorMsg.set(err.error?.detail ?? 'Update failed.');
-        this.saving.set(false);
-      },
-    });
-  }
-
-  changePassword(): void {
-    this.passwordForm.markAllAsTouched();
-    if (this.passwordForm.invalid || this.changingPw()) return;
-
-    this.changingPw.set(true);
-    this.pwSuccessMsg.set('');
-    this.pwErrorMsg.set('');
-
-    this.authService.changePassword(this.passwordForm.getRawValue()).subscribe({
-      next: () => {
-        this.pwSuccessMsg.set('Password changed successfully.');
-        this.passwordForm.reset();
-        this.changingPw.set(false);
-      },
-      error: (err: HttpErrorResponse) => {
-        this.pwErrorMsg.set(err.error?.detail ?? 'Password change failed.');
-        this.changingPw.set(false);
-      },
-    });
-  }
-}
+  `]

@@ -107,27 +107,4 @@ describe('ActiveBookingCtaBarComponent', () => {
     expect(element.querySelector('.active-booking-bar')).toBeNull();
   });
 
-  it('does not render a stale hold when the visibility guard is false', () => {
-    activeHold.set(hold({ lifecycle_state: 'CONFIRMED', payment_status: 'paid' }));
-    remainingSeconds.set(180);
-    shouldShowActiveReservation.set(false);
-    canContinue.set(false);
-
-    const fixture = TestBed.createComponent(ActiveBookingCtaBarComponent);
-    fixture.detectChanges();
-
-    const element = fixture.nativeElement as HTMLElement;
-    expect(element.textContent).not.toContain('You already have an active booking in progress');
-    expect(element.querySelector('.active-booking-bar')).toBeNull();
-  });
-
-  it('renders transient toast messages', () => {
-    toastMessage.set('Booking hold expired.');
-
-    const fixture = TestBed.createComponent(ActiveBookingCtaBarComponent);
-    fixture.detectChanges();
-
-    const element = fixture.nativeElement as HTMLElement;
-    expect(element.textContent).toContain('Booking hold expired.');
-  });
-});
+  it('does not render a stal

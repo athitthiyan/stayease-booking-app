@@ -3,6 +3,8 @@ export interface UserResponse {
   email: string;
   full_name: string;
   phone: string | null;
+  phone_verified?: boolean;
+  pending_phone?: string | null;
   avatar_url: string | null;
   is_admin: boolean;
   is_active: boolean;
@@ -46,11 +48,25 @@ export interface UserProfileUpdate {
   avatar_url?: string;
 }
 
-export interface SocialLoginRequest {
-  provider: 'google';
-  id_token: string;
+export interface PhoneOtpRequest {
+  phone: string;
+}
+
+export interface PhoneOtpResponse {
+  message: string;
+  otp_id: string;
+}
+
+export interface PhoneOtpVerifyRequest {
+  otp_id: string;
+  otp_code: string;
 }
 
 export interface MessageResponse {
   message: string;
+}
+
+export interface SocialLoginRequest {
+  provider: 'google' | 'apple' | 'microsoft';
+  id_token: string;
 }

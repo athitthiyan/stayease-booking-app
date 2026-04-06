@@ -7,6 +7,9 @@ import {
   ChangePasswordRequest,
   ForgotPasswordRequest,
   MessageResponse,
+  PhoneOtpRequest,
+  PhoneOtpResponse,
+  PhoneOtpVerifyRequest,
   ResetPasswordRequest,
   SocialLoginRequest,
   TokenResponse,
@@ -95,6 +98,19 @@ export class AuthService {
     );
   }
 
+  requestPhoneOtp(payload: PhoneOtpRequest): Observable<PhoneOtpResponse> {
+    return this.http.post<PhoneOtpResponse>(`${this.base}/phone/request-otp`, payload);
+  }
+
+  verifyPhoneOtp(payload: PhoneOtpVerifyRequest): Observable<UserResponse> {
+    return this.http.post<UserResponse>(`${this.base}/phone/verify`, payload).pipe(
+      tap(user => {
+        this.currentUserSubject.next(user);
+        localStorage.setItem(USER_KEY, JSON.stringify(user));
+      })
+    );
+  }
+
   changePassword(payload: ChangePasswordRequest): Observable<MessageResponse> {
     return this.http.post<MessageResponse>(`${this.base}/change-password`, payload);
   }
@@ -112,22 +128,45 @@ export class AuthService {
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     this.currentUserSubject.next(null);
-    this.router.navigate(['/']);
-  }
-
-  private persistSession(res: TokenResponse): void {
-    localStorage.setItem(ACCESS_TOKEN_KEY, res.access_token);
-    localStorage.setItem(REFRESH_TOKEN_KEY, res.refresh_token);
-    localStorage.setItem(USER_KEY, JSON.stringify(res.user));
-    this.currentUserSubject.next(res.user);
+    this.router.navigate(['/auth/login']);
   }
 
   private loadUserFromStorage(): UserResponse | null {
-    try {
-      const raw = localStorage.getItem(USER_KEY);
-      return raw ? (JSON.parse(raw) as UserResponse) : null;
-    } catch {
-      return null;
+    const user = localStorage.getItem(USER_KEY);
+    return user ? JSON.parse(user) : null;
+  }
+
+  private persistSession(resp: TokenResponse): void {
+    if (resp.access_token) {
+      localStorage.setItem(ACCESS_TOKEN_KEY, resp.access_token);
     }
+    if (resp.refresh_token) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, resp.refresh_token);
+    }
+    if (resp.user) {
+      this.currentUserSubject.next(resp.user);
+      localStorage.setItem(USER_KEY, JSON.stringify(resp.user));
+    }
+  }
+
+  async loginWithApple(): Promise<void> {
+    throw new Error('Apple Sign-In requires native integration. Use the app.');
+  }
+
+  async loginWithMicrosoft(): Promise<void> {
+    const clientId = environment.microsoftClientId || '';
+    const redirectUri = encodeURIComponent(window.location.origin + '/auth/callback/microsoft');
+    const scope = encodeURIComponent('openid email profile');
+    const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=id_token&redirect_uri=${redirectUri}&scope=${scope}&nonce=${Math.random().toString(36)}`;
+    window.location.href = authUrl;
+  }
+
+  socialLoginWithToken(provider: 'google' | 'apple' | 'microsoft', idToken: string): Observable<TokenResponse> {
+    return this.http.post<TokenResponse>(`${this.base}/social-login`, {
+      provider,
+      id_token: idToken
+    }).pipe(
+      tap(resp => this.persistSession(resp))
+    );
   }
 }

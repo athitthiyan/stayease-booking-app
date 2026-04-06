@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RoomService } from '../../core/services/room.service';
 import { BookingService } from '../../core/services/booking.service';
 import { WishlistService } from '../../core/services/wishlist.service';
@@ -115,6 +116,33 @@ type ISODateString = string;
             </div>
 
             <div class="divider divider--gold"></div>
+
+            <!-- Map Section -->
+            <div class="room-map" *ngIf="room()?.map_embed_url || (room()?.latitude && room()?.longitude)">
+              <h3 class="section-title">Location</h3>
+              @if (room()?.map_embed_url) {
+                <iframe
+                  [src]="safeMapUrl()"
+                  class="map-iframe"
+                  allowfullscreen=""
+                  loading="lazy"
+                  referrerpolicy="no-referrer-when-downgrade"
+                  title="Hotel location map">
+                </iframe>
+              } @else if (room()?.latitude && room()?.longitude) {
+                <iframe
+                  [src]="coordinatesMapUrl()"
+                  class="map-iframe"
+                  allowfullscreen=""
+                  loading="lazy"
+                  referrerpolicy="no-referrer-when-downgrade"
+                  title="Hotel location map">
+                </iframe>
+              }
+              @if (room()?.location) {
+                <p class="map-address">📍 {{ room()?.location }}</p>
+              }
+            </div>
 
             <!-- Description -->
             <div class="room-detail__section">
@@ -289,6 +317,7 @@ export class RoomDetailComponent implements OnInit {
   private bookingService = inject(BookingService);
   protected wishlistService = inject(WishlistService);
   protected authService = inject(AuthService);
+  private sanitizer = inject(DomSanitizer);
 
   room = signal<Room | null>(null);
   loading = signal(true);
@@ -326,6 +355,23 @@ export class RoomDetailComponent implements OnInit {
         return JSON.parse(this.room()?.amenities || '[]');
       } catch { return []; }
     });
+
+  safeMapUrl = computed<SafeResourceUrl | null>(() => {
+    const url = this.room()?.map_embed_url;
+    if (!url) return null;
+    return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+  });
+
+  coordinatesMapUrl = computed<SafeResourceUrl | null>(() => {
+    const lat = this.room()?.latitude;
+    const lng = this.room()?.longitude;
+    if (!lat || !lng) return null;
+    const key = ''; // Google Maps API key goes here
+    const url = key
+      ? `https://www.google.com/maps/embed/v1/view?key=${key}&center=${lat},${lng}&zoom=15`
+      : `https://maps.google.com/maps?q=${lat},${lng}&output=embed`;
+    return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+  });
 
   activeImage = signal('');
 

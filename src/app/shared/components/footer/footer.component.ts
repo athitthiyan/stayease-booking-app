@@ -19,9 +19,9 @@ import { RouterLink } from '@angular/router';
             <h4>Explore</h4>
             <ul>
               <li><a routerLink="/search">All Rooms</a></li>
-              <li><a routerLink="/search?room_type=suite">Suites</a></li>
-              <li><a routerLink="/search?room_type=penthouse">Penthouses</a></li>
-              <li><a routerLink="/search?featured=true">Featured</a></li>
+              <li><a [routerLink]="['/search']" [queryParams]="{ room_type: 'suite' }">Suites</a></li>
+              <li><a [routerLink]="['/search']" [queryParams]="{ room_type: 'penthouse' }">Penthouses</a></li>
+              <li><a [routerLink]="['/search']" [queryParams]="{ featured: 'true' }">Featured</a></li>
             </ul>
           </div>
 
@@ -40,7 +40,7 @@ import { RouterLink } from '@angular/router';
             <ul>
               <li><a routerLink="/support">Help Center</a></li>
               <li><a href="mailto:support@stayvora.co.in">support&#64;stayvora.co.in</a></li>
-              <li><a routerLink="/booking-history">My Bookings</a></li>
+              <li><a routerLink="/bookings">My Bookings</a></li>
               <li><a routerLink="/wishlist">Saved Stays</a></li>
             </ul>
           </div>
@@ -146,9 +146,4 @@ import { RouterLink } from '@angular/router';
     @media (max-width: 480px) {
       .footer__grid {
         grid-template-columns: 1fr;
-        gap: var(--space-xl);
-      }
-    }
-  `],
-})
-export class FooterComponent {}
+     
