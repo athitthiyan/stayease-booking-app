@@ -13,11 +13,6 @@ import { RouterLink } from '@angular/router';
           <div class="footer__brand">
             <a routerLink="/" class="footer__logo">🏨 Stay<span>vora</span></a>
             <p>Stay Better. Travel Smarter. Premium hotel bookings with real-time inventory, safer payments, and clearer policies.</p>
-            <div class="footer__socials">
-              <a href="#" aria-label="Twitter">𝕏</a>
-              <a href="#" aria-label="Instagram">📸</a>
-              <a href="#" aria-label="LinkedIn">💼</a>
-            </div>
           </div>
 
           <div class="footer__col">
@@ -45,8 +40,8 @@ import { RouterLink } from '@angular/router';
             <ul>
               <li><a routerLink="/support">Help Center</a></li>
               <li><a href="mailto:support@stayvora.co.in">support&#64;stayvora.co.in</a></li>
-              <li><a href="https://payflow-gateway.vercel.app" target="_blank" rel="noreferrer">PayFlow Gateway →</a></li>
-              <li><a href="https://insightboard-admin.vercel.app" target="_blank" rel="noreferrer">InsightBoard Admin →</a></li>
+              <li><a routerLink="/booking-history">My Bookings</a></li>
+              <li><a routerLink="/wishlist">Saved Stays</a></li>
             </ul>
           </div>
         </div>
@@ -102,31 +97,6 @@ import { RouterLink } from '@angular/router';
     }
 
     .footer__logo span { color: var(--color-primary); }
-
-    .footer__socials {
-      display: flex;
-      gap: var(--space-md);
-      margin-top: var(--space-lg);
-    }
-
-    .footer__socials a {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 38px;
-      height: 38px;
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      font-size: 16px;
-      transition: all var(--transition-fast);
-    }
-
-    .footer__socials a:hover {
-      background: var(--color-surface-hover);
-      border-color: var(--color-primary);
-      transform: translateY(-2px);
-    }
 
     .footer__col h4 {
       font-size: 13px;

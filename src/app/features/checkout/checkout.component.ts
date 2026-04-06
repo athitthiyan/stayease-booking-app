@@ -100,7 +100,7 @@ import {
                   [(ngModel)]="form.email"
                   class="form-control"
                   [class.input--error]="emailError()"
-                  placeholder="john@example.com"
+                  placeholder="you@stayvora.co.in"
                   required
                   aria-describedby="checkout-email-error"
                 />

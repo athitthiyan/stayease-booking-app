@@ -92,10 +92,7 @@ import { BookingService } from '../../core/services/booking.service';
           }
 
           <div class="confirm-card__links">
-            <p>View the payment for this booking at:</p>
-            <a href="https://payflow-payment-app.vercel.app" target="_blank" class="text-gold">
-              PayFlow Gateway →
-            </a>
+            <p>Need anything else? Your invoice and voucher can be downloaded above, or contact support at <a href="mailto:support@stayvora.co.in" class="text-gold">support&#64;stayvora.co.in</a>.</p>
           </div>
         </div>
       </div>

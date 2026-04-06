@@ -13,7 +13,7 @@ const ROOM_PLACEHOLDER_SVG = `
     <path d="M783 540V372h48v168" stroke="#d0b45a" stroke-width="18" stroke-linecap="round"/>
     <rect x="536" y="280" width="88" height="260" rx="18" fill="#d0b45a"/>
     <text x="600" y="646" text-anchor="middle" fill="#f4f7fb" font-family="Georgia, serif" font-size="64" font-weight="700">Stayvora</text>
-    <text x="600" y="694" text-anchor="middle" fill="#94a3b8" font-family="Arial, sans-serif" font-size="28">Image unavailable</text>
+    <text x="600" y="694" text-anchor="middle" fill="#94a3b8" font-family="Arial, sans-serif" font-size="28">Stay preview coming soon</text>
   </svg>
 `;
 

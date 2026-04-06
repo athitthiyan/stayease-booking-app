@@ -1,66 +1,60 @@
-# 🏨 StayEase — Premium Hotel Booking Platform
+# Stayvora Booking
 
-> A luxury hotel booking experience with real-time search, room filtering, and seamless checkout.
+Stayvora Booking is the guest-facing hotel discovery and checkout experience for live availability, booking recovery, and payment handoff.
 
-**Live Demo:** [stayease-booking.vercel.app](https://stayease-booking.vercel.app)
-**Backend API:** [hotel-api.onrender.com](https://hotel-api.onrender.com)
+**Live App:** [stayvora.co.in](https://stayvora.co.in)
+**Backend API:** [hotel-api-production-447d.up.railway.app](https://hotel-api-production-447d.up.railway.app)
 
----
+## Features
 
-## ✨ Features
+- Real-time room search with city, date, guest, and price filters
+- Room detail pages with gallery, amenities, and live availability checks
+- Checkout flow with hold creation and resumable booking recovery
+- Booking history, wishlist, auth, and confirmation flows
+- Invoice and voucher access after successful booking
+- Responsive premium guest experience
 
-- 🔍 Real-time room search with city, date, guest, and price filters
-- 🏨 Featured hotels landing page with animated hero section
-- 📸 Room detail pages with image gallery and amenity grid
-- 🧾 Live price breakdown (room rate + 12% tax + 5% service fee)
-- 💳 Checkout flow connected to PayFlow payment gateway
-- ✅ Booking confirmation with reference number
-- 📱 Fully responsive design
+## Tech Stack
 
-## 🛠️ Tech Stack
+| Layer | Technology |
+| --- | --- |
+| Framework | Angular 17 (standalone components) |
+| Styling | SCSS + CSS custom properties |
+| HTTP | Angular HttpClient |
+| State | Angular Signals |
+| Routing | Angular Router |
+| Deployment | Vercel |
 
-| Layer       | Technology                    |
-|-------------|-------------------------------|
-| Framework   | Angular 17 (Standalone Components) |
-| Styling     | SCSS + CSS Custom Properties (Dark Luxury Theme) |
-| HTTP        | Angular HttpClient            |
-| State       | Angular Signals               |
-| Routing     | Angular Router (lazy loading) |
-| Fonts       | Playfair Display + Inter       |
-| Deployment  | Vercel                        |
-
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 npm install
 npm start
-# → http://localhost:4200
+# http://localhost:4200
 ```
 
-## 🔗 Part of a 3-Project Portfolio
+## Connected Apps
 
-This app connects to:
-- **[PayFlow](../2-payflow-payment-app)** — handles payment after checkout
-- **[InsightBoard](../3-insightboard-admin)** — admin analytics dashboard
-- **[HotelAPI](../4-hotelapi-backend)** — shared FastAPI backend
+- [PayFlow](../2-payflow-payment-app) for payments
+- [InsightBoard](../3-insightboard-admin) for operations
+- [HotelAPI](../4-hotelapi-backend) for shared backend workflows
+- [Partner Portal](../6-partner-portal) for hotel partner operations
 
-## 📂 Project Structure
+## Project Structure
 
-```
+```text
 src/app/
-├── core/
-│   ├── models/         # TypeScript interfaces (Room, Booking)
-│   └── services/       # RoomService, BookingService
-├── shared/
-│   └── components/     # Navbar, Footer, RoomCard
-└── features/
-    ├── landing/        # Hero, search, featured rooms
-    ├── search-results/ # Filtered room listing
-    ├── room-detail/    # Gallery, amenities, booking panel
-    ├── checkout/       # Guest form + order summary
-    └── booking-confirmation/
+|-- core/
+|   |-- models/
+|   `-- services/
+|-- shared/
+|   `-- components/
+`-- features/
+    |-- landing/
+    |-- search-results/
+    |-- room-detail/
+    |-- checkout/
+    `-- booking-confirmation/
 ```
 
----
-
-*Built by Athitthiyan — Portfolio 2026*
+Built for Stayvora booking.

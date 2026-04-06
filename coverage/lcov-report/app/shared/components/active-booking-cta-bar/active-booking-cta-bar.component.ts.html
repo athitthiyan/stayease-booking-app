@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/11</span>
+                <span class='fraction'>11/11</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/9</span>
+                <span class='fraction'>9/9</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -341,9 +341,9 @@
 <a name='L276'></a><a href='#L276'>276</a>
 <a name='L277'></a><a href='#L277'>277</a>
 <a name='L278'></a><a href='#L278'>278</a>
-<a name='L279'></a><a href='#L279'>279</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<a name='L279'></a><a href='#L279'>279</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -609,19 +609,19 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { Component, inject } from '@angular/core';</span>
-<span class="cstat-no" title="statement not covered" >import { CommonModule } from '@angular/common';</span>
-<span class="cstat-no" title="statement not covered" >import { ActiveBookingService } from '../../../core/services/active-booking.service';</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Component, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ActiveBookingService } from '../../../core/services/active-booking.service';
 &nbsp;
 @Component({
   selector: 'app-active-booking-cta-bar',
@@ -887,14 +887,14 @@
     }
   `],
 })
-export <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >class <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" >A</span>ctiveBookingCtaBarComponent </span>{</span></span>
-  protected readonly <span class="cstat-no" title="statement not covered" >activeBookingService = inject(ActiveBookingService);</span>
+export class ActiveBookingCtaBarComponent {
+  protected readonly activeBookingService = inject(ActiveBookingService);
 &nbsp;
-<span class="fstat-no" title="function not covered" >  countdownLabel(</span>): string {
-    const seconds = <span class="cstat-no" title="statement not covered" >this.activeBookingService.remainingSeconds();</span>
-    const minutes = <span class="cstat-no" title="statement not covered" >Math.floor(seconds / 60);</span>
-    const paddedSeconds = <span class="cstat-no" title="statement not covered" >String(seconds % 60).padStart(2, '0');</span>
-<span class="cstat-no" title="statement not covered" >    return `${String(minutes).padStart(2, '0')}:${paddedSeconds}`;</span>
+  countdownLabel(): string {
+    const seconds = this.activeBookingService.remainingSeconds();
+    const minutes = Math.floor(seconds / 60);
+    const paddedSeconds = String(seconds % 60).padStart(2, '0');
+    return `${String(minutes).padStart(2, '0')}:${paddedSeconds}`;
   }
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -904,7 +904,7 @@ export <span class="cstat-no" title="statement not covered" ><span class="fstat-
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-06T00:59:55.962Z
+                at 2026-04-06T02:34:42.751Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

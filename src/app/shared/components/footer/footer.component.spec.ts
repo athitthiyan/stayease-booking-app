@@ -11,7 +11,7 @@ describe('FooterComponent', () => {
     }).compileComponents();
   });
 
-  it('renders brand, navigation links, and portfolio links', () => {
+  it('renders brand, navigation links, and guest support links', () => {
     const fixture = TestBed.createComponent(FooterComponent);
     fixture.detectChanges();
 
@@ -20,7 +20,7 @@ describe('FooterComponent', () => {
     expect(element.textContent).toContain('Explore');
     expect(element.textContent).toContain('Policies');
     expect(element.textContent).toContain('Support');
-    expect(element.querySelectorAll('.footer__socials a').length).toBe(3);
-    expect(Array.from(element.querySelectorAll('a')).some(anchor => anchor.textContent?.includes('PayFlow'))).toBe(true);
+    expect(Array.from(element.querySelectorAll('a')).some(anchor => anchor.textContent?.includes('My Bookings'))).toBe(true);
+    expect(Array.from(element.querySelectorAll('a')).some(anchor => anchor.textContent?.includes('Saved Stays'))).toBe(true);
   });
 });
