@@ -451,4 +451,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   private unlockBodyScroll(): void {
-    document.documentEleme
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+  }
+}

@@ -165,4 +165,54 @@ describe('ProfileComponent', () => {
     expect(component.errorMsg()).toBe('SMS failed');
 
     component.otpForm.setValue({ otp: '123456' });
-    authService.verifyPhoneOtp.mockReturnValueOnce(throwError(() => ({ error: {
+    authService.verifyPhoneOtp.mockReturnValueOnce(throwError(() => ({ error: { detail: 'Bad OTP' } })));
+    component.verifyPhoneOtp();
+    expect(component.errorMsg()).toBe('Bad OTP');
+  });
+
+  it('blocks invalid or duplicate profile saves', () => {
+    const fixture = TestBed.createComponent(ProfileComponent);
+    const component = fixture.componentInstance;
+    component.profileForm.controls.full_name.setValue('');
+    component.saveProfile();
+    expect(authService.updateProfile).not.toHaveBeenCalled();
+
+    component.profileForm.setValue({ full_name: 'Alex Doe', phone: '+91 90000 00001' });
+    component.saving.set(true);
+    component.saveProfile();
+    expect(authService.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('changes the password successfully and handles errors', () => {
+    const fixture = TestBed.createComponent(ProfileComponent);
+    const component = fixture.componentInstance;
+    component.passwordForm.setValue({ current_password: 'oldpass123', new_password: 'newpass1234' });
+
+    authService.changePassword.mockReturnValueOnce(of({}));
+    component.changePassword();
+    expect(component.pwSuccessMsg()).toBe('Password changed successfully.');
+    expect(component.passwordForm.getRawValue()).toEqual({ current_password: '', new_password: '' });
+    expect(component.changingPw()).toBe(false);
+
+    component.passwordForm.setValue({ current_password: 'oldpass123', new_password: 'newpass1234' });
+    authService.changePassword.mockReturnValueOnce(throwError(() => ({ error: { detail: 'Wrong password' } })));
+    component.changePassword();
+    expect(component.pwErrorMsg()).toBe('Wrong password');
+
+    authService.changePassword.mockReturnValueOnce(throwError(() => ({ error: {} })));
+    component.changePassword();
+    expect(component.pwErrorMsg()).toBe('Password change failed.');
+  });
+
+  it('blocks invalid or duplicate password changes', () => {
+    const fixture = TestBed.createComponent(ProfileComponent);
+    const component = fixture.componentInstance;
+    component.changePassword();
+    expect(authService.changePassword).not.toHaveBeenCalled();
+
+    component.passwordForm.setValue({ current_password: 'oldpass123', new_password: 'newpass1234' });
+    component.changingPw.set(true);
+    component.changePassword();
+    expect(authService.changePassword).not.toHaveBeenCalled();
+  });
+});

@@ -48,4 +48,6 @@ describe('AppComponent', () => {
     expect(element.querySelector('app-active-booking-cta-bar')).not.toBeNull();
     expect(element.querySelector('router-outlet')).not.toBeNull();
     expect(element.querySelector('app-footer')).not.toBeNull();
-    expect
+    expect(element.querySelector('.app-main')).not.toBeNull();
+  });
+});

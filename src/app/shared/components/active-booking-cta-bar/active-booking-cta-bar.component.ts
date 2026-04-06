@@ -273,4 +273,6 @@ export class ActiveBookingCtaBarComponent {
     const seconds = this.activeBookingService.remainingSeconds();
     const minutes = Math.floor(seconds / 60);
     const paddedSeconds = String(seconds % 60).padStart(2, '0');
-    return `${String(minutes).padStart(2, '0')}:${padded
+    return `${String(minutes).padStart(2, '0')}:${paddedSeconds}`;
+  }
+}

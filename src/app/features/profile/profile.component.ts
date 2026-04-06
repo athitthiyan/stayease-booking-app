@@ -308,4 +308,172 @@ import { HttpErrorResponse } from '@angular/common/http';
     }
 
     .ql-icon { font-size: 1.4rem; }
-  `]
+  `],
+})
+export class ProfileComponent implements OnInit {
+  private fb = inject(FormBuilder);
+  private authService = inject(AuthService);
+
+  user = signal(this.authService.currentUser);
+  saving = signal(false);
+  requestingOtp = signal(false);
+  verifyingPhone = signal(false);
+  otpSent = signal(false);
+  phoneOtpDevCode = signal('');
+  successMsg = signal('');
+  errorMsg = signal('');
+  changingPw = signal(false);
+  pwSuccessMsg = signal('');
+  pwErrorMsg = signal('');
+
+  profileForm = this.fb.nonNullable.group({
+    full_name: ['', Validators.required],
+    phone: ['', [Validators.required, Validators.pattern(/^[0-9+\-\s()]{7,30}$/)]],
+  });
+
+  otpForm = this.fb.nonNullable.group({
+    otp: ['', [Validators.required, Validators.pattern(/^[0-9]{6}$/)]],
+  });
+
+  passwordForm = this.fb.nonNullable.group({
+    current_password: ['', Validators.required],
+    new_password: ['', [Validators.required, Validators.minLength(10)]],
+  });
+
+  ngOnInit(): void {
+    this.authService.getMe().subscribe(u => {
+      this.user.set(u);
+      this.profileForm.patchValue({ full_name: u.full_name, phone: u.phone ?? '' });
+    });
+  }
+
+  initials(): string {
+    const name = this.user()?.full_name ?? '';
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  }
+
+  memberSince(): string {
+    const d = this.user()?.created_at;
+    if (!d) return '';
+    return new Date(d).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
+
+  isPasswordFieldInvalid(field: 'current_password' | 'new_password'): boolean {
+    const ctrl = this.passwordForm.get(field);
+    return !!(ctrl?.invalid && ctrl.touched);
+  }
+
+  isProfileFieldInvalid(field: 'full_name' | 'phone'): boolean {
+    const ctrl = this.profileForm.get(field);
+    return !!(ctrl?.invalid && ctrl.touched);
+  }
+
+  normalizedProfilePhone(): string {
+    return this.profileForm.controls.phone.value.trim().replace(/\s+/g, ' ');
+  }
+
+  isPhoneVerifiedForCurrentForm(): boolean {
+    const phone = this.normalizedProfilePhone();
+    const user = this.user();
+    return !!phone && user?.phone === phone && (user.phone_verified ?? false);
+  }
+
+  requestPhoneOtp(): void {
+    this.profileForm.controls.phone.markAsTouched();
+    if (this.profileForm.controls.phone.invalid || this.requestingOtp()) return;
+
+    this.requestingOtp.set(true);
+    this.errorMsg.set('');
+    this.successMsg.set('');
+    this.phoneOtpDevCode.set('');
+    this.authService.requestPhoneOtp({ phone: this.normalizedProfilePhone() }).subscribe({
+      next: res => {
+        this.otpSent.set(true);
+        this.phoneOtpDevCode.set(res.dev_code ?? '');
+        this.successMsg.set('OTP sent. Please verify your phone number.');
+        this.requestingOtp.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.errorMsg.set(err.error?.detail ?? 'Could not send OTP.');
+        this.requestingOtp.set(false);
+      },
+    });
+  }
+
+  verifyPhoneOtp(): void {
+    this.otpForm.markAllAsTouched();
+    if (this.otpForm.invalid || this.verifyingPhone()) return;
+
+    this.verifyingPhone.set(true);
+    this.errorMsg.set('');
+    this.authService.verifyPhoneOtp({
+      phone: this.normalizedProfilePhone(),
+      otp: this.otpForm.controls.otp.value,
+    }).subscribe({
+      next: u => {
+        this.user.set(u);
+        this.profileForm.patchValue({ phone: u.phone ?? '' });
+        this.otpSent.set(false);
+        this.phoneOtpDevCode.set('');
+        this.otpForm.reset();
+        this.successMsg.set('Phone number verified.');
+        this.verifyingPhone.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.errorMsg.set(err.error?.detail ?? 'Phone verification failed.');
+        this.verifyingPhone.set(false);
+      },
+    });
+  }
+
+  saveProfile(): void {
+    this.profileForm.markAllAsTouched();
+    if (this.profileForm.invalid || this.saving()) return;
+    if (!this.isPhoneVerifiedForCurrentForm()) {
+      this.errorMsg.set('Verify your phone number with OTP before saving.');
+      return;
+    }
+
+    this.saving.set(true);
+    this.successMsg.set('');
+    this.errorMsg.set('');
+
+    this.authService.updateProfile(this.profileForm.getRawValue()).subscribe({
+      next: u => {
+        this.user.set(u);
+        this.successMsg.set('Profile updated successfully.');
+        this.saving.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.errorMsg.set(err.error?.detail ?? 'Update failed.');
+        this.saving.set(false);
+      },
+    });
+  }
+
+  changePassword(): void {
+    this.passwordForm.markAllAsTouched();
+    if (this.passwordForm.invalid || this.changingPw()) return;
+
+    this.changingPw.set(true);
+    this.pwSuccessMsg.set('');
+    this.pwErrorMsg.set('');
+
+    this.authService.changePassword(this.passwordForm.getRawValue()).subscribe({
+      next: () => {
+        this.pwSuccessMsg.set('Password changed successfully.');
+        this.passwordForm.reset();
+        this.changingPw.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.pwErrorMsg.set(err.error?.detail ?? 'Password change failed.');
+        this.changingPw.set(false);
+      },
+    });
+  }
+}

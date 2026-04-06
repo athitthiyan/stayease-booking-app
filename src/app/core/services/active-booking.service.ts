@@ -338,4 +338,47 @@ export class ActiveBookingService {
     this.toastMessage.set(message);
     this.toastHandle = setTimeout(() => {
       this.toastMessage.set('');
-      
+      this.toastHandle = null;
+    }, TOAST_DURATION_MS);
+  }
+
+  private broadcastSync(reason: SyncReason): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    localStorage.setItem(
+      ACTIVE_BOOKING_SYNC_KEY,
+      JSON.stringify({ reason, at: Date.now() }),
+    );
+  }
+
+  private readonly handleStorageSync = (event: StorageEvent): void => {
+    if (event.key === ACTIVE_BOOKING_SYNC_KEY) {
+      this.refreshActiveHold(true);
+      return;
+    }
+
+    if (event.key === 'se_user') {
+      if (event.newValue) {
+        this.refreshActiveHold(true);
+        this.startPolling();
+      } else {
+        this.clearState();
+        this.suppressedConfirmedBookingId = null;
+      }
+    }
+  };
+
+  private readonly handleWindowFocus = (): void => {
+    if (this.authService.isLoggedIn) {
+      this.refreshActiveHold(true);
+    }
+  };
+
+  private readonly handleVisibilityChange = (): void => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible' && this.authService.isLoggedIn) {
+      this.refreshActiveHold(true);
+    }
+  };
+}
