@@ -6,7 +6,7 @@ import {
 import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { MsalService } from '@azure/msal-angular';
-import { BrowserAuthError, AuthenticationResult } from '@azure/msal-browser';
+import { BrowserAuthError } from '@azure/msal-browser';
 import { AuthService } from './auth.service';
 import { TokenResponse, UserResponse } from '../models/auth.model';
 import * as env from '../../../environments/environment';
@@ -30,8 +30,9 @@ const mockTokenResponse: TokenResponse = {
 
 const mockMsalService = {
   loginPopup: jest.fn(),
+  loginRedirect: jest.fn(),
   handleRedirectObservable: jest.fn().mockReturnValue(of(null)),
-  instance: { initialize: jest.fn().mockResolvedValue(undefined), clearCache: jest.fn() },
+  instance: { initialize: jest.fn().mockResolvedValue(undefined), clearCache: jest.fn(), handleRedirectPromise: jest.fn().mockResolvedValue(null) },
 };
 
 describe('AuthService', () => {
@@ -43,6 +44,7 @@ describe('AuthService', () => {
     localStorage.clear();
     routerSpy = { navigate: jest.fn(), navigateByUrl: jest.fn() };
     mockMsalService.loginPopup.mockReset();
+    mockMsalService.loginRedirect.mockReset();
 
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
@@ -218,12 +220,18 @@ describe('AuthService', () => {
 
   // ─── logout ───────────────────────────────────────────────────────────────
 
-  it('should clear storage, reset user, and navigate on logout', () => {
+  it('should clear storage, reset user, call logout endpoint, and navigate on logout', () => {
     localStorage.setItem('se_access_token', 'tok');
     localStorage.setItem('se_refresh_token', 'ref');
     localStorage.setItem('se_user', JSON.stringify(mockUser));
 
     service.logout();
+
+    // Flush the fire-and-forget logout POST
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/logout`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ refresh_token: 'ref' });
+    req.flush({ message: 'Logged out successfully' });
 
     expect(localStorage.getItem('se_access_token')).toBeNull();
     expect(localStorage.getItem('se_refresh_token')).toBeNull();
@@ -354,55 +362,25 @@ describe('AuthService', () => {
     delete win.google;
   });
 
-  it('should call MSAL loginPopup and navigate on success', async () => {
-    const msalResult = { idToken: 'ms-id-token' } as AuthenticationResult;
-    mockMsalService.loginPopup.mockReturnValue(of(msalResult));
+  it('should call MSAL loginRedirect for Microsoft sign-in', async () => {
+    mockMsalService.loginRedirect.mockReturnValue(of(undefined));
 
-    const promise = service.loginWithMicrosoft();
-    await new Promise(resolve => setTimeout(resolve, 0));
-
-    const req = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
-    expect(req.request.body).toEqual({ provider: 'microsoft', id_token: 'ms-id-token' });
-    req.flush(mockTokenResponse);
-
-    await promise;
-    expect(routerSpy.navigate).toHaveBeenCalledWith(['/']);
-    expect(service.isLoggedIn).toBe(true);
-  });
-
-  it('should throw user-friendly message when user cancels Microsoft popup', async () => {
-    const cancelError = new BrowserAuthError('user_cancelled');
-    mockMsalService.loginPopup.mockReturnValue(throwError(() => cancelError));
-
-    await expect(service.loginWithMicrosoft()).rejects.toThrow('Microsoft Sign-In was cancelled.');
-  });
-
-  it('should throw popup blocked message when popup is blocked', async () => {
-    const popupError = new BrowserAuthError('popup_window_error');
-    mockMsalService.loginPopup.mockReturnValue(throwError(() => popupError));
-
-    await expect(service.loginWithMicrosoft()).rejects.toThrow('Popup was blocked. Please allow popups and try again.');
+    await service.loginWithMicrosoft();
+    expect(mockMsalService.loginRedirect).toHaveBeenCalled();
   });
 
   it('should throw in-progress message when interaction is in progress', async () => {
     const inProgressError = new BrowserAuthError('interaction_in_progress');
-    mockMsalService.loginPopup.mockReturnValue(throwError(() => inProgressError));
+    mockMsalService.loginRedirect.mockReturnValue(throwError(() => inProgressError));
 
     await expect(service.loginWithMicrosoft()).rejects.toThrow('A sign-in is already in progress. Please wait.');
   });
 
-  it('should propagate error when backend rejects Microsoft token', async () => {
-    const msalResult = { idToken: 'bad-token' } as AuthenticationResult;
-    mockMsalService.loginPopup.mockReturnValue(of(msalResult));
+  it('should throw generic message for other MSAL errors', async () => {
+    const otherError = new BrowserAuthError('some_other_error');
+    mockMsalService.loginRedirect.mockReturnValue(throwError(() => otherError));
 
-    const promise = service.loginWithMicrosoft();
-    // Allow microtasks to flush so the HTTP request fires
-    await new Promise(resolve => setTimeout(resolve, 0));
-
-    const req = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
-    req.flush({ detail: 'Invalid token' }, { status: 401, statusText: 'Unauthorized' });
-
-    await expect(promise).rejects.toBeTruthy();
+    await expect(service.loginWithMicrosoft()).rejects.toThrow('Microsoft Sign-In failed. Please try again.');
   });
 
   it('should post and persist session on socialLoginWithToken', () => {

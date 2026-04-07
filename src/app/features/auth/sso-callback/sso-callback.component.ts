@@ -61,19 +61,20 @@ export class SsoCallbackComponent implements OnInit {
   error = signal('');
 
   ngOnInit(): void {
-    this.msalService.handleRedirectObservable().subscribe({
-      next: (result) => {
+    // Use handleRedirectPromise directly on the MSAL instance.
+    // This exchanges the authorization code for tokens after a redirect login.
+    this.msalService.instance.handleRedirectPromise()
+      .then(result => {
         if (result?.idToken) {
           this.handleToken(this.resolveProvider(), result.idToken);
           return;
         }
-        // MSAL did not handle the redirect — fall back to fragment parsing
+        // MSAL did not handle — fall back to fragment parsing (legacy implicit flow)
         this.handleFragmentFallback();
-      },
-      error: () => {
+      })
+      .catch(() => {
         this.handleFragmentFallback();
-      },
-    });
+      });
   }
 
   private handleFragmentFallback(): void {

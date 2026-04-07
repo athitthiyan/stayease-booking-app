@@ -4,7 +4,7 @@ import {
   PublicClientApplication,
   BrowserCacheLocation,
   Configuration,
-  PopupRequest,
+  RedirectRequest,
 } from '@azure/msal-browser';
 import { MSAL_INSTANCE, MsalService, MsalBroadcastService } from '@azure/msal-angular';
 import { environment } from '../../../environments/environment';
@@ -26,7 +26,7 @@ export const msalConfig: Configuration = {
   },
 };
 
-export const loginRequest: PopupRequest = {
+export const loginRequest: RedirectRequest = {
   scopes: ['openid', 'profile', 'email'],
   prompt: 'select_account',
 };

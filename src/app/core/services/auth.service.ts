@@ -2,7 +2,7 @@ import { Injectable, NgZone, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, firstValueFrom, tap } from 'rxjs';
-import { BrowserAuthError } from '@azure/msal-browser';
+import { BrowserAuthError, RedirectRequest } from '@azure/msal-browser';
 import { MsalService } from '@azure/msal-angular';
 import { environment } from '../../../environments/environment';
 import { loginRequest } from '../auth/msal.config';
@@ -130,6 +130,11 @@ export class AuthService {
   }
 
   logout(): void {
+    // Revoke refresh token server-side (fire-and-forget)
+    const rt = this.getRefreshToken();
+    if (rt) {
+      this.http.post(`${this.base}/logout`, { refresh_token: rt }).subscribe();
+    }
     // Revoke Google session if GIS is loaded
     const google = (window as unknown as { google?: { accounts: GoogleAccounts } }).google;
     if (google?.accounts?.oauth2?.revoke) {
@@ -237,21 +242,13 @@ export class AuthService {
 
   async loginWithMicrosoft(): Promise<void> {
     try {
-      const result = await firstValueFrom(this.msalService.loginPopup(loginRequest));
-      if (!result?.idToken) {
-        throw new Error('Microsoft Sign-In failed. No token received.');
-      }
-      await this.ngZone.run(() =>
-        firstValueFrom(this.socialLoginWithToken('microsoft', result.idToken))
-      );
-      this.ngZone.run(() => this.router.navigate(['/']));
+      // Redirect flow: navigates the page to Microsoft login.
+      // After auth, Microsoft redirects back to /auth/callback/microsoft
+      // where the SsoCallbackComponent handles the response.
+      await firstValueFrom(this.msalService.loginRedirect(loginRequest as RedirectRequest));
     } catch (err: unknown) {
       if (err instanceof BrowserAuthError) {
         switch (err.errorCode) {
-          case 'user_cancelled':
-            throw new Error('Microsoft Sign-In was cancelled.');
-          case 'popup_window_error':
-            throw new Error('Popup was blocked. Please allow popups and try again.');
           case 'interaction_in_progress':
             throw new Error('A sign-in is already in progress. Please wait.');
           default:
