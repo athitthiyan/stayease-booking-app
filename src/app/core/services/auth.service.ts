@@ -247,13 +247,28 @@ export class AuthService {
       this.ngZone.run(() => this.router.navigate(['/']));
     } catch (err: unknown) {
       if (err instanceof BrowserAuthError) {
+        if (err.errorCode === 'interaction_in_progress') {
+          // Clear stale MSAL interaction state and retry once
+          this.msalService.instance.clearCache();
+          try {
+            const retryResult = await firstValueFrom(this.msalService.loginPopup(loginRequest));
+            if (!retryResult?.idToken) {
+              throw new Error('Microsoft Sign-In failed. No token received.');
+            }
+            await this.ngZone.run(() =>
+              firstValueFrom(this.socialLoginWithToken('microsoft', retryResult.idToken))
+            );
+            this.ngZone.run(() => this.router.navigate(['/']));
+            return;
+          } catch {
+            throw new Error('Microsoft Sign-In failed. Please try again.');
+          }
+        }
         switch (err.errorCode) {
           case 'user_cancelled':
             throw new Error('Microsoft Sign-In was cancelled.');
           case 'popup_window_error':
             throw new Error('Popup was blocked. Please allow popups and try again.');
-          case 'interaction_in_progress':
-            throw new Error('A sign-in is already in progress. Please wait.');
           default:
             throw new Error('Microsoft Sign-In failed. Please try again.');
         }

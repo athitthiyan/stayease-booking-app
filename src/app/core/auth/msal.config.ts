@@ -9,12 +9,15 @@ import {
 import { MSAL_INSTANCE, MsalService, MsalBroadcastService } from '@azure/msal-angular';
 import { environment } from '../../../environments/environment';
 
+// Normalize origin to strip "www." so redirect URI always matches Azure registration
+const normalizedOrigin = window.location.origin.replace('://www.', '://');
+
 export const msalConfig: Configuration = {
   auth: {
     clientId: environment.microsoftClientId,
-    authority: `https://login.microsoftonline.com/${environment.microsoftTenantId}`,
-    redirectUri: window.location.origin + '/auth/callback/microsoft',
-    postLogoutRedirectUri: window.location.origin,
+    authority: 'https://login.microsoftonline.com/common',
+    redirectUri: normalizedOrigin + '/auth/callback/microsoft',
+    postLogoutRedirectUri: normalizedOrigin,
   },
   cache: {
     cacheLocation: BrowserCacheLocation.LocalStorage,
