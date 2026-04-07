@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MsalService } from '@azure/msal-angular';
+import { getMsalRedirectResult, wasBackendLoginDone } from '../../../core/auth/msal.config';
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
@@ -54,27 +54,27 @@ import { AuthService } from '../../../core/services/auth.service';
 })
 export class SsoCallbackComponent implements OnInit {
   private authService = inject(AuthService);
-  private msalService = inject(MsalService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
   error = signal('');
 
   ngOnInit(): void {
-    // Use handleRedirectPromise directly on the MSAL instance.
-    // This exchanges the authorization code for tokens after a redirect login.
-    this.msalService.instance.handleRedirectPromise()
-      .then(result => {
-        if (result?.idToken) {
-          this.handleToken(this.resolveProvider(), result.idToken);
-          return;
-        }
-        // MSAL did not handle — fall back to fragment parsing (legacy implicit flow)
-        this.handleFragmentFallback();
-      })
-      .catch(() => {
-        this.handleFragmentFallback();
-      });
+    // Case 1: Backend login already completed in APP_INITIALIZER
+    if (wasBackendLoginDone()) {
+      this.router.navigate(['/']);
+      return;
+    }
+
+    // Case 2: MSAL result available but backend login not done (retry)
+    const msalResult = getMsalRedirectResult();
+    if (msalResult?.idToken) {
+      this.handleToken(this.resolveProvider(), msalResult.idToken);
+      return;
+    }
+
+    // Case 3: Fall back to fragment parsing (legacy implicit flow)
+    this.handleFragmentFallback();
   }
 
   private handleFragmentFallback(): void {
