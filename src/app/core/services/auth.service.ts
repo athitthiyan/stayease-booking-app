@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, NgZone, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, tap } from 'rxjs';
@@ -27,6 +27,7 @@ const USER_KEY = 'se_user';
 export class AuthService {
   private http = inject(HttpClient);
   private router = inject(Router);
+  private ngZone = inject(NgZone);
   private base = `${environment.apiUrl}/auth`;
 
   private currentUserSubject = new BehaviorSubject<UserResponse | null>(
@@ -163,26 +164,35 @@ export class AuthService {
       }
 
       const initAndPrompt = () => {
-        const google = (window as unknown as { google?: { accounts: { id: GoogleIdentityServices } } }).google;
+        const google = (window as unknown as { google?: { accounts: GoogleAccounts } }).google;
         if (!google) {
           reject(new Error('Google Identity Services failed to load.'));
           return;
         }
 
-        google.accounts.id.initialize({
+        // Use OAuth2 token client with popup — returns an access_token
+        // the backend verifies via Google userinfo endpoint
+        const client = google.accounts.oauth2.initTokenClient({
           client_id: clientId,
-          callback: (response: { credential: string }) => {
-            this.socialLoginWithToken('google', response.credential).subscribe({
-              next: () => {
-                this.router.navigate(['/']);
-                resolve();
-              },
-              error: (err: unknown) => reject(err),
+          scope: 'openid email profile',
+          callback: (response: { access_token?: string; error?: string }) => {
+            if (response.error || !response.access_token) {
+              this.ngZone.run(() => reject(new Error('Google Sign-In was cancelled.')));
+              return;
+            }
+            this.ngZone.run(() => {
+              this.socialLoginWithToken('google', response.access_token!).subscribe({
+                next: () => {
+                  this.router.navigate(['/']);
+                  resolve();
+                },
+                error: (err: unknown) => reject(err),
+              });
             });
           },
         });
 
-        google.accounts.id.prompt();
+        client.requestAccessToken();
       };
 
       if ((window as unknown as { google?: unknown }).google) {
@@ -224,7 +234,16 @@ export class AuthService {
   }
 }
 
-interface GoogleIdentityServices {
-  initialize(config: { client_id: string; callback: (response: { credential: string }) => void }): void;
-  prompt(): void;
+interface GoogleTokenClient {
+  requestAccessToken(): void;
+}
+
+interface GoogleAccounts {
+  oauth2: {
+    initTokenClient(config: {
+      client_id: string;
+      scope: string;
+      callback: (response: { access_token?: string; error?: string }) => void;
+    }): GoogleTokenClient;
+  };
 }

@@ -751,7 +751,7 @@ describe('CheckoutComponent', () => {
 
     component.proceedToPayment();
 
-    expect(component.submitError()).toContain('Unable to check existing reservations');
+    expect(component.submitError()).toContain('Unable to check existing bookings');
     expect(component.submitting()).toBe(false);
   });
 

@@ -591,6 +591,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         INVALID_DATE_RANGE: 'Check-out date must be after check-in date.',
         MINIMUM_STAY: 'Minimum stay is 1 night.',
         AUTH_REQUIRED: 'Please log in to continue with your booking.',
+        STRIPE_DISABLED: 'Card payments are temporarily unavailable. Please use UPI or another method.',
       };
       return messages[errorDetail.code] || errorDetail.message || 'Booking failed. Please try again.';
     }
@@ -715,7 +716,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         // findResumableBooking catches 404 and returns null — this branch handles
         // genuine network/server errors from the resumable lookup itself
         error: () => {
-          this.submitError.set('Unable to check existing reservations. Please try again.');
+          this.submitError.set('Unable to check existing bookings. Please try again.');
           this.submitting.set(false);
         },
       });

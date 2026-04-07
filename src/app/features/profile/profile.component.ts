@@ -401,7 +401,9 @@ export class ProfileComponent implements OnInit {
         this.requestingOtp.set(false);
       },
       error: (err: HttpErrorResponse) => {
-        this.errorMsg.set(err.error?.detail ?? 'Could not send OTP.');
+        const detail = err.error?.detail;
+        const msg = typeof detail === 'string' ? detail : 'Could not send OTP.';
+        this.errorMsg.set(msg);
         this.requestingOtp.set(false);
       },
     });
@@ -414,8 +416,8 @@ export class ProfileComponent implements OnInit {
     this.verifyingPhone.set(true);
     this.errorMsg.set('');
     this.authService.verifyPhoneOtp({
-      otp_id: this.phoneOtpId(),
-      otp_code: this.otpForm.controls.otp.value,
+      phone: this.normalizedProfilePhone(),
+      otp: this.otpForm.controls.otp.value,
     }).subscribe({
       next: u => {
         this.user.set(u);
@@ -428,7 +430,9 @@ export class ProfileComponent implements OnInit {
         this.verifyingPhone.set(false);
       },
       error: (err: HttpErrorResponse) => {
-        this.errorMsg.set(err.error?.detail ?? 'Phone verification failed.');
+        const detail = err.error?.detail;
+        const msg = typeof detail === 'string' ? detail : 'Phone verification failed.';
+        this.errorMsg.set(msg);
         this.verifyingPhone.set(false);
       },
     });

@@ -6,7 +6,7 @@ import {
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { TokenResponse, UserResponse } from '../models/auth.model';
-import { environment } from '../../../environments/environment';
+import * as env from '../../../environments/environment';
 
 const mockUser: UserResponse = {
   id: 1,
@@ -96,7 +96,7 @@ describe('AuthService', () => {
       expect(res).toEqual(mockTokenResponse);
     });
 
-    const req = http.expectOne(`${environment.apiUrl}/auth/login`);
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/login`);
     expect(req.request.method).toBe('POST');
     req.flush(mockTokenResponse);
 
@@ -113,7 +113,7 @@ describe('AuthService', () => {
       .signup({ email: 'new@example.com', full_name: 'New User', password: 'Pass1234!' })
       .subscribe();
 
-    const req = http.expectOne(`${environment.apiUrl}/auth/signup`);
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/signup`);
     expect(req.request.method).toBe('POST');
     req.flush(mockTokenResponse);
 
@@ -127,7 +127,7 @@ describe('AuthService', () => {
       .socialLogin({ provider: 'google', id_token: 'google-id-token' })
       .subscribe();
 
-    const req = http.expectOne(`${environment.apiUrl}/auth/social-login`);
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
     expect(req.request.method).toBe('POST');
     req.flush(mockTokenResponse);
 
@@ -140,7 +140,7 @@ describe('AuthService', () => {
     localStorage.setItem('se_refresh_token', 'old-refresh');
     service.refreshToken().subscribe();
 
-    const req = http.expectOne(`${environment.apiUrl}/auth/refresh`);
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/refresh`);
     expect(req.request.body).toEqual({ refresh_token: 'old-refresh' });
     req.flush(mockTokenResponse);
 
@@ -152,7 +152,7 @@ describe('AuthService', () => {
   it('should update currentUser from getMe', () => {
     service.getMe().subscribe(u => expect(u).toEqual(mockUser));
 
-    const req = http.expectOne(`${environment.apiUrl}/auth/me`);
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/me`);
     req.flush(mockUser);
 
     expect(service.currentUser).toEqual(mockUser);
@@ -166,7 +166,7 @@ describe('AuthService', () => {
       expect(u.full_name).toBe('Updated Name')
     );
 
-    const req = http.expectOne(`${environment.apiUrl}/auth/me`);
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/me`);
     expect(req.request.method).toBe('PUT');
     req.flush(updated);
   });
@@ -178,7 +178,7 @@ describe('AuthService', () => {
       .changePassword({ current_password: 'old', new_password: 'NewPass123' })
       .subscribe();
 
-    const req = http.expectOne(`${environment.apiUrl}/auth/change-password`);
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/change-password`);
     expect(req.request.method).toBe('POST');
     req.flush({ message: 'Password changed successfully' });
   });
@@ -188,7 +188,7 @@ describe('AuthService', () => {
   it('should call forgot-password endpoint', () => {
     service.forgotPassword({ email: 'test@example.com' }).subscribe();
 
-    const req = http.expectOne(`${environment.apiUrl}/auth/forgot-password`);
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/forgot-password`);
     expect(req.request.method).toBe('POST');
     req.flush({ message: 'If that email exists...' });
   });
@@ -200,7 +200,7 @@ describe('AuthService', () => {
       .resetPassword({ token: 'reset-token', new_password: 'NewPass123' })
       .subscribe();
 
-    const req = http.expectOne(`${environment.apiUrl}/auth/reset-password`);
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/reset-password`);
     expect(req.request.method).toBe('POST');
     req.flush({ message: 'Password has been reset successfully' });
   });
@@ -233,7 +233,7 @@ describe('AuthService', () => {
 
   it('getAccessToken should return token after login', () => {
     service.login({ email: 'a@b.com', password: 'pw' }).subscribe();
-    http.expectOne(`${environment.apiUrl}/auth/login`).flush(mockTokenResponse);
+    http.expectOne(`${env.environment.apiUrl}/auth/login`).flush(mockTokenResponse);
     expect(service.getAccessToken()).toBe('access-token-abc');
   });
 
@@ -241,7 +241,7 @@ describe('AuthService', () => {
 
   it('isAdmin should be false for non-admin user', () => {
     service.login({ email: 'a@b.com', password: 'pw' }).subscribe();
-    http.expectOne(`${environment.apiUrl}/auth/login`).flush(mockTokenResponse);
+    http.expectOne(`${env.environment.apiUrl}/auth/login`).flush(mockTokenResponse);
     expect(service.isAdmin).toBe(false);
   });
 
@@ -249,7 +249,7 @@ describe('AuthService', () => {
 
   it('should call the phone OTP request endpoint', () => {
     service.requestPhoneOtp({ phone: '+1234567890' }).subscribe();
-    const req = http.expectOne(`${environment.apiUrl}/auth/phone/request-otp`);
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/phone/request-otp`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({ phone: '+1234567890' });
     req.flush({ message: 'sent', otp_id: 'otp-1' });
@@ -257,9 +257,9 @@ describe('AuthService', () => {
 
   it('should update user and localStorage on verifyPhoneOtp', () => {
     const verifiedUser = { ...mockUser, phone: '+1234567890', phone_verified: true };
-    service.verifyPhoneOtp({ otp_id: 'otp-1', otp_code: '123456' }).subscribe();
+    service.verifyPhoneOtp({ phone: '+1234567890', otp: '123456' }).subscribe();
 
-    const req = http.expectOne(`${environment.apiUrl}/auth/phone/verify`);
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/phone/verify`);
     expect(req.request.method).toBe('POST');
     req.flush(verifiedUser);
 
@@ -270,7 +270,34 @@ describe('AuthService', () => {
   // ─── Microsoft + social login with token ──────────────────────────────
 
   it('should reject when Google client ID is not configured', async () => {
-    await expect(service.loginWithGoogle()).rejects.toThrow('Google Client ID is not configured');
+    const original = env.environment.googleClientId;
+    (env.environment as { googleClientId: string }).googleClientId = '';
+    try {
+      await expect(service.loginWithGoogle()).rejects.toThrow('Google Client ID is not configured');
+    } finally {
+      (env.environment as { googleClientId: string }).googleClientId = original;
+    }
+  });
+
+  it('should use empty string when microsoftClientId is falsy', async () => {
+    const original = env.environment.microsoftClientId;
+    (env.environment as { microsoftClientId: string }).microsoftClientId = '';
+    const originalLocation = window.location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      writable: true,
+      value: { href: '', origin: 'http://localhost' },
+    });
+
+    await service.loginWithMicrosoft();
+    expect(window.location.href).toContain('client_id=&');
+
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      writable: true,
+      value: originalLocation,
+    });
+    (env.environment as { microsoftClientId: string }).microsoftClientId = original;
   });
 
   it('should redirect to Microsoft OAuth on loginWithMicrosoft', async () => {
@@ -294,7 +321,7 @@ describe('AuthService', () => {
   it('should post and persist session on socialLoginWithToken', () => {
     service.socialLoginWithToken('google', 'test-id-token').subscribe();
 
-    const req = http.expectOne(`${environment.apiUrl}/auth/social-login`);
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({ provider: 'google', id_token: 'test-id-token' });
     req.flush(mockTokenResponse);
@@ -303,13 +330,106 @@ describe('AuthService', () => {
     expect(service.isLoggedIn).toBe(true);
   });
 
+  it('should reject when Google callback returns error', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    win.google = {
+      accounts: {
+        oauth2: {
+          initTokenClient: (cfg: { callback: (r: Record<string, string>) => void }) => ({
+            requestAccessToken: () => cfg.callback({ error: 'access_denied' }),
+          }),
+        },
+      },
+    };
+
+    await expect(service.loginWithGoogle()).rejects.toThrow('Google Sign-In was cancelled.');
+    delete win.google;
+  });
+
+  it('should navigate home when Google callback succeeds', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    win.google = {
+      accounts: {
+        oauth2: {
+          initTokenClient: (cfg: { callback: (r: Record<string, string>) => void }) => ({
+            requestAccessToken: () => cfg.callback({ access_token: 'goog-tok' }),
+          }),
+        },
+      },
+    };
+
+    const promise = service.loginWithGoogle();
+
+    // Flush the socialLoginWithToken HTTP call
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
+    expect(req.request.body).toEqual({ provider: 'google', id_token: 'goog-tok' });
+    req.flush(mockTokenResponse);
+
+    await promise;
+    expect(routerSpy.navigate).toHaveBeenCalledWith(['/']);
+    delete win.google;
+  });
+
+  it('should reject when socialLoginWithToken errors on Google callback', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    win.google = {
+      accounts: {
+        oauth2: {
+          initTokenClient: (cfg: { callback: (r: Record<string, string>) => void }) => ({
+            requestAccessToken: () => cfg.callback({ access_token: 'goog-tok' }),
+          }),
+        },
+      },
+    };
+
+    const promise = service.loginWithGoogle();
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
+    req.flush({ detail: 'fail' }, { status: 500, statusText: 'Internal Server Error' });
+
+    await expect(promise).rejects.toBeTruthy();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (window as any).google;
+  });
+
+  it('should load script when google is not on window and call initAndPrompt on load', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (window as any).google;
+    const appendSpy = jest.spyOn(document.body, 'appendChild').mockImplementation((el) => {
+      // Simulate script loaded, but google still not available → reject
+      if (el instanceof HTMLScriptElement && el.onload) {
+        (el.onload as () => void)();
+      }
+      return el;
+    });
+
+    await expect(service.loginWithGoogle()).rejects.toThrow('Google Identity Services failed to load.');
+    appendSpy.mockRestore();
+  });
+
+  it('should reject when script fails to load', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (window as any).google;
+    const appendSpy = jest.spyOn(document.body, 'appendChild').mockImplementation((el) => {
+      if (el instanceof HTMLScriptElement && el.onerror) {
+        (el.onerror as () => void)();
+      }
+      return el;
+    });
+
+    await expect(service.loginWithGoogle()).rejects.toThrow('Failed to load Google Identity Services.');
+    appendSpy.mockRestore();
+  });
+
   it('isAdmin should be true for admin user', () => {
     const adminToken: TokenResponse = {
       ...mockTokenResponse,
       user: { ...mockUser, is_admin: true },
     };
     service.login({ email: 'a@b.com', password: 'pw' }).subscribe();
-    http.expectOne(`${environment.apiUrl}/auth/login`).flush(adminToken);
+    http.expectOne(`${env.environment.apiUrl}/auth/login`).flush(adminToken);
     expect(service.isAdmin).toBe(true);
   });
 });

@@ -130,6 +130,16 @@ describe('LoginComponent', () => {
     expect(component.socialLoading()).toBe(false);
   });
 
+  it('falls back to default message when Google error has no message', async () => {
+    authService.loginWithGoogle.mockRejectedValue(new Error(''));
+    const fixture = TestBed.createComponent(LoginComponent);
+    const component = fixture.componentInstance;
+    component.signInWithGoogle();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(component.errorMsg()).toBe('Google Sign-In failed. Please try again.');
+    expect(component.socialLoading()).toBe(false);
+  });
+
   it('delegates Microsoft sign-in to the auth service', () => {
     const fixture = TestBed.createComponent(LoginComponent);
     const component = fixture.componentInstance;
