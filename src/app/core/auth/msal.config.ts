@@ -36,10 +36,7 @@ function msalInstanceFactory(): IPublicClientApplication {
 }
 
 function msalInitializerFactory(msalInstance: IPublicClientApplication): () => Promise<void> {
-  return async () => {
-    await msalInstance.initialize();
-    await msalInstance.handleRedirectPromise();
-  };
+  return () => msalInstance.initialize();
 }
 
 export function msalProviders(): Provider[] {

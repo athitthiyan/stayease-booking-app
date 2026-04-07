@@ -384,35 +384,11 @@ describe('AuthService', () => {
     await expect(service.loginWithMicrosoft()).rejects.toThrow('Popup was blocked. Please allow popups and try again.');
   });
 
-  it('should clear cache and retry when interaction is in progress', async () => {
+  it('should throw in-progress message when interaction is in progress', async () => {
     const inProgressError = new BrowserAuthError('interaction_in_progress');
-    const msalResult = { idToken: 'retry-token' } as AuthenticationResult;
-    // First call throws interaction_in_progress, retry succeeds
-    mockMsalService.loginPopup
-      .mockReturnValueOnce(throwError(() => inProgressError))
-      .mockReturnValueOnce(of(msalResult));
+    mockMsalService.loginPopup.mockReturnValue(throwError(() => inProgressError));
 
-    const promise = service.loginWithMicrosoft();
-    await new Promise(resolve => setTimeout(resolve, 0));
-
-    const req = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
-    expect(req.request.body).toEqual({ provider: 'microsoft', id_token: 'retry-token' });
-    req.flush(mockTokenResponse);
-
-    await promise;
-    expect(mockMsalService.instance.clearCache).toHaveBeenCalled();
-    expect(routerSpy.navigate).toHaveBeenCalledWith(['/']);
-  });
-
-  it('should throw when interaction_in_progress retry also fails', async () => {
-    const inProgressError = new BrowserAuthError('interaction_in_progress');
-    const retryError = new BrowserAuthError('popup_window_error');
-    mockMsalService.loginPopup
-      .mockReturnValueOnce(throwError(() => inProgressError))
-      .mockReturnValueOnce(throwError(() => retryError));
-
-    await expect(service.loginWithMicrosoft()).rejects.toThrow('Microsoft Sign-In failed. Please try again.');
-    expect(mockMsalService.instance.clearCache).toHaveBeenCalled();
+    await expect(service.loginWithMicrosoft()).rejects.toThrow('A sign-in is already in progress. Please wait.');
   });
 
   it('should propagate error when backend rejects Microsoft token', async () => {
