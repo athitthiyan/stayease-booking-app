@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
+import { MsalService } from '@azure/msal-angular';
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
@@ -53,12 +54,29 @@ import { AuthService } from '../../../core/services/auth.service';
 })
 export class SsoCallbackComponent implements OnInit {
   private authService = inject(AuthService);
+  private msalService = inject(MsalService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
   error = signal('');
 
   ngOnInit(): void {
+    this.msalService.handleRedirectObservable().subscribe({
+      next: (result) => {
+        if (result?.idToken) {
+          this.handleToken(this.resolveProvider(), result.idToken);
+          return;
+        }
+        // MSAL did not handle the redirect — fall back to fragment parsing
+        this.handleFragmentFallback();
+      },
+      error: () => {
+        this.handleFragmentFallback();
+      },
+    });
+  }
+
+  private handleFragmentFallback(): void {
     const fragment = this.route.snapshot.fragment || '';
     const params = new URLSearchParams(fragment);
     const idToken = params.get('id_token');
@@ -68,8 +86,10 @@ export class SsoCallbackComponent implements OnInit {
       return;
     }
 
-    const provider = this.resolveProvider();
+    this.handleToken(this.resolveProvider(), idToken);
+  }
 
+  private handleToken(provider: 'google' | 'apple' | 'microsoft', idToken: string): void {
     this.authService.socialLoginWithToken(provider, idToken).subscribe({
       next: () => this.router.navigate(['/']),
       error: () => this.error.set('Sign-in failed. Please try again.'),

@@ -8,6 +8,7 @@ export const environment = {
   adminPortalUrl: 'http://localhost:4202',
   partnerPortalUrl: 'http://localhost:4203',
   microsoftClientId: '041f5aef-c9db-4eb8-9bb0-349a19fc3002',
+  microsoftTenantId:'553e9dc0-268d-499d-b603-c817abd918f1',
   // Google OAuth client ID for Google Sign-In (different from Maps API key)
   // Get from: Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client ID
   googleClientId: '227255495608-2quh3crqstjaq22g0r2pt5mqj120pdre.apps.googleusercontent.com',

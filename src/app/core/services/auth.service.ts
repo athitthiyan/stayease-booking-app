@@ -1,8 +1,11 @@
 import { Injectable, NgZone, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, firstValueFrom, tap } from 'rxjs';
+import { BrowserAuthError } from '@azure/msal-browser';
+import { MsalService } from '@azure/msal-angular';
 import { environment } from '../../../environments/environment';
+import { loginRequest } from '../auth/msal.config';
 import {
   ChangePasswordRequest,
   ForgotPasswordRequest,
@@ -28,7 +31,9 @@ export class AuthService {
   private http = inject(HttpClient);
   private router = inject(Router);
   private ngZone = inject(NgZone);
+  private msalService = inject(MsalService);
   private base = `${environment.apiUrl}/auth`;
+  private googleLoginInProgress = false;
 
   private currentUserSubject = new BehaviorSubject<UserResponse | null>(
     this.loadUserFromStorage()
@@ -125,6 +130,14 @@ export class AuthService {
   }
 
   logout(): void {
+    // Revoke Google session if GIS is loaded
+    const google = (window as unknown as { google?: { accounts: GoogleAccounts } }).google;
+    if (google?.accounts?.oauth2?.revoke) {
+      const token = this.getAccessToken();
+      if (token) {
+        google.accounts.oauth2.revoke(token, () => { /* best-effort */ });
+      }
+    }
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
@@ -156,37 +169,51 @@ export class AuthService {
   }
 
   loginWithGoogle(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    if (this.googleLoginInProgress) {
+      return Promise.reject(new Error('A Google sign-in is already in progress.'));
+    }
+    this.googleLoginInProgress = true;
+
+    return new Promise<void>((resolve, reject) => {
       const clientId = environment.googleClientId;
       if (!clientId) {
+        this.googleLoginInProgress = false;
         reject(new Error('Google Client ID is not configured.'));
         return;
       }
 
+      const done = () => { this.googleLoginInProgress = false; };
+
       const initAndPrompt = () => {
         const google = (window as unknown as { google?: { accounts: GoogleAccounts } }).google;
         if (!google) {
+          done();
           reject(new Error('Google Identity Services failed to load.'));
           return;
         }
 
-        // Use OAuth2 token client with popup — returns an access_token
-        // the backend verifies via Google userinfo endpoint
         const client = google.accounts.oauth2.initTokenClient({
           client_id: clientId,
           scope: 'openid email profile',
-          callback: (response: { access_token?: string; error?: string }) => {
+          callback: (response: GoogleTokenResponse) => {
             if (response.error || !response.access_token) {
-              this.ngZone.run(() => reject(new Error('Google Sign-In was cancelled.')));
+              this.ngZone.run(() => {
+                done();
+                const msg = response.error === 'access_denied'
+                  ? 'Google Sign-In was denied. Please grant the required permissions.'
+                  : 'Google Sign-In was cancelled.';
+                reject(new Error(msg));
+              });
               return;
             }
             this.ngZone.run(() => {
               this.socialLoginWithToken('google', response.access_token!).subscribe({
                 next: () => {
+                  done();
                   this.router.navigate(['/']);
                   resolve();
                 },
-                error: (err: unknown) => reject(err),
+                error: (err: unknown) => { done(); reject(err); },
               });
             });
           },
@@ -203,25 +230,36 @@ export class AuthService {
       const script = document.createElement('script');
       script.src = 'https://accounts.google.com/gsi/client';
       script.onload = () => initAndPrompt();
-      script.onerror = () => reject(new Error('Failed to load Google Identity Services.'));
+      script.onerror = () => { done(); reject(new Error('Failed to load Google Identity Services.')); };
       document.body.appendChild(script);
     });
   }
 
   async loginWithMicrosoft(): Promise<void> {
-    const clientId = environment.microsoftClientId || '';
-    const redirectUri = encodeURIComponent(window.location.origin + '/auth/callback/microsoft');
-    const scope = encodeURIComponent('openid email profile');
-    const nonce = Math.random().toString(36).slice(2);
-    const authUrl =
-      `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` +
-      `?client_id=${clientId}` +
-      `&response_type=id_token` +
-      `&redirect_uri=${redirectUri}` +
-      `&scope=${scope}` +
-      `&response_mode=fragment` +
-      `&nonce=${nonce}`;
-    window.location.href = authUrl;
+    try {
+      const result = await firstValueFrom(this.msalService.loginPopup(loginRequest));
+      if (!result?.idToken) {
+        throw new Error('Microsoft Sign-In failed. No token received.');
+      }
+      await this.ngZone.run(() =>
+        firstValueFrom(this.socialLoginWithToken('microsoft', result.idToken))
+      );
+      this.ngZone.run(() => this.router.navigate(['/']));
+    } catch (err: unknown) {
+      if (err instanceof BrowserAuthError) {
+        switch (err.errorCode) {
+          case 'user_cancelled':
+            throw new Error('Microsoft Sign-In was cancelled.');
+          case 'popup_window_error':
+            throw new Error('Popup was blocked. Please allow popups and try again.');
+          case 'interaction_in_progress':
+            throw new Error('A sign-in is already in progress. Please wait.');
+          default:
+            throw new Error('Microsoft Sign-In failed. Please try again.');
+        }
+      }
+      throw err;
+    }
   }
 
   socialLoginWithToken(provider: 'google' | 'apple' | 'microsoft', idToken: string): Observable<TokenResponse> {
@@ -234,6 +272,12 @@ export class AuthService {
   }
 }
 
+interface GoogleTokenResponse {
+  access_token?: string;
+  error?: string;
+  error_description?: string;
+}
+
 interface GoogleTokenClient {
   requestAccessToken(): void;
 }
@@ -243,7 +287,8 @@ interface GoogleAccounts {
     initTokenClient(config: {
       client_id: string;
       scope: string;
-      callback: (response: { access_token?: string; error?: string }) => void;
+      callback: (response: GoogleTokenResponse) => void;
     }): GoogleTokenClient;
+    revoke?(token: string, callback: () => void): void;
   };
 }

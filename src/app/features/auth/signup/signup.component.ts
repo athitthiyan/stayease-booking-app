@@ -375,6 +375,11 @@ export class SignupComponent {
   }
 
   signInWithMicrosoft(): void {
-    this.authService.loginWithMicrosoft();
+    this.socialLoading.set(true);
+    this.errorMsg.set('');
+    this.authService.loginWithMicrosoft().catch((err: Error) => {
+      this.errorMsg.set(err.message || 'Microsoft Sign-In failed. Please try again.');
+      this.socialLoading.set(false);
+    });
   }
 }

@@ -4,6 +4,9 @@ import {
   HttpTestingController,
 } from '@angular/common/http/testing';
 import { Router } from '@angular/router';
+import { of, throwError } from 'rxjs';
+import { MsalService } from '@azure/msal-angular';
+import { BrowserAuthError, AuthenticationResult } from '@azure/msal-browser';
 import { AuthService } from './auth.service';
 import { TokenResponse, UserResponse } from '../models/auth.model';
 import * as env from '../../../environments/environment';
@@ -25,6 +28,12 @@ const mockTokenResponse: TokenResponse = {
   user: mockUser,
 };
 
+const mockMsalService = {
+  loginPopup: jest.fn(),
+  handleRedirectObservable: jest.fn().mockReturnValue(of(null)),
+  instance: { initialize: jest.fn().mockResolvedValue(undefined) },
+};
+
 describe('AuthService', () => {
   let service: AuthService;
   let http: HttpTestingController;
@@ -33,12 +42,14 @@ describe('AuthService', () => {
   beforeEach(() => {
     localStorage.clear();
     routerSpy = { navigate: jest.fn(), navigateByUrl: jest.fn() };
+    mockMsalService.loginPopup.mockReset();
 
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [
         AuthService,
         { provide: Router, useValue: routerSpy },
+        { provide: MsalService, useValue: mockMsalService },
       ],
     });
 
@@ -68,7 +79,7 @@ describe('AuthService', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
-      providers: [AuthService, { provide: Router, useValue: routerSpy }],
+      providers: [AuthService, { provide: Router, useValue: routerSpy }, { provide: MsalService, useValue: mockMsalService }],
     });
     const fresh = TestBed.inject(AuthService);
     expect(fresh.currentUser).toEqual(mockUser);
@@ -80,7 +91,7 @@ describe('AuthService', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
-      providers: [AuthService, { provide: Router, useValue: routerSpy }],
+      providers: [AuthService, { provide: Router, useValue: routerSpy }, { provide: MsalService, useValue: mockMsalService }],
     });
     const s = TestBed.inject(AuthService);
     expect(s.currentUser).toBeNull();
@@ -221,6 +232,31 @@ describe('AuthService', () => {
     expect(routerSpy.navigate).toHaveBeenCalledWith(['/auth/login']);
   });
 
+  it('should call google revoke on logout when GIS is loaded', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    const revokeMock = jest.fn();
+    win.google = {
+      accounts: { oauth2: { revoke: revokeMock } },
+    };
+    localStorage.setItem('se_access_token', 'goog-tok');
+
+    service.logout();
+
+    expect(revokeMock).toHaveBeenCalledWith('goog-tok', expect.any(Function));
+    delete win.google;
+  });
+
+  it('should not call google revoke when GIS is not loaded', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (window as any).google;
+    localStorage.setItem('se_access_token', 'tok');
+
+    // Should not throw
+    service.logout();
+    expect(service.isLoggedIn).toBe(false);
+  });
+
   // ─── token accessors ──────────────────────────────────────────────────────
 
   it('getAccessToken should return null when not set', () => {
@@ -279,43 +315,94 @@ describe('AuthService', () => {
     }
   });
 
-  it('should use empty string when microsoftClientId is falsy', async () => {
-    const original = env.environment.microsoftClientId;
-    (env.environment as { microsoftClientId: string }).microsoftClientId = '';
-    const originalLocation = window.location;
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      writable: true,
-      value: { href: '', origin: 'http://localhost' },
-    });
+  it('should reject duplicate Google login while one is in progress', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    // Set up a Google mock that never resolves (simulates open popup)
+    win.google = {
+      accounts: {
+        oauth2: {
+          initTokenClient: () => ({
+            requestAccessToken: () => { /* popup stays open */ },
+          }),
+        },
+      },
+    };
 
-    await service.loginWithMicrosoft();
-    expect(window.location.href).toContain('client_id=&');
+    // First call starts the flow
+    service.loginWithGoogle();
 
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      writable: true,
-      value: originalLocation,
-    });
-    (env.environment as { microsoftClientId: string }).microsoftClientId = original;
+    // Second call should reject immediately
+    await expect(service.loginWithGoogle()).rejects.toThrow('A Google sign-in is already in progress.');
+    delete win.google;
   });
 
-  it('should redirect to Microsoft OAuth on loginWithMicrosoft', async () => {
-    const originalLocation = window.location;
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      writable: true,
-      value: { href: '', origin: 'http://localhost' },
-    });
+  it('should show denied message when Google returns access_denied', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    win.google = {
+      accounts: {
+        oauth2: {
+          initTokenClient: (cfg: { callback: (r: Record<string, string>) => void }) => ({
+            requestAccessToken: () => cfg.callback({ error: 'access_denied' }),
+          }),
+        },
+      },
+    };
 
-    await service.loginWithMicrosoft();
+    await expect(service.loginWithGoogle()).rejects.toThrow('Google Sign-In was denied. Please grant the required permissions.');
+    delete win.google;
+  });
 
-    expect(window.location.href).toContain('login.microsoftonline.com');
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      writable: true,
-      value: originalLocation,
-    });
+  it('should call MSAL loginPopup and navigate on success', async () => {
+    const msalResult = { idToken: 'ms-id-token' } as AuthenticationResult;
+    mockMsalService.loginPopup.mockReturnValue(of(msalResult));
+
+    const promise = service.loginWithMicrosoft();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
+    expect(req.request.body).toEqual({ provider: 'microsoft', id_token: 'ms-id-token' });
+    req.flush(mockTokenResponse);
+
+    await promise;
+    expect(routerSpy.navigate).toHaveBeenCalledWith(['/']);
+    expect(service.isLoggedIn).toBe(true);
+  });
+
+  it('should throw user-friendly message when user cancels Microsoft popup', async () => {
+    const cancelError = new BrowserAuthError('user_cancelled');
+    mockMsalService.loginPopup.mockReturnValue(throwError(() => cancelError));
+
+    await expect(service.loginWithMicrosoft()).rejects.toThrow('Microsoft Sign-In was cancelled.');
+  });
+
+  it('should throw popup blocked message when popup is blocked', async () => {
+    const popupError = new BrowserAuthError('popup_window_error');
+    mockMsalService.loginPopup.mockReturnValue(throwError(() => popupError));
+
+    await expect(service.loginWithMicrosoft()).rejects.toThrow('Popup was blocked. Please allow popups and try again.');
+  });
+
+  it('should throw in-progress message when interaction is in progress', async () => {
+    const inProgressError = new BrowserAuthError('interaction_in_progress');
+    mockMsalService.loginPopup.mockReturnValue(throwError(() => inProgressError));
+
+    await expect(service.loginWithMicrosoft()).rejects.toThrow('A sign-in is already in progress. Please wait.');
+  });
+
+  it('should propagate error when backend rejects Microsoft token', async () => {
+    const msalResult = { idToken: 'bad-token' } as AuthenticationResult;
+    mockMsalService.loginPopup.mockReturnValue(of(msalResult));
+
+    const promise = service.loginWithMicrosoft();
+    // Allow microtasks to flush so the HTTP request fires
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
+    req.flush({ detail: 'Invalid token' }, { status: 401, statusText: 'Unauthorized' });
+
+    await expect(promise).rejects.toBeTruthy();
   });
 
   it('should post and persist session on socialLoginWithToken', () => {
@@ -330,14 +417,14 @@ describe('AuthService', () => {
     expect(service.isLoggedIn).toBe(true);
   });
 
-  it('should reject when Google callback returns error', async () => {
+  it('should reject when Google callback returns generic error', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const win = window as any;
     win.google = {
       accounts: {
         oauth2: {
           initTokenClient: (cfg: { callback: (r: Record<string, string>) => void }) => ({
-            requestAccessToken: () => cfg.callback({ error: 'access_denied' }),
+            requestAccessToken: () => cfg.callback({ error: 'popup_closed' }),
           }),
         },
       },

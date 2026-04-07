@@ -8,7 +8,7 @@ import { AuthService } from '../../../core/services/auth.service';
 describe('SignupComponent', () => {
   const authService = {
     signup: jest.fn(),
-    loginWithMicrosoft: jest.fn(),
+    loginWithMicrosoft: jest.fn().mockResolvedValue(undefined),
     loginWithGoogle: jest.fn(),
   };
 
