@@ -250,6 +250,9 @@ export class ActiveBookingService {
       checkIn: booking.check_in.slice(0, 10),
       checkOut: booking.check_out.slice(0, 10),
       guests: booking.guests,
+      adults: booking.adults || booking.guests,
+      children: booking.children || 0,
+      infants: booking.infants || 0,
     });
     this.router.navigate(['/checkout', booking.id]);
   }

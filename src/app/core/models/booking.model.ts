@@ -60,6 +60,9 @@ export interface CreateBookingRequest {
   check_in: string;
   check_out: string;
   guests: number;
+  adults: number;
+  children: number;
+  infants: number;
   special_requests?: string;
 }
 
@@ -76,6 +79,9 @@ export interface Booking {
   /** ISO timestamp — present only while the booking is in the PENDING hold window */
   hold_expires_at?: string;
   guests: number;
+  adults: number;
+  children: number;
+  infants: number;
   nights: number;
   room_rate: number;
   taxes: number;
@@ -103,6 +109,9 @@ export interface ActiveHold {
   check_in: string;
   check_out: string;
   guests: number;
+  adults: number;
+  children: number;
+  infants: number;
   expires_at: string;
   remaining_seconds: number;
   lifecycle_state?: BookingLifecycleState;

@@ -36,13 +36,16 @@ describe('BookingService', () => {
       checkIn: '2026-04-10',
       checkOut: '2026-04-12',
       guests: 2,
+      adults: 2,
+      children: 0,
+      infants: 0,
     };
     service.setCheckoutState(state);
     expect(service.getCheckoutState()).toEqual(state);
   });
 
   it('restores checkout state from session storage on cold start', () => {
-    const state: CheckoutState = { room: null, checkIn: '2026-05-01', checkOut: '2026-05-03', guests: 1 };
+    const state: CheckoutState = { room: null, checkIn: '2026-05-01', checkOut: '2026-05-03', guests: 1, adults: 1, children: 0, infants: 0 };
     sessionStorage.setItem('checkout_state', JSON.stringify(state));
     expect(service.getCheckoutState()).toEqual(state);
   });
@@ -107,7 +110,7 @@ describe('BookingService', () => {
     const payload = {
       user_name: 'Test User', email: 'test@example.com', phone: '+1234567890',
       room_id: 42, check_in: '2026-05-10T12:00:00Z', check_out: '2026-05-12T12:00:00Z',
-      guests: 2, special_requests: 'Late checkout',
+      guests: 2, adults: 2, children: 0, infants: 0, special_requests: 'Late checkout',
     };
     service.createBooking(payload).subscribe();
     const req = httpMock.expectOne(`${environment.apiUrl}/bookings`);
@@ -153,6 +156,9 @@ describe('BookingService', () => {
       check_in: '2026-05-01',
       check_out: '2026-05-03',
       guests: 2,
+      adults: 2,
+      children: 0,
+      infants: 0,
       expires_at: '2026-05-01T10:00:00.000Z',
       remaining_seconds: 600,
     });

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -22,8 +22,11 @@ import {
         <!-- Left: Form -->
         <div class="checkout-form">
           <nav class="breadcrumb">
-            <a routerLink="/">Home</a> <span>›</span>
-            <a routerLink="/search">Search</a> <span>›</span>
+            <a routerLink="/">Home</a> <span class="sep">›</span>
+            <a routerLink="/search">Search</a> <span class="sep">›</span>
+            @if (checkoutState()?.room) {
+              <a [routerLink]="['/rooms', checkoutState()!.room!.id]">{{ checkoutState()!.room!.hotel_name }}</a> <span class="sep">›</span>
+            }
             <span>Checkout</span>
           </nav>
 
@@ -148,7 +151,7 @@ import {
               </div>
               <div class="stay-detail">
                 <span class="stay-detail__label">Guests</span>
-                <span class="stay-detail__value">{{ checkoutState()?.guests }}</span>
+                <span class="stay-detail__value">{{ guestSummary() }}</span>
               </div>
             </div>
           </section>
@@ -219,7 +222,7 @@ import {
             <div class="order-summary__breakdown">
               <div class="breakdown-row">
                 <span>Room rate / night</span>
-                <span>\${{ checkoutState()?.room?.price | number:'1.0-0' }}</span>
+                <span>₹{{ checkoutState()?.room?.price | number:'1.0-0' }}</span>
               </div>
               <div class="breakdown-row">
                 <span>Nights</span>
@@ -227,20 +230,20 @@ import {
               </div>
               <div class="breakdown-row">
                 <span>Subtotal</span>
-                <span>\${{ subtotal() | number:'1.0-0' }}</span>
+                <span>₹{{ subtotal() | number:'1.0-0' }}</span>
               </div>
               <div class="breakdown-row">
                 <span>Taxes (12%)</span>
-                <span>\${{ taxes() | number:'1.0-0' }}</span>
+                <span>₹{{ taxes() | number:'1.0-0' }}</span>
               </div>
               <div class="breakdown-row">
                 <span>Service fee (5%)</span>
-                <span>\${{ serviceFee() | number:'1.0-0' }}</span>
+                <span>₹{{ serviceFee() | number:'1.0-0' }}</span>
               </div>
               <div class="divider"></div>
               <div class="breakdown-row breakdown-row--total">
                 <span>Total</span>
-                <span>\${{ total() | number:'1.0-0' }}</span>
+                <span>₹{{ total() | number:'1.0-0' }}</span>
               </div>
             </div>
 
@@ -296,6 +299,19 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
   private countdownInterval: ReturnType<typeof setInterval> | null = null;
   protected readonly placeholderImg = ROOM_IMAGE_PLACEHOLDER;
+
+  guestSummary = computed(() => {
+    const state = this.checkoutState();
+    if (!state) return '';
+    const parts: string[] = [];
+    const a = state.adults || state.guests;
+    const c = state.children || 0;
+    const i = state.infants || 0;
+    parts.push(`${a} Adult${a !== 1 ? 's' : ''}`);
+    if (c > 0) parts.push(`${c} Child${c !== 1 ? 'ren' : ''}`);
+    if (i > 0) parts.push(`${i} Infant${i !== 1 ? 's' : ''}`);
+    return parts.join(', ');
+  });
 
   form = {
     user_name: '',
@@ -392,6 +408,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       checkIn: booking.check_in.slice(0, 10),
       checkOut: booking.check_out.slice(0, 10),
       guests: booking.guests,
+      adults: booking.adults || booking.guests,
+      children: booking.children || 0,
+      infants: booking.infants || 0,
     };
     this.bookingService.setCheckoutState(restoredState);
     this.initializePricing(restoredState);
@@ -433,7 +452,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     }
 
     // Recover from payment failure redirect —
-    // `pending_booking` is written by redirectToPayment() before sending the user to PayFlow.
+    // `pending_booking` is written by redirectToPayment() before sending the user to Stayvora Pay.
     // When the user returns (back button / failed payment redirect) we restore the hold.
     const pendingRaw = sessionStorage.getItem('pending_booking');
     /* istanbul ignore if -- defensive fallback; restorePendingBooking handles all reachable cases */
@@ -697,6 +716,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
               check_in: new Date(state.checkIn).toISOString(),
               check_out: new Date(state.checkOut).toISOString(),
               guests: state.guests,
+              adults: state.adults || state.guests,
+              children: state.children || 0,
+              infants: state.infants || 0,
               special_requests: this.form.special_requests,
             }).subscribe({
               next: booking => {

@@ -44,6 +44,9 @@ const mockBooking = (overrides: Partial<Booking> = {}): Booking => ({
   check_out: '2026-04-12T00:00:00.000Z',
   hold_expires_at: new Date(Date.now() + 300_000).toISOString(),
   guests: 2,
+  adults: 2,
+  children: 0,
+  infants: 0,
   nights: 2,
   room_rate: 400,
   taxes: 48,
@@ -229,6 +232,9 @@ describe('RoomDetailComponent', () => {
       checkIn: '2026-04-10',
       checkOut: '2026-04-12',
       guests: 2,
+      adults: 2,
+      children: 0,
+      infants: 0,
     });
     expect(sessionStorage.getItem('pending_booking')).toContain('"booking_ref":"BKACTIVE"');
     expect(navigateSpy).toHaveBeenCalledWith(['/checkout', 5]);

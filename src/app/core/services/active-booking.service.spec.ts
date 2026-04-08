@@ -51,6 +51,9 @@ const mockBooking = (overrides: Partial<Booking> = {}): Booking => ({
   check_out: '2026-05-03T00:00:00.000Z',
   hold_expires_at: '2026-05-01T10:10:00.000Z',
   guests: 2,
+  adults: 2,
+  children: 0,
+  infants: 0,
   nights: 2,
   room_rate: 840,
   taxes: 101,
@@ -70,6 +73,9 @@ const mockHold = (overrides: Partial<ActiveHold> = {}): ActiveHold => ({
   check_in: '2026-05-01',
   check_out: '2026-05-03',
   guests: 2,
+  adults: 2,
+  children: 0,
+  infants: 0,
   expires_at: '2026-05-01T10:10:00.000Z',
   remaining_seconds: 600,
   ...overrides,
@@ -224,6 +230,9 @@ describe('ActiveBookingService', () => {
       checkIn: '2026-05-01',
       checkOut: '2026-05-03',
       guests: 2,
+      adults: 2,
+      children: 0,
+      infants: 0,
     });
     expect(sessionStorage.getItem('pending_booking')).toContain('"booking_ref":"BKACTIVE"');
     expect(router.navigate).toHaveBeenCalledWith(['/checkout', 17]);

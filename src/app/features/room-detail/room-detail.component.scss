@@ -282,3 +282,41 @@
       }
     }
 
+    // ── Responsive ─────────────────────────────────────────────────────────
+    // Tablet (768–900px)
+    @media (min-width: 768px) and (max-width: 900px) {
+      .room-detail__body {
+        grid-template-columns: 1fr;
+        gap: var(--space-xl);
+      }
+      .booking-panel { position: relative; top: 0; }
+      .gallery__main { height: clamp(240px, 40vh, 400px); }
+      .amenities { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    }
+
+    // Mobile (<768px)
+    @media (max-width: 767px) {
+      .room-detail { padding-top: 60px; }
+      .room-detail__body {
+        padding-top: var(--space-xl);
+        padding-bottom: var(--space-xl);
+        gap: var(--space-lg);
+      }
+      .booking-panel { position: relative; top: 0; }
+      .booking-panel__card { padding: var(--space-lg); }
+      .gallery__main { height: clamp(200px, 35vh, 320px); }
+      .gallery__thumb { width: 60px; height: 44px; }
+      .breadcrumb { font-size: 12px; margin-bottom: var(--space-md); }
+      .amenities { grid-template-columns: repeat(2, 1fr); }
+      .room-map .map-iframe { height: 240px; }
+    }
+
+    // Small mobile (<480px)
+    @media (max-width: 480px) {
+      .room-detail__name { font-size: 1.4rem; }
+      .room-detail__section h2 { font-size: 1.15rem; }
+      .amenities { grid-template-columns: 1fr; }
+      .booking-panel__card { padding: var(--space-md); }
+      .room-map .map-iframe { height: 200px; border-radius: 8px; }
+    }
+

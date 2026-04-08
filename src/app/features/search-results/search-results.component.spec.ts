@@ -302,13 +302,16 @@ describe('SearchResultsComponent', () => {
       check_in: '',
       check_out: '',
       page: 1,
-      per_page: 9,
+      per_page: 12,
     });
-    expect(component.showMap()).toBe(false);
+    expect(component.showMap()).toBe(true);
   });
 
   it('toggles map and advanced state, paginates, and reloads publicly', () => {
     const scrollSpy = jest.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    // Mock scrollTo on elements for jsdom
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Element.prototype.scrollTo = jest.fn() as any;
     const fixture = TestBed.createComponent(SearchResultsComponent);
     const component = fixture.componentInstance;
     component.ngOnInit();
@@ -321,7 +324,10 @@ describe('SearchResultsComponent', () => {
     expect(component.advancedOpen()).toBe(true);
     expect(component.showMap()).toBe(false);
     expect(component.page()).toBe(3);
-    expect(scrollSpy).toHaveBeenCalled();
+    // scrollTo is called either on the panel element or on window
+    const panelScrolled = (Element.prototype.scrollTo as jest.Mock).mock.calls.length > 0;
+    const windowScrolled = scrollSpy.mock.calls.length > 0;
+    expect(panelScrolled || windowScrolled).toBe(true);
     expect(roomService.getRooms).toHaveBeenCalledTimes(2);
   });
 
@@ -332,7 +338,7 @@ describe('SearchResultsComponent', () => {
     const component = fixture.componentInstance;
     component.ngOnInit();
 
-    expect(component.totalPages()).toBe(11);
+    expect(component.totalPages()).toBe(9);
     expect(component.pageNumbers()).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(component.resultsHeading()).toBe('Stays in');
     expect(component.resultsAccent()).toBe('Paris');
@@ -402,7 +408,6 @@ describe('SearchResultsComponent', () => {
           queryParams: expect.objectContaining({
             check_in: '2026-04-10',
             check_out: '2026-04-12',
-            view: 'map',
           }),
         }),
       );
@@ -485,5 +490,128 @@ describe('SearchResultsComponent', () => {
     expect(roomService.getRooms).toHaveBeenLastCalledWith(
       expect.objectContaining({ sort_by: 'recommended' }),
     );
+  });
+
+  it('covers image helpers, list-view query params, and the escape fullscreen listener', () => {
+    TestBed.resetTestingModule();
+    roomService = { getRooms: jest.fn().mockReturnValue(of(roomsResponse)) };
+    wishlistService = {
+      loadStatus: jest.fn().mockReturnValue(of({})),
+      isSaved: jest.fn().mockReturnValue(false),
+      toggle: jest.fn(),
+    };
+
+    return TestBed.configureTestingModule({
+      imports: [SearchResultsComponent],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: RoomService, useValue: roomService },
+        { provide: WishlistService, useValue: wishlistService },
+        { provide: AuthService, useValue: authService },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            queryParams: of({ view: 'list' }),
+            snapshot: {},
+          },
+        },
+      ],
+    }).compileComponents().then(() => {
+      const fixture = TestBed.createComponent(SearchResultsComponent);
+      const component = fixture.componentInstance;
+      component.ngOnInit();
+
+      expect(component.showMap()).toBe(false);
+      expect(component.resolveImage(undefined)).toContain('svg+xml');
+
+      const image = document.createElement('img');
+      component.onImgError({ target: image } as unknown as Event);
+      expect(image.src).toContain('svg+xml');
+
+      component.fullscreenMap.set(true);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      expect(component.fullscreenMap()).toBe(false);
+    });
+  });
+
+  it('toggles fullscreen state and coordinates with the map component lifecycle hooks', () => {
+    jest.useFakeTimers();
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    const saveBounds = jest.fn();
+    const invalidate = jest.fn();
+    const restoreBounds = jest.fn();
+
+    component.ngOnInit();
+    Object.defineProperty(component, 'mapComponent', {
+      value: { saveBounds, invalidate, restoreBounds },
+      configurable: true,
+    });
+
+    component.toggleFullscreen();
+    jest.advanceTimersByTime(350);
+    expect(saveBounds).toHaveBeenCalled();
+    expect(invalidate).toHaveBeenCalledTimes(2);
+    expect(component.fullscreenMap()).toBe(true);
+
+    component.toggleFullscreen();
+    jest.advanceTimersByTime(450);
+    expect(restoreBounds).toHaveBeenCalled();
+    expect(component.fullscreenMap()).toBe(false);
+    jest.useRealTimers();
+  });
+
+  it('covers card and map selection helpers with and without a matching DOM card', () => {
+    jest.useFakeTimers();
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.selectRoom(roomsResponse.rooms[0] as never);
+    expect(component.hoveredRoomId()).toBe(1);
+    component.onCardHover(roomsResponse.rooms[1] as never);
+    expect(component.hoveredRoomId()).toBe(2);
+    component.onCardLeave();
+    expect(component.hoveredRoomId()).toBeNull();
+
+    const scrollIntoView = jest.fn();
+    const classList = { add: jest.fn(), remove: jest.fn() };
+    const querySelectorSpy = jest.spyOn(document, 'querySelector');
+    querySelectorSpy.mockReturnValueOnce({
+      scrollIntoView,
+      classList,
+    } as unknown as Element);
+
+    component.onMapRoomSelected(roomsResponse.rooms[0] as never);
+    jest.advanceTimersByTime(1300);
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+    expect(classList.add).toHaveBeenCalledWith('room-list-card--flash');
+    expect(classList.remove).toHaveBeenCalledWith('room-list-card--flash');
+
+    querySelectorSpy.mockReturnValueOnce(null);
+    component.onMapRoomSelected(roomsResponse.rooms[1] as never);
+    jest.advanceTimersByTime(100);
+
+    jest.useRealTimers();
+  });
+
+  it('syncs guest filters including a zero-guest reset and falls back to window scrolling when no panel exists', () => {
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    const applyFiltersSpy = jest.spyOn(component, 'applyFilters');
+    const scrollSpy = jest.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+    jest.spyOn(document, 'querySelector').mockReturnValue(null);
+
+    component.ngOnInit();
+    component.onGuestChange({ adults: 0, children: 0, infants: 1 });
+
+    expect(component.draftFilters.guests).toBeUndefined();
+    expect(component.draftFilters.infants).toBe(1);
+    expect(applyFiltersSpy).toHaveBeenCalled();
+
+    component.goToPage(2);
+    expect(scrollSpy).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
   });
 });

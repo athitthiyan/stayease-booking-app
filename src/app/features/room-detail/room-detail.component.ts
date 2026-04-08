@@ -7,9 +7,12 @@ import { RoomService } from '../../core/services/room.service';
 import { BookingService } from '../../core/services/booking.service';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { AuthService } from '../../core/services/auth.service';
+import { BookingSearchStore } from '../../core/services/booking-search.store';
 import { Booking } from '../../core/models/booking.model';
 import { Room } from '../../core/models/room.model';
 import { ReviewsSectionComponent } from '../../shared/components/reviews-section/reviews-section.component';
+import { GuestPickerComponent, GuestSelection } from '../../shared/components/guest-picker/guest-picker.component';
+import { DateRangePickerComponent } from '../../shared/components/date-range-picker/date-range-picker.component';
 import {
   ROOM_IMAGE_PLACEHOLDER,
   applyRoomImageFallback,
@@ -22,7 +25,7 @@ type ISODateString = string;
 @Component({
   selector: 'app-room-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, ReviewsSectionComponent],
+  imports: [CommonModule, RouterLink, FormsModule, ReviewsSectionComponent, GuestPickerComponent, DateRangePickerComponent],
   template: `
     <div class="room-detail" [class.loaded]="!loading()">
 
@@ -191,15 +194,15 @@ type ISODateString = string;
             <div class="booking-panel__card">
               <div class="booking-panel__price">
                 @if (room()!.original_price) {
-                  <span class="price__original">\${{ room()!.original_price | number:'1.0-0' }}</span>
+                  <span class="price__original">₹{{ room()!.original_price | number:'1.0-0' }}</span>
                 }
-                <span class="price__amount">\${{ room()!.price | number:'1.0-0' }}</span>
+                <span class="price__amount">₹{{ room()!.price | number:'1.0-0' }}</span>
                 <span class="price__period">/ night</span>
               </div>
 
               @if (room()!.original_price) {
                 <div class="booking-panel__savings">
-                  You save \${{ (room()!.original_price! - room()!.price) | number:'1.0-0' }} per night!
+                  You save ₹{{ (room()!.original_price! - room()!.price) | number:'1.0-0' }} per night!
                 </div>
               }
 
@@ -207,14 +210,14 @@ type ISODateString = string;
 
               <!-- Dates -->
               <div class="form-group">
-                <label for="room-detail-check-in">Check-in</label>
-                <input id="room-detail-check-in" type="date" [(ngModel)]="checkIn" [min]="today" class="form-control"
-                  [class.input--error]="dateConflict()" (change)="onDateChange()" />
-              </div>
-              <div class="form-group" style="margin-top:12px">
-                <label for="room-detail-check-out">Check-out</label>
-                <input id="room-detail-check-out" type="date" [(ngModel)]="checkOut" [min]="checkIn || tomorrow" class="form-control"
-                  [class.input--error]="dateConflict()" (change)="onDateChange()" />
+                <label for="room-dates-picker">Dates</label>
+                <app-date-range-picker
+                  id="room-dates-picker"
+                  [checkIn]="checkIn"
+                  [checkOut]="checkOut"
+                  [minDate]="today"
+                  (dateChange)="onDatePickerChange($event)"
+                />
               </div>
               @if (dateConflict()) {
                 <div class="date-conflict-alert">
@@ -261,12 +264,13 @@ type ISODateString = string;
                 </button>
               }
               <div class="form-group" style="margin-top:12px">
-                <label for="room-detail-guests">Guests</label>
-                <select id="room-detail-guests" [(ngModel)]="guests" class="form-control">
-                  @for (g of guestOptions; track g) {
-                    <option [value]="g">{{ g }} Guest{{ g > 1 ? 's' : '' }}</option>
-                  }
-                </select>
+                <label for="room-guests-picker">Guests</label>
+                <app-guest-picker
+                  id="room-guests-picker"
+                  [maxGuests]="room()?.max_guests || 10"
+                  [value]="guestSelection"
+                  (valueChange)="onGuestChange($event)"
+                />
               </div>
 
               <!-- Price breakdown -->
@@ -274,28 +278,28 @@ type ISODateString = string;
                 <div class="divider"></div>
                 <div class="booking-panel__breakdown">
                   <div class="breakdown-row">
-                    <span>\${{ room()!.price | number:'1.0-0' }} × {{ nights() }} nights</span>
-                    <span>\${{ (room()!.price * nights()) | number:'1.0-0' }}</span>
+                    <span>₹{{ room()!.price | number:'1.0-0' }} × {{ nights() }} nights</span>
+                    <span>₹{{ (room()!.price * nights()) | number:'1.0-0' }}</span>
                   </div>
                   <div class="breakdown-row">
                     <span>Taxes (12%)</span>
-                    <span>\${{ (room()!.price * nights() * 0.12) | number:'1.0-0' }}</span>
+                    <span>₹{{ (room()!.price * nights() * 0.12) | number:'1.0-0' }}</span>
                   </div>
                   <div class="breakdown-row">
                     <span>Service fee (5%)</span>
-                    <span>\${{ (room()!.price * nights() * 0.05) | number:'1.0-0' }}</span>
+                    <span>₹{{ (room()!.price * nights() * 0.05) | number:'1.0-0' }}</span>
                   </div>
                   <div class="divider"></div>
                   <div class="breakdown-row breakdown-row--total">
                     <span>Total</span>
-                    <span>\${{ totalAmount() | number:'1.0-0' }}</span>
+                    <span>₹{{ totalAmount() | number:'1.0-0' }}</span>
                   </div>
                 </div>
               }
 
               <button class="btn btn--primary" style="width:100%;margin-top:20px;padding:16px"
                 (click)="bookNow()" [disabled]="!!dateConflict() || availabilityStatus() !== 'ready' || checkingExistingBooking()">
-                {{ nights() > 0 ? 'Book Now — $' + (totalAmount() | number:'1.0-0') : 'Select Dates to Book' }}
+                {{ nights() > 0 ? 'Book Now — ₹' + (totalAmount() | number:'1.0-0') : 'Select Dates to Book' }}
               </button>
 
               <p class="booking-panel__note">No charge until you complete checkout</p>
@@ -320,6 +324,7 @@ export class RoomDetailComponent implements OnInit {
   protected wishlistService = inject(WishlistService);
   protected authService = inject(AuthService);
   private sanitizer = inject(DomSanitizer);
+  private searchStore = inject(BookingSearchStore);
 
   room = signal<Room | null>(null);
   loading = signal(true);
@@ -331,6 +336,7 @@ export class RoomDetailComponent implements OnInit {
   checkIn = '';
   checkOut = '';
   guests = 2;
+  guestSelection: GuestSelection = { adults: 2, children: 0, infants: 0 };
   today = new Date().toISOString().split('T')[0];
   tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
@@ -380,6 +386,21 @@ export class RoomDetailComponent implements OnInit {
 
   ngOnInit() {
     const id = Number(this.route.snapshot.paramMap.get('id'));
+
+    // Restore dates and guests from central search store if available
+    const storeState = this.searchStore.state();
+    if (storeState.checkIn) {
+      this.checkIn = storeState.checkIn;
+      this.checkOut = storeState.checkOut;
+      this.guestSelection = {
+        adults: storeState.adults || 2,
+        children: storeState.children || 0,
+        infants: storeState.infants || 0,
+      };
+      this.guests = this.guestSelection.adults + this.guestSelection.children;
+      this.onDateChange();
+    }
+
     if (this.authService.isLoggedIn) {
       this.wishlistService.loadStatus().subscribe();
     }
@@ -412,6 +433,11 @@ export class RoomDetailComponent implements OnInit {
     applyRoomImageFallback(event);
   }
 
+  onGuestChange(selection: GuestSelection): void {
+    this.guestSelection = selection;
+    this.guests = selection.adults + selection.children;
+  }
+
   resumePreviousBooking(): void {
     const booking = this.blockingActiveBooking();
     if (!booking || !booking.room) {
@@ -425,6 +451,9 @@ export class RoomDetailComponent implements OnInit {
       checkIn: booking.check_in.slice(0, 10),
       checkOut: booking.check_out.slice(0, 10),
       guests: booking.guests,
+      adults: booking.adults || booking.guests,
+      children: booking.children || 0,
+      infants: booking.infants || 0,
     });
     this.router.navigate(['/checkout', booking.room_id]);
   }
@@ -435,6 +464,9 @@ export class RoomDetailComponent implements OnInit {
       checkIn: this.checkIn,
       checkOut: this.checkOut,
       guests: this.guests,
+      adults: this.guestSelection.adults,
+      children: this.guestSelection.children,
+      infants: this.guestSelection.infants,
     });
     this.router.navigate(['/checkout', this.room()!.id]);
   }
@@ -492,6 +524,14 @@ export class RoomDetailComponent implements OnInit {
     this.dateConflict.set('');
   }
 
+  onDatePickerChange(event: { checkIn: string; checkOut: string }): void {
+    this.checkIn = event.checkIn;
+    this.checkOut = event.checkOut;
+    // Sync to central store
+    this.searchStore.updateDates(event.checkIn, event.checkOut);
+    this.onDateChange();
+  }
+
   onDateChange() {
     this.formError.set('');
     this.blockingActiveBooking.set(null);
@@ -500,6 +540,9 @@ export class RoomDetailComponent implements OnInit {
       this.nights.set(Math.floor(nights));
       const roomRate = (this.room()?.price || 0) * this.nights();
       this.totalAmount.set(Math.round(roomRate * 1.17)); // +12% tax +5% service
+    } else {
+      this.nights.set(0);
+      this.totalAmount.set(0);
     }
     this.validateDateConflict();
   }

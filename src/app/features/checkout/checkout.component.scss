@@ -13,6 +13,32 @@
       }
     }
 
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--color-text-muted);
+
+      a {
+        color: var(--color-text-muted);
+        text-decoration: none;
+        transition: color 0.2s ease;
+
+        &:hover { color: var(--color-primary); }
+      }
+
+      span {
+        color: var(--color-text-subtle, rgba(255,255,255,0.3));
+        font-size: 10px;
+
+        &:last-child {
+          color: var(--color-text);
+          font-weight: 500;
+        }
+      }
+    }
+
     .checkout-title {
       font-family: var(--font-serif);
       font-size: 2.2rem;
@@ -231,4 +257,54 @@
       color: #fca5a5;
       font-size: 14px;
       margin-bottom: var(--space-md);
+    }
+
+    // ── Responsive ─────────────────────────────────────────────────────────
+    // Tablet (768–900px)
+    @media (min-width: 768px) and (max-width: 900px) {
+      .checkout-page {
+        padding-top: 80px;
+
+        &__inner {
+          grid-template-columns: 1fr;
+          gap: var(--space-xl);
+        }
+      }
+      .order-summary { position: relative; top: 0; }
+      .checkout-title { font-size: 1.8rem; }
+    }
+
+    // Mobile (<768px)
+    @media (max-width: 767px) {
+      .checkout-page {
+        padding-top: 68px;
+        padding-bottom: var(--space-xl);
+
+        &__inner { gap: var(--space-lg); }
+      }
+      .checkout-title {
+        font-size: 1.5rem;
+        margin: var(--space-md) 0 var(--space-xl);
+      }
+      .checkout-section { padding: var(--space-lg); }
+      .order-summary {
+        position: relative;
+        top: 0;
+        &__card { padding: var(--space-lg); }
+      }
+      .stay-details { grid-template-columns: 1fr; }
+      .hold-banner { padding: 10px 14px; font-size: 13px; }
+    }
+
+    // Small mobile (<480px)
+    @media (max-width: 480px) {
+      .checkout-page { padding-top: 60px; }
+      .checkout-title { font-size: 1.3rem; }
+      .checkout-section {
+        padding: var(--space-md);
+        border-radius: var(--radius-lg);
+      }
+      .order-summary__card { padding: var(--space-md); }
+      .order-summary__img { width: 64px; height: 48px; }
+      .breakdown-row--total { font-size: 16px; }
     }

@@ -73,7 +73,7 @@ describe('SignupComponent', () => {
     const fixture = TestBed.createComponent(SignupComponent);
     const component = fixture.componentInstance;
     const router = TestBed.inject(Router);
-    const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+    const navigateSpy = jest.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
     setValidForm(component);
 
     component.onSubmit();
@@ -83,7 +83,7 @@ describe('SignupComponent', () => {
       email: 'alex@example.com',
       password: 'StrongPass1',
     });
-    expect(navigateSpy).toHaveBeenCalledWith(['/']);
+    expect(navigateSpy).toHaveBeenCalledWith('/');
   });
 
   it('surfaces backend and fallback signup errors', () => {

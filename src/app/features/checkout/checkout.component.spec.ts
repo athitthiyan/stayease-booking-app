@@ -18,6 +18,9 @@ const makeBooking = (overrides: Partial<Booking> = {}): Booking => ({
   check_in: '2026-04-10T00:00:00.000Z',
   check_out: '2026-04-12T00:00:00.000Z',
   guests: 2,
+  adults: 2,
+  children: 0,
+  infants: 0,
   nights: 2,
   room_rate: 400,
   taxes: 48,
@@ -58,6 +61,9 @@ describe('CheckoutComponent', () => {
     checkIn: '2026-04-10',
     checkOut: '2026-04-12',
     guests: 2,
+    adults: 2,
+    children: 0,
+    infants: 0,
   };
 
   let bookingService: {

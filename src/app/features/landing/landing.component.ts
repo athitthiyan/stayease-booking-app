@@ -4,6 +4,9 @@ import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { RoomService } from '../../core/services/room.service';
 import { RoomCardComponent } from '../../shared/components/room-card/room-card.component';
+import { GuestPickerComponent, GuestSelection } from '../../shared/components/guest-picker/guest-picker.component';
+import { DateRangePickerComponent } from '../../shared/components/date-range-picker/date-range-picker.component';
+import { BookingSearchStore } from '../../core/services/booking-search.store';
 import { Room } from '../../core/models/room.model';
 
 interface Destination {
@@ -16,7 +19,7 @@ interface Destination {
 @Component({
   selector: 'app-landing',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, RoomCardComponent],
+  imports: [CommonModule, RouterLink, FormsModule, RoomCardComponent, GuestPickerComponent, DateRangePickerComponent],
   template: `
     <!-- ─── Hero ───────────────────────────────────────────────────────────── -->
     <section class="hero">
@@ -59,32 +62,55 @@ interface Destination {
               placeholder="Where are you going?"
               [(ngModel)]="searchCity"
               class="search-box__input"
+              (ngModelChange)="searchStore.updateDestination($event)"
             />
           </div>
           <div class="search-box__divider"></div>
-          <div class="search-box__field">
-            <label for="landing-check-in">📅 Check-in</label>
-            <input id="landing-check-in" type="date" [(ngModel)]="checkIn" [min]="today" class="search-box__input" />
+          <div class="search-box__field search-box__field--dates">
+            <label for="dates-picker">📅 Dates</label>
+            <app-date-range-picker
+              id="dates-picker"
+              [checkIn]="checkIn"
+              [checkOut]="checkOut"
+              (dateChange)="onDateChange($event)"
+            />
           </div>
           <div class="search-box__divider"></div>
-          <div class="search-box__field">
-            <label for="landing-check-out">📅 Check-out</label>
-            <input id="landing-check-out" type="date" [(ngModel)]="checkOut" [min]="tomorrow" class="search-box__input" />
+          <div class="search-box__field search-box__field--guests">
+            <label for="guests-picker">👤 Guests</label>
+            <app-guest-picker
+              id="guests-picker"
+              [value]="guestSelection"
+              (valueChange)="onGuestChange($event)"
+            />
           </div>
-          <div class="search-box__divider"></div>
-          <div class="search-box__field">
-            <label for="landing-guests">👤 Guests</label>
-            <select id="landing-guests" [(ngModel)]="guests" class="search-box__input">
-              <option [value]="1">1 Guest</option>
-              <option [value]="2">2 Guests</option>
-              <option [value]="3">3 Guests</option>
-              <option [value]="4">4+ Guests</option>
-            </select>
-          </div>
-          <button class="search-box__btn btn btn--primary" (click)="search()">
+          <button
+            class="search-box__btn btn btn--primary"
+            (click)="search()"
+            [disabled]="!!searchValidationError"
+          >
             🔍 Search
           </button>
         </div>
+        @if (searchValidationError) {
+          <div class="search-validation">{{ searchValidationError }}</div>
+        }
+
+        <!-- Booking Recovery Banner -->
+        @if (showRecoveryBanner()) {
+          <div class="recovery-banner" (click)="resumeSearch()" (keydown.enter)="resumeSearch()" tabindex="0" role="button">
+            <span class="recovery-banner__icon">🔄</span>
+            <span class="recovery-banner__text">
+              Continue your recent search?
+              <strong>{{ searchStore.destination() }}</strong>
+              @if (searchStore.dateRangeText()) {
+                · {{ searchStore.dateRangeText() }}
+              }
+            </span>
+            <button class="recovery-banner__btn">Resume</button>
+            <button class="recovery-banner__close" (click)="dismissRecovery($event)">✕</button>
+          </div>
+        }
 
         <!-- Trust Badges -->
         <div class="hero__trust">
@@ -249,17 +275,21 @@ interface Destination {
 export class LandingComponent implements OnInit {
   private roomService = inject(RoomService);
   private router = inject(Router);
+  searchStore = inject(BookingSearchStore);
 
   featuredRooms = signal<Room[]>([]);
   loadingRooms = signal(true);
   roomsError = signal(false);
+  showRecoveryBanner = signal(false);
 
   searchCity = '';
   checkIn = '';
   checkOut = '';
   guests = 2;
+  guestSelection: GuestSelection = { adults: 2, children: 0, infants: 0 };
   today = new Date().toISOString().split('T')[0];
   tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  searchValidationError = '';
 
   particles = Array.from({ length: 20 }, () => {
     const x = Math.random() * 100;
@@ -290,6 +320,25 @@ export class LandingComponent implements OnInit {
   ];
 
   ngOnInit() {
+    // Restore previous search state from store
+    const state = this.searchStore.state();
+    if (state.destination) this.searchCity = state.destination;
+    if (state.checkIn)  this.checkIn = state.checkIn;
+    if (state.checkOut) this.checkOut = state.checkOut;
+    if (state.adults || state.children || state.infants) {
+      this.guestSelection = {
+        adults: state.adults || 2,
+        children: state.children || 0,
+        infants: state.infants || 0,
+      };
+      this.guests = (state.adults || 2) + (state.children || 0);
+    }
+
+    // Show recovery banner if there's a recent search
+    if (this.searchStore.hasRecentSearch() && !this.searchCity) {
+      this.showRecoveryBanner.set(true);
+    }
+
     this.roomService.getFeaturedRooms(6).subscribe({
       next: rooms => {
         this.featuredRooms.set(rooms);
@@ -304,13 +353,73 @@ export class LandingComponent implements OnInit {
     });
   }
 
+  onDateChange(event: { checkIn: string; checkOut: string }) {
+    this.checkIn = event.checkIn;
+    this.checkOut = event.checkOut;
+    this.searchStore.updateDates(event.checkIn, event.checkOut);
+    this.validateSearch();
+  }
+
+  onGuestChange(selection: GuestSelection) {
+    this.guestSelection = selection;
+    this.guests = selection.adults + selection.children;
+    this.searchStore.updateGuests(selection.adults, selection.children, selection.infants);
+  }
+
+  validateSearch(): void {
+    this.searchValidationError = '';
+
+    if (this.checkIn && this.checkOut) {
+      const ci = new Date(this.checkIn + 'T00:00:00');
+      const co = new Date(this.checkOut + 'T00:00:00');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (ci < today) {
+        this.searchValidationError = 'Check-in date cannot be in the past';
+      } else if (co <= ci) {
+        this.searchValidationError = 'Check-out must be after check-in (minimum 1 night)';
+      }
+    }
+  }
+
   search() {
-    const params: Record<string, string | number> = {};
-    if (this.searchCity) params['city'] = this.searchCity;
-    if (this.checkIn)    params['check_in'] = this.checkIn;
-    if (this.checkOut)   params['check_out'] = this.checkOut;
-    if (this.guests)     params['guests'] = this.guests;
+    this.validateSearch();
+    if (this.searchValidationError) return;
+
+    // Persist to centralized store
+    this.searchStore.patchState({
+      destination: this.searchCity,
+      checkIn: this.checkIn,
+      checkOut: this.checkOut,
+      adults: this.guestSelection.adults,
+      children: this.guestSelection.children,
+      infants: this.guestSelection.infants,
+    });
+
+    const params = this.searchStore.toQueryParams();
+    if (this.guests) params['guests'] = String(this.guests);
     this.router.navigate(['/search'], { queryParams: params });
+  }
+
+  resumeSearch() {
+    this.showRecoveryBanner.set(false);
+    const state = this.searchStore.state();
+    this.searchCity = state.destination;
+    this.checkIn = state.checkIn;
+    this.checkOut = state.checkOut;
+    this.guestSelection = {
+      adults: state.adults,
+      children: state.children,
+      infants: state.infants,
+    };
+    this.guests = state.adults + state.children;
+    this.search();
+  }
+
+  dismissRecovery(event: MouseEvent) {
+    event.stopPropagation();
+    this.showRecoveryBanner.set(false);
   }
 
 }

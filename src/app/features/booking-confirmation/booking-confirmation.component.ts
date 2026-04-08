@@ -58,7 +58,7 @@ import { BookingService } from '../../core/services/booking.service';
                 </div>
                 <div class="confirm-card__detail-box">
                   <span class="confirm-card__detail-label">Total</span>
-                  <strong>\${{ booking.total_amount | number:'1.2-2' }}</strong>
+                  <strong>₹{{ booking.total_amount | number:'1.2-2' }}</strong>
                 </div>
               </div>
 

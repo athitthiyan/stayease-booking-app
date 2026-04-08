@@ -51,6 +51,9 @@ export interface RoomSearchParams {
   min_rating?: number;
   amenities?: string;
   guests?: number;
+  adults?: number;
+  children?: number;
+  infants?: number;
   check_in?: string;
   check_out?: string;
   featured?: boolean;

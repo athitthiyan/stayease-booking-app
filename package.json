@@ -1,5 +1,5 @@
 {
-  "name": "stayease-booking-app",
+  "name": "stayvora-booking-app",
   "version": "1.0.0",
   "description": "StayEase — Premium Hotel Booking Platform",
   "scripts": {
@@ -25,6 +25,7 @@
     "@angular/router": "^17.3.0",
     "@azure/msal-angular": "^5.1.4",
     "@azure/msal-browser": "^5.6.3",
+    "leaflet": "^1.9.4",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.14.3"
@@ -40,6 +41,7 @@
     "@angular/compiler-cli": "^17.3.0",
     "@playwright/test": "^1.44.0",
     "@types/jest": "^29.5.14",
+    "@types/leaflet": "^1.9.12",
     "@typescript-eslint/eslint-plugin": "7.11.0",
     "@typescript-eslint/parser": "7.11.0",
     "eslint": "8.57.1",

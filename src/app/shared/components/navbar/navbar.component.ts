@@ -14,7 +14,7 @@ import { WishlistService } from '../../../core/services/wishlist.service';
       <div class="container navbar__inner">
         <!-- Logo -->
         <a routerLink="/" class="navbar__logo">
-          <span class="navbar__logo-icon">🏨</span>
+          <svg class="navbar__logo-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" rx="8" fill="#0f2033"/><path d="M9 20C9 15 13 12 18 12C23 12 21 15.5 16.5 17C12 18.5 10.5 21.5 15 23C19.5 24.5 23 22 23 19.5" stroke="url(#ng)" stroke-width="2.4" stroke-linecap="round" fill="none"/><defs><linearGradient id="ng" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#d6b86b"/><stop offset="100%" stop-color="#f0d58f"/></linearGradient></defs></svg>
           <span class="navbar__logo-text">Stay<span>vora</span></span>
         </a>
 
@@ -109,7 +109,7 @@ import { WishlistService } from '../../../core/services/wishlist.service';
     .navbar__inner {
       display: flex;
       align-items: center;
-      gap: var(--space-xl);
+      gap: var(--space-lg);
     }
 
     .navbar__logo {
@@ -122,7 +122,7 @@ import { WishlistService } from '../../../core/services/wishlist.service';
       flex-shrink: 0;
     }
 
-    .navbar__logo-icon { font-size: 1.6rem; }
+    .navbar__logo-icon { width: 32px; height: 32px; flex-shrink: 0; }
     .navbar__logo-text { color: var(--color-text); }
     .navbar__logo-text span { color: var(--color-primary); }
 
@@ -131,7 +131,7 @@ import { WishlistService } from '../../../core/services/wishlist.service';
       align-items: center;
       gap: var(--space-xl);
       list-style: none;
-      margin-left: auto;
+      margin: 0 auto;
     }
 
     .navbar__links a {
@@ -225,6 +225,13 @@ import { WishlistService } from '../../../core/services/wishlist.service';
     }
 
     .navbar__mobile a:hover { color: var(--color-primary); }
+
+    .navbar__actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
 
     @media (max-width: 768px) {
       .navbar__links,

@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { BookingSearchStore } from '../../../core/services/booking-search.store';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../core/services/auth.service';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -316,6 +317,7 @@ export class SignupComponent {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
   private router = inject(Router);
+  private searchStore = inject(BookingSearchStore);
 
   loading = signal(false);
   socialLoading = signal(false);
@@ -357,7 +359,10 @@ export class SignupComponent {
     const { full_name, email, password } = this.form.getRawValue();
 
     this.authService.signup({ full_name, email, password }).subscribe({
-      next: () => this.router.navigate(['/']),
+      next: () => {
+        const intended = this.searchStore.getAndClearRedirectIntent();
+        this.router.navigateByUrl(intended || '/');
+      },
       error: (err: HttpErrorResponse) => {
         this.errorMsg.set(err.error?.detail ?? 'Signup failed. Please try again.');
         this.loading.set(false);

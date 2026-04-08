@@ -11,7 +11,7 @@ import { RouterLink } from '@angular/router';
       <div class="container">
         <div class="footer__grid">
           <div class="footer__brand">
-            <a routerLink="/" class="footer__logo">🏨 Stay<span>vora</span></a>
+            <a routerLink="/" class="footer__logo"><svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28" style="vertical-align: middle; margin-right: 8px;"><rect width="32" height="32" rx="8" fill="#0f2033"/><path d="M9 20C9 15 13 12 18 12C23 12 21 15.5 16.5 17C12 18.5 10.5 21.5 15 23C19.5 24.5 23 22 23 19.5" stroke="#d6b86b" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg> Stay<span>vora</span></a>
             <p>Stay Better. Travel Smarter. Premium hotel bookings with real-time inventory, safer payments, and clearer policies.</p>
           </div>
 

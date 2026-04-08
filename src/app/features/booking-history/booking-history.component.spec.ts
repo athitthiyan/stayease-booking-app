@@ -50,10 +50,10 @@ describe('BookingHistoryComponent', () => {
     past: 2,
     cancelled: 1,
     bookings: [
-      { id: 1, booking_ref: 'BK1', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'confirmed', payment_status: 'paid', check_in: '2030-01-01', check_out: '2030-01-03', nights: 2, guests: 2, room_rate: 200, taxes: 24, service_fee: 10, total_amount: 200, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
-      { id: 2, booking_ref: 'BK2', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'completed', payment_status: 'paid', check_in: '2020-01-01', check_out: '2020-01-03', nights: 2, guests: 2, room_rate: 200, taxes: 24, service_fee: 10, total_amount: 200, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
-      { id: 3, booking_ref: 'BK3', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'confirmed', payment_status: 'paid', check_in: '2020-01-01', check_out: '2020-01-02', nights: 1, guests: 1, room_rate: 100, taxes: 12, service_fee: 5, total_amount: 100, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
-      { id: 4, booking_ref: 'BK4', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'cancelled', payment_status: 'failed', check_in: '2020-02-01', check_out: '2020-02-02', nights: 1, guests: 1, room_rate: 100, taxes: 12, service_fee: 5, total_amount: 100, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
+      { id: 1, booking_ref: 'BK1', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'confirmed', payment_status: 'paid', check_in: '2030-01-01', check_out: '2030-01-03', nights: 2, guests: 2, adults: 2, children: 0, infants: 0, room_rate: 200, taxes: 24, service_fee: 10, total_amount: 200, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
+      { id: 2, booking_ref: 'BK2', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'completed', payment_status: 'paid', check_in: '2020-01-01', check_out: '2020-01-03', nights: 2, guests: 2, adults: 2, children: 0, infants: 0, room_rate: 200, taxes: 24, service_fee: 10, total_amount: 200, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
+      { id: 3, booking_ref: 'BK3', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'confirmed', payment_status: 'paid', check_in: '2020-01-01', check_out: '2020-01-02', nights: 1, guests: 1, adults: 1, children: 0, infants: 0, room_rate: 100, taxes: 12, service_fee: 5, total_amount: 100, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
+      { id: 4, booking_ref: 'BK4', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'cancelled', payment_status: 'failed', check_in: '2020-02-01', check_out: '2020-02-02', nights: 1, guests: 1, adults: 1, children: 0, infants: 0, room_rate: 100, taxes: 12, service_fee: 5, total_amount: 100, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
     ],
   };
 
@@ -105,7 +105,7 @@ describe('BookingHistoryComponent', () => {
     const component = fixture.componentInstance;
     component.load();
 
-    expect(component.filteredBookings()).toHaveLength(4);
+    expect(component.filteredBookings()).toHaveLength(1);
 
     component.setTab('upcoming');
     expect(component.filteredBookings().map(b => b.id)).toEqual([1]);
@@ -122,7 +122,6 @@ describe('BookingHistoryComponent', () => {
     const component = fixture.componentInstance;
     component.data.set(response);
 
-    expect(component.tabCount('all')).toBe(4);
     expect(component.tabCount('upcoming')).toBe(1);
     expect(component.tabCount('past')).toBe(2);
     expect(component.tabCount('cancelled')).toBe(1);
@@ -134,7 +133,6 @@ describe('BookingHistoryComponent', () => {
     const component = fixture.componentInstance;
 
     expect(component.filteredBookings()).toEqual([]);
-    expect(component.tabCount('all')).toBe(0);
     expect(component.tabCount('upcoming')).toBe(0);
     expect(component.tabCount('past')).toBe(0);
     expect(component.tabCount('cancelled')).toBe(0);
@@ -173,6 +171,9 @@ describe('BookingHistoryComponent', () => {
           check_out: '2030-01-02T00:00:00.000Z',
           nights: 1,
           guests: 2,
+          adults: 2,
+          children: 0,
+          infants: 0,
           room_rate: 100,
           taxes: 12,
           service_fee: 5,
@@ -198,11 +199,13 @@ describe('BookingHistoryComponent', () => {
 
     const fixture = TestBed.createComponent(BookingHistoryComponent);
     const component = fixture.componentInstance;
+    const loadSpy = jest.spyOn(component, 'load');
 
     component.cancelPendingBooking(response.bookings[0]);
 
     expect(bookingService.cancelBooking).toHaveBeenCalledWith(1);
     expect(component.actionMessage()).toContain('inventory has been released');
+    expect(loadSpy).toHaveBeenCalledWith(true);
   });
 
   it('requests cancellation help for upcoming paid bookings', () => {
@@ -380,5 +383,36 @@ describe('BookingHistoryComponent', () => {
     const component = fixture.componentInstance;
 
     expect(component.isRefundStepComplete(response.bookings[0], 'unknown' as never)).toBe(false);
+  });
+
+  it('guards pagination boundaries and exposes page labels and status formatting', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.data.set(response);
+    component.pageSize.set(1);
+    component.setTab('past');
+
+    component.goToPage(0);
+    expect(component.currentPage()).toBe(1);
+
+    component.goToPage(2);
+    expect(component.currentPage()).toBe(2);
+    expect(component.pageNumbers).toEqual([1, 2]);
+    expect(component.statusLabel('expired')).toBe('Expired');
+  });
+
+  it('returns empty-state copy for past and cancelled tabs', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+
+    component.setTab('past');
+    expect(component.emptyIcon()).toBe('📸');
+    expect(component.emptyTitle()).toBe('No past stays yet');
+    expect(component.emptySubtitle()).toBe('Your travel memories will appear here.');
+
+    component.setTab('cancelled');
+    expect(component.emptyIcon()).toBe('🎉');
+    expect(component.emptyTitle()).toBe('No cancellations');
+    expect(component.emptySubtitle()).toBe('Great — all your bookings are on track!');
   });
 });

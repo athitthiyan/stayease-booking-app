@@ -1,13 +1,19 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { RoomService } from '../../core/services/room.service';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { AuthService } from '../../core/services/auth.service';
+import { BookingSearchStore } from '../../core/services/booking-search.store';
 import { RoomCardComponent } from '../../shared/components/room-card/room-card.component';
 import { Room, RoomSearchParams, RoomSortOption } from '../../core/models/room.model';
-import { SearchMapPlaceholderComponent } from './search-map-placeholder.component';
+import { GuestPickerComponent, GuestSelection } from '../../shared/components/guest-picker/guest-picker.component';
+import { SearchMapComponent } from './search-map.component';
+import {
+  ROOM_IMAGE_PLACEHOLDER,
+  normalizeRoomImageUrl,
+} from '../../shared/utils/image-fallback';
 
 type FilterKey =
   | 'query'
@@ -33,85 +39,92 @@ interface ActiveFilterTag {
 @Component({
   selector: 'app-search-results',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, RoomCardComponent, SearchMapPlaceholderComponent],
+  imports: [CommonModule, RouterLink, FormsModule, RoomCardComponent, GuestPickerComponent, SearchMapComponent],
   template: `
-    <div class="search-page">
+    <div class="search-page" [class.search-page--fullscreen]="fullscreenMap()">
+      <!-- Filter Bar -->
       <div class="filter-bar">
         <div class="container filter-bar__inner">
-          <div class="filter-bar__stack filter-bar__stack--wide">
-            <label class="filter-label" for="queryInput">Search</label>
-            <input
-              id="queryInput"
-              type="text"
-              [(ngModel)]="draftFilters.query"
-              placeholder="City, hotel, or family stay"
-              class="form-control filter-bar__search"
-              (keyup.enter)="applyFilters()"
-            />
+          <div class="filter-bar__primary">
+            <div class="filter-bar__stack filter-bar__stack--wide">
+              <label class="filter-label" for="queryInput">Search</label>
+              <input
+                id="queryInput"
+                type="text"
+                [(ngModel)]="draftFilters.query"
+                placeholder="City, hotel, or family stay"
+                class="form-control filter-bar__search"
+                (keyup.enter)="applyFilters()"
+              />
+            </div>
+
+            <div class="filter-bar__stack">
+              <label class="filter-label" for="cityInput">Destination</label>
+              <input
+                id="cityInput"
+                type="text"
+                [(ngModel)]="draftFilters.city"
+                placeholder="Chennai"
+                class="form-control filter-bar__search"
+                (keyup.enter)="applyFilters()"
+              />
+            </div>
+
+            <div class="filter-bar__stack">
+              <label class="filter-label" for="landmarkInput">Nearby</label>
+              <input
+                id="landmarkInput"
+                type="text"
+                [(ngModel)]="draftFilters.landmark"
+                placeholder="Marina Beach"
+                class="form-control filter-bar__search"
+                (keyup.enter)="applyFilters()"
+              />
+            </div>
+
+            <div class="filter-bar__stack filter-bar__stack--guests">
+              <label class="filter-label" for="search-guests-picker">Guests</label>
+              <app-guest-picker
+                id="search-guests-picker"
+                [compact]="true"
+                [value]="guestSelection"
+                (valueChange)="onGuestChange($event)"
+              />
+            </div>
+
+            <button class="btn btn--primary btn--sm filter-bar__search-btn" (click)="applyFilters()">Search</button>
           </div>
 
-          <div class="filter-bar__stack">
-            <label class="filter-label" for="cityInput">Destination</label>
-            <input
-              id="cityInput"
-              type="text"
-              [(ngModel)]="draftFilters.city"
-              placeholder="Chennai"
-              class="form-control filter-bar__search"
-              (keyup.enter)="applyFilters()"
-            />
-          </div>
+          <div class="filter-bar__secondary">
+            <div class="filter-bar__stack filter-bar__stack--compact">
+              <label class="filter-label" for="sortSelect">Sort</label>
+              <select id="sortSelect" [(ngModel)]="draftFilters.sort_by" class="form-control filter-bar__select" (change)="applyFilters()">
+                @for (option of sortOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </div>
 
-          <div class="filter-bar__stack">
-            <label class="filter-label" for="landmarkInput">Nearby</label>
-            <input
-              id="landmarkInput"
-              type="text"
-              [(ngModel)]="draftFilters.landmark"
-              placeholder="Marina Beach"
-              class="form-control filter-bar__search"
-              (keyup.enter)="applyFilters()"
-            />
-          </div>
+            <div class="filter-bar__stack filter-bar__stack--compact">
+              <label class="filter-label" for="roomTypeSelect">Room Type</label>
+              <select id="roomTypeSelect" [(ngModel)]="draftFilters.room_type" class="form-control filter-bar__select" (change)="applyFilters()">
+                <option value="">All types</option>
+                <option value="standard">Standard</option>
+                <option value="deluxe">Deluxe</option>
+                <option value="suite">Suite</option>
+                <option value="penthouse">Penthouse</option>
+              </select>
+            </div>
 
-          <div class="filter-bar__stack filter-bar__stack--compact">
-            <label class="filter-label" for="sortSelect">Sort</label>
-            <select id="sortSelect" [(ngModel)]="draftFilters.sort_by" class="form-control filter-bar__select" (change)="applyFilters()">
-              @for (option of sortOptions; track option.value) {
-                <option [value]="option.value">{{ option.label }}</option>
-              }
-            </select>
-          </div>
-
-          <div class="filter-bar__stack filter-bar__stack--compact">
-            <label class="filter-label" for="roomTypeSelect">Room Type</label>
-            <select id="roomTypeSelect" [(ngModel)]="draftFilters.room_type" class="form-control filter-bar__select" (change)="applyFilters()">
-              <option value="">All types</option>
-              <option value="standard">Standard</option>
-              <option value="deluxe">Deluxe</option>
-              <option value="suite">Suite</option>
-              <option value="penthouse">Penthouse</option>
-            </select>
-          </div>
-
-          <div class="filter-bar__stack filter-bar__stack--compact">
-            <label class="filter-label" for="guestsSelect">Guests</label>
-            <select id="guestsSelect" [(ngModel)]="draftFilters.guests" class="form-control filter-bar__select" (change)="applyFilters()">
-              <option [ngValue]="undefined">Any guests</option>
-              <option [ngValue]="1">1 guest</option>
-              <option [ngValue]="2">2 guests</option>
-              <option [ngValue]="3">3 guests</option>
-              <option [ngValue]="4">4+ guests</option>
-            </select>
-          </div>
-
-          <div class="filter-bar__actions">
-            <button class="btn btn--primary btn--sm" (click)="applyFilters()">Search</button>
-            <button class="btn btn--ghost btn--sm" (click)="toggleAdvanced()">
-              Filters {{ activeFilterTags().length ? '(' + activeFilterTags().length + ')' : '' }}
-            </button>
-            <button class="btn btn--secondary btn--sm" (click)="toggleMap()">{{ showMap() ? 'Hide Map' : 'Map View' }}</button>
-            <button class="btn btn--secondary btn--sm" (click)="clearFilters()">Clear</button>
+            <div class="filter-bar__actions">
+              <button class="btn btn--ghost btn--sm" (click)="toggleAdvanced()">
+                Filters {{ activeFilterTags().length ? '(' + activeFilterTags().length + ')' : '' }}
+              </button>
+              <button class="btn btn--secondary btn--sm" (click)="toggleMap()">
+                {{ showMap() ? 'List Only' : 'Split View' }}
+              </button>
+              <button class="btn btn--secondary btn--sm" (click)="clearFilters()">Clear</button>
+            </div>
           </div>
         </div>
 
@@ -182,72 +195,157 @@ interface ActiveFilterTag {
         }
       </div>
 
-      <div class="container results-wrapper">
-        <div class="results-header">
-          @if (!loading()) {
-            <h1 class="results-title">
-              {{ resultsHeading() }} <span>{{ resultsAccent() }}</span>
-            </h1>
-            <p class="results-count">{{ total() }} properties found · sorted by {{ currentSortLabel() }}</p>
-          }
+      <!-- ═══ SPLIT-SCREEN LAYOUT ═══ -->
+      <div class="explore-layout" [class.explore-layout--split]="showMap()" [class.explore-layout--fullscreen]="fullscreenMap()">
+
+        <!-- Left Panel: Room List -->
+        <div class="explore-panel" [class.explore-panel--hidden]="fullscreenMap()">
+          <div class="explore-panel__header">
+            @if (!loading()) {
+              <h1 class="results-title">
+                {{ resultsHeading() }} <span>{{ resultsAccent() }}</span>
+              </h1>
+              <p class="results-count">
+                {{ total() }} properties found · sorted by {{ currentSortLabel() }}
+                @if (searchStore.dateRangeText()) {
+                  · <span class="results-dates">{{ searchStore.dateRangeText() }}</span>
+                }
+              </p>
+            }
+          </div>
+
+          <div class="explore-panel__scroll">
+            @if (loading()) {
+              <div class="room-list">
+                @for (s of [1,2,3,4,5,6]; track s) {
+                  <div class="room-list-card room-list-card--skeleton">
+                    <div class="skeleton" style="width:140px;height:100%;border-radius:12px 0 0 12px"></div>
+                    <div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:8px">
+                      <div class="skeleton" style="height:10px;width:40%"></div>
+                      <div class="skeleton" style="height:16px;width:70%"></div>
+                      <div class="skeleton" style="height:10px;width:55%"></div>
+                      <div style="margin-top:auto"><div class="skeleton" style="height:14px;width:30%"></div></div>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else if (error()) {
+              <div class="empty-state">
+                <div class="empty-state__icon">⚠</div>
+                <h3>Unable to load rooms</h3>
+                <p>We couldn't connect to the server. Please check your connection and try again.</p>
+                <button class="btn btn--primary btn--sm" (click)="loadRoomsPublic()">Retry</button>
+              </div>
+            } @else if (rooms().length === 0) {
+              <div class="empty-state">
+                <div class="empty-state__icon">🔍</div>
+                <h3>No rooms found</h3>
+                <p>Try adjusting your filters, remove a nearby landmark, or broaden the price range.</p>
+                <button class="btn btn--ghost btn--sm" (click)="clearFilters()">Clear Filters</button>
+              </div>
+            } @else {
+              <!-- Split view: horizontal list cards -->
+              @if (showMap()) {
+                <div class="room-list">
+                  @for (room of rooms(); track room.id) {
+                    <button
+                      type="button"
+                      class="room-list-card"
+                      [attr.data-room-id]="room.id"
+                      [class.room-list-card--active]="hoveredRoomId() === room.id"
+                      (click)="selectRoom(room)"
+                      (mouseenter)="onCardHover(room)"
+                      (mouseleave)="onCardLeave()"
+                    >
+                      <img
+                        class="room-list-card__img"
+                        [src]="resolveImage(room.image_url)"
+                        [alt]="room.hotel_name"
+                        loading="lazy"
+                        (error)="onImgError($event)"
+                      />
+                      <div class="room-list-card__body">
+                        <span class="room-list-card__type">{{ room.room_type | titlecase }}</span>
+                        <h4 class="room-list-card__name">{{ room.hotel_name }}</h4>
+                        <p class="room-list-card__location">{{ room.location || room.city }}</p>
+                        <div class="room-list-card__meta">
+                          <span class="room-list-card__rating">{{ room.rating }} ★</span>
+                          @if (room.review_count) {
+                            <span class="room-list-card__reviews">({{ room.review_count }})</span>
+                          }
+                          <span class="room-list-card__beds">{{ room.beds }} bed · {{ room.bathrooms }} bath</span>
+                        </div>
+                        <div class="room-list-card__footer">
+                          <span class="room-list-card__price">
+                            @if (room.original_price) {
+                              <small class="room-list-card__price-old">₹{{ room.original_price }}</small>
+                            }
+                            ₹{{ room.price }}<small>/night</small>
+                          </span>
+                          <a class="room-list-card__cta" [routerLink]="['/rooms', room.id]" (click)="$event.stopPropagation()">View</a>
+                        </div>
+                        @if (room.is_featured) {
+                          <span class="room-list-card__featured">Featured</span>
+                        }
+                      </div>
+                    </button>
+                  }
+                </div>
+              } @else {
+                <!-- Grid view: standard room cards -->
+                <div class="grid-rooms">
+                  @for (room of rooms(); track room.id) {
+                    <app-room-card [room]="room" />
+                  }
+                </div>
+              }
+
+              @if (totalPages() > 1) {
+                <div class="pagination">
+                  <button class="btn btn--secondary btn--sm" [disabled]="page() === 1" (click)="goToPage(page() - 1)">← Prev</button>
+                  @for (p of pageNumbers(); track p) {
+                    <button
+                      class="btn btn--sm"
+                      [class.btn--primary]="p === page()"
+                      [class.btn--secondary]="p !== page()"
+                      (click)="goToPage(p)"
+                    >{{ p }}</button>
+                  }
+                  <button class="btn btn--secondary btn--sm" [disabled]="page() === totalPages()" (click)="goToPage(page() + 1)">Next →</button>
+                </div>
+              }
+            }
+          </div>
         </div>
 
+        <!-- Right Panel: Map (always visible in split mode) -->
         @if (showMap()) {
-          @defer (when showMap()) {
-            <app-search-map-placeholder [rooms]="rooms()" [cityLabel]="draftFilters.city || draftFilters.landmark || 'Flexible search area'" />
-          } @placeholder {
-            <div class="map-loading">Loading map architecture…</div>
-          }
-        }
-
-        @if (loading()) {
-          <div class="grid-rooms">
-            @for (s of [1,2,3,4,5,6,7,8,9]; track s) {
-              <div class="skeleton-card">
-                <div class="skeleton" style="height:200px;border-radius:16px 16px 0 0"></div>
-                <div style="padding:20px;display:flex;flex-direction:column;gap:10px">
-                  <div class="skeleton" style="height:12px;width:50%"></div>
-                  <div class="skeleton" style="height:20px;width:75%"></div>
-                  <div class="skeleton" style="height:12px;width:35%"></div>
-                </div>
+          <div class="explore-map" [class.explore-map--fullscreen]="fullscreenMap()">
+            @defer (when showMap()) {
+              <app-search-map
+                [rooms]="rooms()"
+                [hoveredRoomId]="hoveredRoomId()"
+                [cityLabel]="draftFilters.city || draftFilters.landmark || 'Flexible search area'"
+                (roomSelected)="onMapRoomSelected($event)"
+              />
+            } @placeholder {
+              <div class="map-loading">
+                <div class="map-loading__spinner"></div>
+                <span>Loading map…</span>
               </div>
             }
-          </div>
-        } @else if (error()) {
-          <div class="empty-state">
-            <div class="empty-state__icon">⚠️</div>
-            <h3>Unable to load rooms</h3>
-            <p>We couldn't connect to the server. Please check your connection and try again.</p>
-            <button class="btn btn--primary" (click)="loadRoomsPublic()">Retry</button>
-          </div>
-        } @else if (rooms().length === 0) {
-          <div class="empty-state">
-            <div class="empty-state__icon">🔍</div>
-            <h3>No rooms found</h3>
-            <p>Try adjusting your filters, remove a nearby landmark, or broaden the price range.</p>
-            <button class="btn btn--ghost" (click)="clearFilters()">Clear Filters</button>
-          </div>
-        } @else {
-          <div class="grid-rooms">
-            @for (room of rooms(); track room.id) {
-              <app-room-card [room]="room" />
-            }
-          </div>
 
-          @if (totalPages() > 1) {
-            <div class="pagination">
-              <button class="btn btn--secondary btn--sm" [disabled]="page() === 1" (click)="goToPage(page() - 1)">← Prev</button>
-              @for (p of pageNumbers(); track p) {
-                <button
-                  class="btn btn--sm"
-                  [class.btn--primary]="p === page()"
-                  [class.btn--secondary]="p !== page()"
-                  (click)="goToPage(p)"
-                >{{ p }}</button>
-              }
-              <button class="btn btn--secondary btn--sm" [disabled]="page() === totalPages()" (click)="goToPage(page() + 1)">Next →</button>
-            </div>
-          }
+            <!-- Fullscreen toggle -->
+            <button
+              type="button"
+              class="map-fullscreen-btn"
+              (click)="toggleFullscreen()"
+              [attr.aria-label]="fullscreenMap() ? 'Exit fullscreen' : 'Fullscreen map'"
+            >
+              {{ fullscreenMap() ? '⊟' : '⊞' }}
+              <span>{{ fullscreenMap() ? 'Exit Fullscreen' : 'Fullscreen' }}</span>
+            </button>
+          </div>
         }
       </div>
     </div>
@@ -255,20 +353,25 @@ interface ActiveFilterTag {
   styleUrl: './search-results.component.scss',
 })
 export class SearchResultsComponent implements OnInit {
+  @ViewChild(SearchMapComponent) private mapComponent?: SearchMapComponent;
+
   private roomService = inject(RoomService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private wishlistService = inject(WishlistService);
   private authService = inject(AuthService);
+  protected searchStore = inject(BookingSearchStore);
 
   rooms = signal<Room[]>([]);
   loading = signal(true);
   error = signal(false);
   total = signal(0);
   page = signal(1);
-  showMap = signal(false);
+  showMap = signal(true);
+  fullscreenMap = signal(false);
   advancedOpen = signal(false);
-  readonly perPage = 9;
+  hoveredRoomId = signal<number | null>(null);
+  readonly perPage = 12;
 
   readonly sortOptions: Array<{ value: RoomSortOption; label: string }> = [
     { value: 'recommended', label: 'Recommended' },
@@ -298,6 +401,7 @@ export class SearchResultsComponent implements OnInit {
   ];
 
   draftFilters: RoomSearchParams = this.defaultFilters();
+  guestSelection: GuestSelection = { adults: 2, children: 0, infants: 0 };
 
   readonly activeFilterTags = () => {
     const tags: ActiveFilterTag[] = [];
@@ -312,7 +416,13 @@ export class SearchResultsComponent implements OnInit {
     }
     if (filters.min_rating) tags.push({ key: 'rating', label: `${filters.min_rating}+ stars` });
     if (this.selectedAmenities().length) tags.push({ key: 'amenities', label: `Amenities: ${this.selectedAmenities().join(', ')}` });
-    if (filters.guests) tags.push({ key: 'guests', label: `${filters.guests}+ guests` });
+    if (filters.guests) {
+      const parts: string[] = [];
+      if (filters.adults) parts.push(`${filters.adults} Adult${filters.adults !== 1 ? 's' : ''}`);
+      if (filters.children) parts.push(`${filters.children} Child${filters.children !== 1 ? 'ren' : ''}`);
+      if (filters.infants) parts.push(`${filters.infants} Infant${filters.infants !== 1 ? 's' : ''}`);
+      tags.push({ key: 'guests', label: parts.length ? parts.join(', ') : `${filters.guests} guests` });
+    }
     if (filters.sort_by && filters.sort_by !== 'recommended') tags.push({ key: 'sort', label: this.currentSortLabel() });
 
     return tags;
@@ -347,6 +457,14 @@ export class SearchResultsComponent implements OnInit {
     this.draftFilters.city || this.draftFilters.landmark || this.draftFilters.query || 'curated results'
   ;
 
+  resolveImage(url?: string): string {
+    return normalizeRoomImageUrl(url) || ROOM_IMAGE_PLACEHOLDER;
+  }
+
+  onImgError(event: Event): void {
+    (event.target as HTMLImageElement).src = ROOM_IMAGE_PLACEHOLDER;
+  }
+
   ngOnInit(): void {
     if (this.authService.isLoggedIn) {
       this.wishlistService.loadStatus().subscribe();
@@ -354,7 +472,14 @@ export class SearchResultsComponent implements OnInit {
 
     this.route.queryParams.subscribe(params => {
       this.page.set(params['page'] ? +params['page'] : 1);
-      this.showMap.set(params['view'] === 'map');
+      if (params['view'] === 'list') {
+        this.showMap.set(false);
+      }
+      const adults = params['adults'] ? +params['adults'] : undefined;
+      const children = params['children'] ? +params['children'] : undefined;
+      const infants = params['infants'] ? +params['infants'] : undefined;
+      const guests = params['guests'] ? +params['guests'] : (adults !== undefined ? (adults + (children || 0)) : undefined);
+
       this.draftFilters = {
         query: params['query'] || '',
         city: params['city'] || '',
@@ -364,14 +489,29 @@ export class SearchResultsComponent implements OnInit {
         max_price: params['max_price'] ? +params['max_price'] : undefined,
         min_rating: params['min_rating'] ? +params['min_rating'] : undefined,
         amenities: params['amenities'] || '',
-        guests: params['guests'] ? +params['guests'] : undefined,
+        guests,
+        adults,
+        children,
+        infants,
         sort_by: this.normalizeSortValue(params['sort_by']),
         check_in: params['check_in'] || '',
         check_out: params['check_out'] || '',
         page: this.page(),
         per_page: this.perPage,
       };
+      this.guestSelection = {
+        adults: adults || 2,
+        children: children || 0,
+        infants: infants || 0,
+      };
       this.loadRooms();
+    });
+
+    // ESC exits fullscreen map
+    document.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && this.fullscreenMap()) {
+        this.fullscreenMap.set(false);
+      }
     });
   }
 
@@ -381,7 +521,71 @@ export class SearchResultsComponent implements OnInit {
 
   toggleMap(): void {
     this.showMap.update(current => !current);
+    if (!this.showMap()) {
+      this.fullscreenMap.set(false);
+    }
     this.syncQueryParams();
+  }
+
+  toggleFullscreen(): void {
+    if (!this.fullscreenMap()) {
+      // Entering fullscreen — save current bounds
+      this.mapComponent?.saveBounds();
+    }
+    this.fullscreenMap.update(v => !v);
+    // CRITICAL: invalidate map size after fullscreen toggle
+    this.mapComponent?.invalidate();
+    setTimeout(() => {
+      this.mapComponent?.invalidate();
+      window.dispatchEvent(new Event('resize'));
+    }, 300);
+    if (this.fullscreenMap()) {
+      // Exiting fullscreen — restore bounds after animation
+      setTimeout(() => this.mapComponent?.restoreBounds(), 400);
+    }
+  }
+
+  /** Card clicked → zoom marker + open popup */
+  selectRoom(room: Room): void {
+    this.hoveredRoomId.set(room.id);
+  }
+
+  /** Card hovered → glow the marker on map */
+  onCardHover(room: Room): void {
+    this.hoveredRoomId.set(room.id);
+  }
+
+  /** Card unhovered → reset marker */
+  onCardLeave(): void {
+    this.hoveredRoomId.set(null);
+  }
+
+  /** Marker clicked → highlight card + auto-scroll sidebar */
+  onMapRoomSelected(room: Room): void {
+    this.hoveredRoomId.set(room.id);
+    // Scroll room card into view in the left panel using data-room-id
+    setTimeout(() => {
+      const el = document.querySelector(`[data-room-id="${room.id}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Add brief flash animation
+        el.classList.add('room-list-card--flash');
+        setTimeout(() => el.classList.remove('room-list-card--flash'), 1200);
+      }
+    }, 50);
+  }
+
+  onGuestChange(selection: GuestSelection): void {
+    this.guestSelection = selection;
+    const totalGuests = selection.adults + selection.children;
+    this.draftFilters = {
+      ...this.draftFilters,
+      guests: totalGuests || undefined,
+      adults: selection.adults,
+      children: selection.children,
+      infants: selection.infants,
+    };
+    this.applyFilters();
   }
 
   applySuggestion(suggestion: SearchSuggestion): void {
@@ -440,7 +644,8 @@ export class SearchResultsComponent implements OnInit {
         this.draftFilters = { ...this.draftFilters, amenities: '' };
         break;
       case 'guests':
-        this.draftFilters = { ...this.draftFilters, guests: undefined };
+        this.draftFilters = { ...this.draftFilters, guests: undefined, adults: undefined, children: undefined, infants: undefined };
+        this.guestSelection = { adults: 2, children: 0, infants: 0 };
         break;
       case 'sort':
         this.draftFilters = { ...this.draftFilters, sort_by: 'recommended' };
@@ -452,14 +657,19 @@ export class SearchResultsComponent implements OnInit {
   clearFilters(): void {
     this.draftFilters = this.defaultFilters();
     this.page.set(1);
-    this.showMap.set(false);
     this.syncQueryParams();
   }
 
   goToPage(pageNumber: number): void {
     this.page.set(pageNumber);
     this.syncQueryParams();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Scroll to top of room list panel
+    const panel = document.querySelector('.explore-panel__scroll');
+    if (panel) {
+      panel.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }
 
   loadRoomsPublic(): void {
@@ -516,11 +726,14 @@ export class SearchResultsComponent implements OnInit {
     if (filters.min_rating !== undefined) queryParams['min_rating'] = filters.min_rating;
     if (filters.amenities) queryParams['amenities'] = filters.amenities;
     if (filters.guests !== undefined) queryParams['guests'] = filters.guests;
+    if (filters.adults !== undefined) queryParams['adults'] = filters.adults;
+    if (filters.children !== undefined && filters.children > 0) queryParams['children'] = filters.children;
+    if (filters.infants !== undefined && filters.infants > 0) queryParams['infants'] = filters.infants;
     if (filters.sort_by && filters.sort_by !== 'recommended') queryParams['sort_by'] = filters.sort_by;
     if (filters.check_in) queryParams['check_in'] = filters.check_in;
     if (filters.check_out) queryParams['check_out'] = filters.check_out;
     if (this.page() > 1) queryParams['page'] = this.page();
-    if (this.showMap()) queryParams['view'] = 'map';
+    if (!this.showMap()) queryParams['view'] = 'list';
 
     void this.router.navigate([], {
       relativeTo: this.route,

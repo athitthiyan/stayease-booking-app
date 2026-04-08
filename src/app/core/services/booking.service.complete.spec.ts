@@ -49,6 +49,9 @@ describe('BookingService (extended branches)', () => {
         checkIn: '2027-01-01',
         checkOut: '2027-01-03',
         guests: 1,
+        adults: 1,
+        children: 0,
+        infants: 0,
       };
       sessionStorage.setItem('checkout_state', JSON.stringify(state));
       const result = service.getCheckoutState();
@@ -63,6 +66,9 @@ describe('BookingService (extended branches)', () => {
         check_in: '2027-01-10',
         check_out: '2027-01-12',
         guests: 2,
+        adults: 2,
+        children: 0,
+        infants: 0,
         user_name: 'Athit',
         email: 'athit@example.com',
       };
@@ -220,7 +226,7 @@ describe('BookingService (extended branches)', () => {
 
   describe('checkoutState$ observable', () => {
     it('emits updated state after setCheckoutState', done => {
-      const state: CheckoutState = { room: null, checkIn: '2027-02-01', checkOut: '2027-02-03', guests: 3 };
+      const state: CheckoutState = { room: null, checkIn: '2027-02-01', checkOut: '2027-02-03', guests: 3, adults: 3, children: 0, infants: 0 };
       service.checkoutState$.subscribe(emitted => {
         if (emitted !== null) {
           expect(emitted).toEqual(state);

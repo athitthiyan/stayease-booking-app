@@ -83,9 +83,9 @@ import {
         <div class="room-card__footer">
           <div class="price">
             @if (room.original_price) {
-              <span class="price__original">\${{ room.original_price | number:'1.0-0' }}</span>
+              <span class="price__original">₹{{ room.original_price | number:'1.0-0' }}</span>
             }
-            <span class="price__amount">\${{ room.price | number:'1.0-0' }}</span>
+            <span class="price__amount">₹{{ room.price | number:'1.0-0' }}</span>
             <span class="price__period">/ night</span>
           </div>
           <a [routerLink]="['/rooms', room.id]" class="btn btn--primary btn--sm" (click)="$event.stopPropagation()">

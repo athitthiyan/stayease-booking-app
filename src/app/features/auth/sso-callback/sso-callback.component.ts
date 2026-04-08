@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { getMsalRedirectResult, wasBackendLoginDone } from '../../../core/auth/msal.config';
 import { AuthService } from '../../../core/services/auth.service';
+import { BookingSearchStore } from '../../../core/services/booking-search.store';
 
 @Component({
   selector: 'app-sso-callback',
@@ -56,13 +57,14 @@ export class SsoCallbackComponent implements OnInit {
   private authService = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private searchStore = inject(BookingSearchStore);
 
   error = signal('');
 
   ngOnInit(): void {
     // Case 1: Backend login already completed in APP_INITIALIZER
     if (wasBackendLoginDone()) {
-      this.router.navigate(['/']);
+      this.redirectToIntendedRoute();
       return;
     }
 
@@ -92,9 +94,19 @@ export class SsoCallbackComponent implements OnInit {
 
   private handleToken(provider: 'google' | 'apple' | 'microsoft', idToken: string): void {
     this.authService.socialLoginWithToken(provider, idToken).subscribe({
-      next: () => this.router.navigate(['/']),
+      next: () => this.redirectToIntendedRoute(),
       error: () => this.error.set('Sign-in failed. Please try again.'),
     });
+  }
+
+  /** Redirect to the route the user was trying to reach before login */
+  private redirectToIntendedRoute(): void {
+    const intended = this.searchStore.getAndClearRedirectIntent();
+    if (intended) {
+      this.router.navigateByUrl(intended);
+    } else {
+      this.router.navigate(['/']);
+    }
   }
 
   goToLogin(): void {
