@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { BookingHistoryComponent } from './booking-history.component';
 import { BookingService } from '../../core/services/booking.service';
 import { AuthService } from '../../core/services/auth.service';
+import { PlatformSyncService } from '../../core/services/platform-sync.service';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { MyBookingsResponse } from '../../core/models/booking.model';
 import { Room } from '../../core/models/room.model';
@@ -27,6 +28,27 @@ const bookingRoom = (overrides: Partial<Room> = {}): Room => ({
   ...overrides,
 });
 
+const bookingResponse = (
+  overrides: Partial<MyBookingsResponse> = {},
+): MyBookingsResponse => ({
+  total: 4,
+  upcoming: 1,
+  past: 2,
+  cancelled: 1,
+  expired: 0,
+  page: 1,
+  per_page: 10,
+  total_pages: 1,
+  tab: 'upcoming',
+  bookings: [
+    { id: 1, booking_ref: 'BK1', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'confirmed', payment_status: 'paid', check_in: '2030-01-01', check_out: '2030-01-03', nights: 2, guests: 2, adults: 2, children: 0, infants: 0, room_rate: 200, taxes: 24, service_fee: 10, total_amount: 200, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
+    { id: 2, booking_ref: 'BK2', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'completed', payment_status: 'paid', check_in: '2020-01-01', check_out: '2020-01-03', nights: 2, guests: 2, adults: 2, children: 0, infants: 0, room_rate: 200, taxes: 24, service_fee: 10, total_amount: 200, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
+    { id: 3, booking_ref: 'BK3', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'confirmed', payment_status: 'paid', check_in: '2020-01-01', check_out: '2020-01-02', nights: 1, guests: 1, adults: 1, children: 0, infants: 0, room_rate: 100, taxes: 12, service_fee: 5, total_amount: 100, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
+    { id: 4, booking_ref: 'BK4', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'cancelled', payment_status: 'failed', check_in: '2020-02-01', check_out: '2020-02-02', nights: 1, guests: 1, adults: 1, children: 0, infants: 0, room_rate: 100, taxes: 12, service_fee: 5, total_amount: 100, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
+  ],
+  ...overrides,
+});
+
 describe('BookingHistoryComponent', () => {
   const bookingService = {
     getMyBookings: jest.fn(),
@@ -44,18 +66,7 @@ describe('BookingHistoryComponent', () => {
     isSaved: jest.fn(() => false),
   };
 
-  const response: MyBookingsResponse = {
-    total: 4,
-    upcoming: 1,
-    past: 2,
-    cancelled: 1,
-    bookings: [
-      { id: 1, booking_ref: 'BK1', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'confirmed', payment_status: 'paid', check_in: '2030-01-01', check_out: '2030-01-03', nights: 2, guests: 2, adults: 2, children: 0, infants: 0, room_rate: 200, taxes: 24, service_fee: 10, total_amount: 200, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
-      { id: 2, booking_ref: 'BK2', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'completed', payment_status: 'paid', check_in: '2020-01-01', check_out: '2020-01-03', nights: 2, guests: 2, adults: 2, children: 0, infants: 0, room_rate: 200, taxes: 24, service_fee: 10, total_amount: 200, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
-      { id: 3, booking_ref: 'BK3', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'confirmed', payment_status: 'paid', check_in: '2020-01-01', check_out: '2020-01-02', nights: 1, guests: 1, adults: 1, children: 0, infants: 0, room_rate: 100, taxes: 12, service_fee: 5, total_amount: 100, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
-      { id: 4, booking_ref: 'BK4', user_name: 'Alex', email: 'alex@example.com', room_id: 1, status: 'cancelled', payment_status: 'failed', check_in: '2020-02-01', check_out: '2020-02-02', nights: 1, guests: 1, adults: 1, children: 0, infants: 0, room_rate: 100, taxes: 12, service_fee: 5, total_amount: 100, created_at: '2026-04-01T00:00:00.000Z', room: bookingRoom() },
-    ],
-  };
+  const response: MyBookingsResponse = bookingResponse();
 
   beforeEach(async () => {
     bookingService.getMyBookings.mockReset();
@@ -85,6 +96,26 @@ describe('BookingHistoryComponent', () => {
     expect(component.data()).toEqual(response);
     expect(component.loading()).toBe(false);
     expect(component.errorMsg()).toBe('');
+    expect(bookingService.getMyBookings).toHaveBeenCalledWith('upcoming', 1, 5);
+  });
+
+  it('reloads silently when a realtime booking event arrives', () => {
+    bookingService.getMyBookings.mockReturnValue(of(response));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    const platformSync = TestBed.inject(PlatformSyncService);
+    const loadSpy = jest.spyOn(component, 'load');
+
+    component.ngOnInit();
+    platformSync.emit({
+      type: 'booking-created',
+      payload: {},
+      timestamp: new Date().toISOString(),
+      source: 'system',
+    });
+
+    expect(loadSpy).toHaveBeenCalledWith(true);
   });
 
   it('handles load failure', () => {
@@ -99,13 +130,38 @@ describe('BookingHistoryComponent', () => {
   });
 
   it('filters bookings by tab', () => {
-    bookingService.getMyBookings.mockReturnValue(of(response));
+    bookingService.getMyBookings
+      .mockReturnValueOnce(of(response))
+      .mockReturnValueOnce(of(bookingResponse({
+        tab: 'upcoming',
+        total: 1,
+        page: 1,
+        per_page: 5,
+        total_pages: 1,
+        bookings: [response.bookings[0]],
+      })))
+      .mockReturnValueOnce(of(bookingResponse({
+        tab: 'past',
+        total: 2,
+        page: 1,
+        per_page: 5,
+        total_pages: 1,
+        bookings: [response.bookings[1], response.bookings[2]],
+      })))
+      .mockReturnValueOnce(of(bookingResponse({
+        tab: 'cancelled',
+        total: 1,
+        page: 1,
+        per_page: 5,
+        total_pages: 1,
+        bookings: [response.bookings[3]],
+      })));
 
     const fixture = TestBed.createComponent(BookingHistoryComponent);
     const component = fixture.componentInstance;
     component.load();
 
-    expect(component.filteredBookings()).toHaveLength(1);
+    expect(component.filteredBookings()).toHaveLength(4);
 
     component.setTab('upcoming');
     expect(component.filteredBookings().map(b => b.id)).toEqual([1]);
@@ -125,6 +181,7 @@ describe('BookingHistoryComponent', () => {
     expect(component.tabCount('upcoming')).toBe(1);
     expect(component.tabCount('past')).toBe(2);
     expect(component.tabCount('cancelled')).toBe(1);
+    expect(component.tabCount('expired')).toBe(0);
     expect(component.formatDate('2026-04-01T00:00:00.000Z')).toContain('2026');
   });
 
@@ -136,6 +193,7 @@ describe('BookingHistoryComponent', () => {
     expect(component.tabCount('upcoming')).toBe(0);
     expect(component.tabCount('past')).toBe(0);
     expect(component.tabCount('cancelled')).toBe(0);
+    expect(component.tabCount('expired')).toBe(0);
   });
 
   it('falls back to the placeholder image for broken booking artwork', () => {
@@ -157,6 +215,11 @@ describe('BookingHistoryComponent', () => {
       upcoming: 0,
       past: 0,
       cancelled: 0,
+      expired: 0,
+      page: 1,
+      per_page: 10,
+      total_pages: 1,
+      tab: 'upcoming',
       bookings: [
         {
           id: 12,
@@ -386,6 +449,16 @@ describe('BookingHistoryComponent', () => {
   });
 
   it('guards pagination boundaries and exposes page labels and status formatting', () => {
+    bookingService.getMyBookings.mockReturnValue(of(bookingResponse({
+      tab: 'past',
+      total: 2,
+      past: 2,
+      page: 2,
+      per_page: 1,
+      total_pages: 2,
+      bookings: [response.bookings[2]],
+    })));
+
     const fixture = TestBed.createComponent(BookingHistoryComponent);
     const component = fixture.componentInstance;
     component.data.set(response);
@@ -393,7 +466,7 @@ describe('BookingHistoryComponent', () => {
     component.setTab('past');
 
     component.goToPage(0);
-    expect(component.currentPage()).toBe(1);
+    expect(component.currentPage()).toBe(2);
 
     component.goToPage(2);
     expect(component.currentPage()).toBe(2);
@@ -401,7 +474,64 @@ describe('BookingHistoryComponent', () => {
     expect(component.statusLabel('expired')).toBe('Expired');
   });
 
+  it('uses backend pagination metadata when the response tab matches the active tab', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+
+    component.data.set(bookingResponse({
+      bookings: [response.bookings[0]],
+      total: 7,
+      page: 2,
+      per_page: 5,
+      total_pages: 3,
+      tab: 'upcoming',
+    }));
+    component.activeTab.set('upcoming');
+
+    expect(component.paginatedBookings()).toEqual([response.bookings[0]]);
+    expect(component.totalPages()).toBe(3);
+    expect(component.pageNumbers).toEqual([1, 2, 3]);
+  });
+
+  it('falls back to local pagination when the active tab differs from the response tab', () => {
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+
+    component.data.set(bookingResponse({ tab: 'upcoming' }));
+    component.activeTab.set('past');
+    component.pageSize.set(1);
+    component.currentPage.set(2);
+
+    expect(component.paginatedBookings()).toEqual([response.bookings[2]]);
+    expect(component.totalPages()).toBe(2);
+    expect(component.pageNumbers).toEqual([1, 2]);
+  });
+
+  it('reloads from the first page when the page size changes', () => {
+    bookingService.getMyBookings.mockReturnValue(of(response));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.currentPage.set(3);
+
+    component.updatePageSize(10);
+
+    expect(component.pageSize()).toBe(10);
+    expect(component.currentPage()).toBe(1);
+    expect(bookingService.getMyBookings).toHaveBeenLastCalledWith('upcoming', 1, 10);
+  });
+
   it('returns empty-state copy for past and cancelled tabs', () => {
+    bookingService.getMyBookings.mockReturnValue(of(bookingResponse({
+      tab: 'past',
+      total: 0,
+      upcoming: 0,
+      past: 0,
+      cancelled: 0,
+      expired: 0,
+      bookings: [],
+    })));
+
     const fixture = TestBed.createComponent(BookingHistoryComponent);
     const component = fixture.componentInstance;
 

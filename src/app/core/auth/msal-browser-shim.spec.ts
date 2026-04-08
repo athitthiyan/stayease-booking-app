@@ -1,4 +1,5 @@
 import {
+  BrowserAuthError,
   BrowserCacheLocation,
   PublicClientApplication,
   type Configuration,
@@ -80,6 +81,55 @@ describe('msal-browser-shim', () => {
     expect(localStorage.getItem('msal_pkce_verifier')).toContain('opaque-value');
   });
 
+  it('uses default scopes and falls back when randomUUID is unavailable', async () => {
+    const app = new PublicClientApplication(baseConfig);
+    const assign = jest.fn();
+    jest.spyOn(Date, 'now').mockReturnValue(1234567890);
+    jest.spyOn(Math, 'random').mockReturnValue(0.123456789);
+
+    Object.defineProperty(globalThis, 'crypto', {
+      configurable: true,
+      value: {
+        subtle: {
+          digest: jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3, 4]).buffer),
+        },
+      },
+    });
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        assign,
+      },
+    });
+
+    await app.loginRedirect({});
+
+    const authUrl = new URL(assign.mock.calls[0][0] as string);
+    expect(authUrl.searchParams.get('scope')).toBe('openid profile email');
+    expect(authUrl.searchParams.get('prompt')).toBeNull();
+    expect(authUrl.searchParams.get('state')).toContain('1234567890-');
+  });
+
+  it('throws a crypto_unavailable error when PKCE cannot be generated', async () => {
+    const app = new PublicClientApplication(baseConfig);
+
+    Object.defineProperty(globalThis, 'crypto', {
+      configurable: true,
+      value: undefined,
+    });
+
+    await expect(app.loginRedirect({})).rejects.toMatchObject({
+      name: 'BrowserAuthError',
+      errorCode: 'crypto_unavailable',
+    });
+  });
+
+  it('resolves initialize immediately', async () => {
+    const app = new PublicClientApplication(baseConfig);
+    await expect(app.initialize()).resolves.toBeUndefined();
+  });
+
   it('exchanges an authorization code for an id token during handleRedirectPromise', async () => {
     window.history.replaceState({}, '', '/auth/callback/microsoft?code=abc123&state=opaque-value');
     localStorage.setItem('msal_redirect_state', 'opaque-value');
@@ -118,5 +168,87 @@ describe('msal-browser-shim', () => {
 
     expect(result).toBeNull();
     expect(localStorage.getItem('msal_redirect_state')).toBeNull();
+  });
+
+  it('returns null when the code flow is missing the PKCE verifier', async () => {
+    window.history.replaceState({}, '', '/auth/callback/microsoft?code=abc123&state=opaque-value');
+    localStorage.setItem('msal_redirect_state', 'opaque-value');
+
+    const app = new PublicClientApplication(baseConfig);
+    await expect(app.handleRedirectPromise()).resolves.toBeNull();
+  });
+
+  it('throws when the code flow state does not match the stored state', async () => {
+    window.history.replaceState({}, '', '/auth/callback/microsoft?code=abc123&state=wrong-state');
+    localStorage.setItem('msal_redirect_state', 'expected-state');
+    localStorage.setItem('msal_pkce_verifier', 'opaque-valueopaque-value');
+
+    const app = new PublicClientApplication(baseConfig);
+
+    await expect(app.handleRedirectPromise()).rejects.toMatchObject({
+      name: 'BrowserAuthError',
+      errorCode: 'state_mismatch',
+    });
+    expect(localStorage.getItem('msal_redirect_state')).toBeNull();
+    expect(localStorage.getItem('msal_pkce_verifier')).toBeNull();
+  });
+
+  it('throws when the token exchange response is not ok', async () => {
+    window.history.replaceState({}, '', '/auth/callback/microsoft?code=abc123&state=opaque-value');
+    localStorage.setItem('msal_redirect_state', 'opaque-value');
+    localStorage.setItem('msal_pkce_verifier', 'opaque-valueopaque-value');
+
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: jest.fn().mockResolvedValue({ ok: false }),
+    });
+
+    const app = new PublicClientApplication(baseConfig);
+
+    await expect(app.handleRedirectPromise()).rejects.toMatchObject({
+      name: 'BrowserAuthError',
+      errorCode: 'token_exchange_failed',
+    });
+  });
+
+  it('returns null when the token exchange succeeds without an id token', async () => {
+    window.history.replaceState({}, '', '/auth/callback/microsoft?code=abc123&state=opaque-value');
+    localStorage.setItem('msal_redirect_state', 'opaque-value');
+    localStorage.setItem('msal_pkce_verifier', 'opaque-valueopaque-value');
+
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      } as Response),
+    });
+
+    const app = new PublicClientApplication(baseConfig);
+    await expect(app.handleRedirectPromise()).resolves.toBeNull();
+    expect(localStorage.getItem('msal_redirect_state')).toBeNull();
+    expect(localStorage.getItem('msal_pkce_verifier')).toBeNull();
+  });
+
+  it('returns null when there is no redirect hash or query payload', async () => {
+    window.history.replaceState({}, '', '/auth/callback/microsoft');
+
+    const app = new PublicClientApplication(baseConfig);
+    await expect(app.handleRedirectPromise()).resolves.toBeNull();
+  });
+
+  it('returns null when the fragment is missing an id token', async () => {
+    window.history.replaceState({}, '', '/auth/callback/microsoft#state=opaque-value');
+
+    const app = new PublicClientApplication(baseConfig);
+    await expect(app.handleRedirectPromise()).resolves.toBeNull();
+  });
+
+  it('preserves BrowserAuthError metadata', () => {
+    const error = new BrowserAuthError('sample_error', 'Readable message');
+
+    expect(error.name).toBe('BrowserAuthError');
+    expect(error.errorCode).toBe('sample_error');
+    expect(error.message).toBe('Readable message');
   });
 });

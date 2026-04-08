@@ -4,11 +4,15 @@ import { ActivatedRoute, Router, provideRouter } from '@angular/router';
 
 import { SsoCallbackComponent } from './sso-callback.component';
 import { AuthService } from '../../../core/services/auth.service';
+import { BookingSearchStore } from '../../../core/services/booking-search.store';
 import * as msalConfig from '../../../core/auth/msal.config';
 
 describe('SsoCallbackComponent', () => {
   const authService = {
     socialLoginWithToken: jest.fn(),
+  };
+  const searchStore = {
+    getAndClearRedirectIntent: jest.fn(),
   };
 
   let getMsalRedirectResultSpy: jest.SpyInstance;
@@ -20,6 +24,7 @@ describe('SsoCallbackComponent', () => {
       providers: [
         provideRouter([]),
         { provide: AuthService, useValue: authService },
+        { provide: BookingSearchStore, useValue: searchStore },
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { fragment } },
@@ -37,6 +42,8 @@ describe('SsoCallbackComponent', () => {
 
   beforeEach(() => {
     authService.socialLoginWithToken.mockReset();
+    searchStore.getAndClearRedirectIntent.mockReset();
+    searchStore.getAndClearRedirectIntent.mockReturnValue(null);
     getMsalRedirectResultSpy = jest.spyOn(msalConfig, 'getMsalRedirectResult').mockReturnValue(null);
     wasBackendLoginDoneSpy = jest.spyOn(msalConfig, 'wasBackendLoginDone').mockReturnValue(false);
     window.history.replaceState({}, '', '/auth/callback/microsoft');
@@ -56,6 +63,18 @@ describe('SsoCallbackComponent', () => {
     component.ngOnInit();
     expect(router.navigate).toHaveBeenCalledWith(['/']);
     expect(authService.socialLoginWithToken).not.toHaveBeenCalled();
+  });
+
+  it('redirects to the originally intended route when one is stored', () => {
+    wasBackendLoginDoneSpy.mockReturnValue(true);
+    searchStore.getAndClearRedirectIntent.mockReturnValue('/checkout/5');
+
+    const { component, router } = setup(null);
+    const navigateByUrlSpy = jest.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+
+    component.ngOnInit();
+
+    expect(navigateByUrlSpy).toHaveBeenCalledWith('/checkout/5');
   });
 
   // ─── MSAL result available but backend not done ───────────────────────
@@ -105,6 +124,28 @@ describe('SsoCallbackComponent', () => {
     expect(component.error()).toBe('Sign-in could not be completed. Please try again.');
   });
 
+  it('falls back to the generic OAuth message when no error description is present', () => {
+    window.history.replaceState({}, '', '/auth/callback/microsoft?error=server_error');
+
+    const { component } = setup(null);
+    component.ngOnInit();
+
+    expect(component.error()).toBe('Sign-in failed. Please try again.');
+  });
+
+  it('decodes OAuth error descriptions from the callback URL', () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/auth/callback/microsoft?error=server_error&error_description=User+canceled+login',
+    );
+
+    const { component } = setup(null);
+    component.ngOnInit();
+
+    expect(component.error()).toBe('User canceled login');
+  });
+
   it('falls back to fragment parsing with id_token', () => {
     authService.socialLoginWithToken.mockReturnValue(of({ access_token: 'tok' }));
     const { component, router } = setup('id_token=test-jwt', '/auth/callback/microsoft');
@@ -125,6 +166,17 @@ describe('SsoCallbackComponent', () => {
     const { component } = setup('id_token=jwt', '/auth/callback/unknown');
     component.ngOnInit();
     expect(authService.socialLoginWithToken).toHaveBeenCalledWith('microsoft', 'jwt');
+  });
+
+  it('navigates home when no redirect intent is stored after a successful callback', () => {
+    authService.socialLoginWithToken.mockReturnValue(of({ access_token: 'tok' }));
+    const { component, router } = setup('id_token=jwt');
+    const navigateByUrlSpy = jest.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+
+    component.ngOnInit();
+
+    expect(navigateByUrlSpy).not.toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalledWith(['/']);
   });
 
   it('sets error when socialLoginWithToken fails', () => {

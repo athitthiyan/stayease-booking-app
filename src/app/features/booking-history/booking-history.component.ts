@@ -269,7 +269,7 @@ type TabKey = 'upcoming' | 'past' | 'cancelled' | 'expired';
               aria-label="Next page"
             >Next ›</button>
 
-            <select class="pagination__size" [ngModel]="pageSize()" (ngModelChange)="pageSize.set($event); currentPage.set(1)">
+            <select class="pagination__size" [ngModel]="pageSize()" (ngModelChange)="updatePageSize($event)">
               <option [ngValue]="5">5 / page</option>
               <option [ngValue]="10">10 / page</option>
               <option [ngValue]="20">20 / page</option>
@@ -826,9 +826,10 @@ export class BookingHistoryComponent implements OnInit, OnDestroy {
       this.busyBookingId.set(null);
     }
 
-    this.bookingService.getMyBookings().subscribe({
+    this.bookingService.getMyBookings(this.activeTab(), this.currentPage(), this.pageSize()).subscribe({
       next: res => {
         this.data.set(res);
+        this.currentPage.set(res.page);
         this.loading.set(false);
       },
       error: () => {
@@ -841,35 +842,52 @@ export class BookingHistoryComponent implements OnInit, OnDestroy {
   setTab(tab: TabKey): void {
     this.activeTab.set(tab);
     this.currentPage.set(1);
+    this.load();
   }
 
   filteredBookings(): Booking[] {
     const bookings = this.data()?.bookings ?? [];
+    if (this.data()?.tab === this.activeTab()) {
+      return bookings;
+    }
     return this.bookingFilter.filterByTab(bookings, this.activeTab());
   }
 
   tabCount(tab: TabKey): number {
     if (tab === 'upcoming') return this.data()?.upcoming ?? 0;
     if (tab === 'past') return this.data()?.past ?? 0;
-    if (tab === 'expired') return this.bookingFilter.filterExpired(this.data()?.bookings ?? []).length;
+    if (tab === 'expired') return this.data()?.expired ?? 0;
     return this.data()?.cancelled ?? 0;
   }
 
   // Pagination helpers
   paginatedBookings(): Booking[] {
+    if (this.data()?.tab === this.activeTab()) {
+      return this.filteredBookings();
+    }
     const all = this.filteredBookings();
     const start = (this.currentPage() - 1) * this.pageSize();
     return all.slice(start, start + this.pageSize());
   }
 
   totalPages(): number {
+    if (this.data()?.tab === this.activeTab()) {
+      return this.data()?.total_pages ?? 1;
+    }
     return Math.ceil(this.filteredBookings().length / this.pageSize());
   }
 
   goToPage(page: number): void {
     if (page >= 1 && page <= this.totalPages()) {
       this.currentPage.set(page);
+      this.load(true);
     }
+  }
+
+  updatePageSize(size: number): void {
+    this.pageSize.set(Number(size));
+    this.currentPage.set(1);
+    this.load();
   }
 
   get pageNumbers(): number[] {

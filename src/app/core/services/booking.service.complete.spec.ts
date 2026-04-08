@@ -152,11 +152,29 @@ describe('BookingService (extended branches)', () => {
     it('GETs the authenticated user booking history endpoint', () => {
       service.getMyBookings().subscribe(response => {
         expect(response.total).toBe(1);
+        expect(response.tab).toBe('upcoming');
       });
 
-      const req = httpMock.expectOne(`${environment.apiUrl}/auth/me/bookings`);
+      const req = httpMock.expectOne(
+        request =>
+          request.url === `${environment.apiUrl}/auth/me/bookings` &&
+          request.params.get('tab') === 'upcoming' &&
+          request.params.get('page') === '1' &&
+          request.params.get('per_page') === '5',
+      );
       expect(req.request.method).toBe('GET');
-      req.flush({ bookings: [{ id: 1 }], total: 1, upcoming: 1, past: 0, cancelled: 0 });
+      req.flush({
+        bookings: [{ id: 1 }],
+        total: 1,
+        upcoming: 1,
+        past: 0,
+        cancelled: 0,
+        expired: 0,
+        page: 1,
+        per_page: 5,
+        total_pages: 1,
+        tab: 'upcoming',
+      });
     });
   });
 

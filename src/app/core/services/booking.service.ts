@@ -113,8 +113,16 @@ export class BookingService {
       );
   }
 
-  getMyBookings(): Observable<MyBookingsResponse> {
-    return this.http.get<MyBookingsResponse>(`${environment.apiUrl}/auth/me/bookings`);
+  getMyBookings(
+    tab: 'upcoming' | 'past' | 'cancelled' | 'expired' = 'upcoming',
+    page = 1,
+    perPage = 5,
+  ): Observable<MyBookingsResponse> {
+    const params = new HttpParams()
+      .set('tab', tab)
+      .set('page', page)
+      .set('per_page', perPage);
+    return this.http.get<MyBookingsResponse>(`${environment.apiUrl}/auth/me/bookings`, { params });
   }
 
   /**

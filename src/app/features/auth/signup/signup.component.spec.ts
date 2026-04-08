@@ -146,4 +146,30 @@ describe('SignupComponent', () => {
     component.signInWithMicrosoft();
     expect(authService.loginWithMicrosoft).toHaveBeenCalled();
   });
+
+  it('shows error message when Microsoft sign-in fails', async () => {
+    authService.loginWithMicrosoft.mockRejectedValueOnce(new Error('Microsoft app is not configured.'));
+
+    const fixture = TestBed.createComponent(SignupComponent);
+    const component = fixture.componentInstance;
+    component.signInWithMicrosoft();
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(component.errorMsg()).toBe('Microsoft app is not configured.');
+    expect(component.socialLoading()).toBe(false);
+  });
+
+  it('falls back to the default message when Microsoft sign-in has no error text', async () => {
+    authService.loginWithMicrosoft.mockRejectedValueOnce(new Error(''));
+
+    const fixture = TestBed.createComponent(SignupComponent);
+    const component = fixture.componentInstance;
+    component.signInWithMicrosoft();
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(component.errorMsg()).toBe('Microsoft Sign-In failed. Please try again.');
+    expect(component.socialLoading()).toBe(false);
+  });
 });

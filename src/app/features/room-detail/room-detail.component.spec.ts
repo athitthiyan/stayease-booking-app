@@ -7,6 +7,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { RoomDetailComponent } from './room-detail.component';
 import { RoomService } from '../../core/services/room.service';
 import { BookingService } from '../../core/services/booking.service';
+import { BookingSearchStore } from '../../core/services/booking-search.store';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Booking } from '../../core/models/booking.model';
@@ -153,6 +154,25 @@ describe('RoomDetailComponent', () => {
     component.ngOnInit();
 
     expect(mockWishlist.loadStatus).toHaveBeenCalled();
+  });
+
+  it('restores dates and guests from the central search store on init', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+    const searchStore = TestBed.inject(BookingSearchStore);
+    searchStore.updateDates('2026-04-10', '2026-04-12');
+    searchStore.updateGuests(3, 1, 1);
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    const onDateChangeSpy = jest.spyOn(component, 'onDateChange');
+
+    component.ngOnInit();
+
+    expect(component.checkIn).toBe('2026-04-10');
+    expect(component.checkOut).toBe('2026-04-12');
+    expect(component.guestSelection).toEqual({ adults: 3, children: 1, infants: 1 });
+    expect(component.guests).toBe(4);
+    expect(onDateChangeSpy).toHaveBeenCalled();
   });
 
   it('handles room load error', () => {
@@ -444,6 +464,33 @@ describe('RoomDetailComponent', () => {
     component.bookNow(); // should return early due to conflict
 
     expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  it('updates local guest counts when the guest picker changes', () => {
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+
+    component.onGuestChange({ adults: 3, children: 1, infants: 1 });
+
+    expect(component.guestSelection).toEqual({ adults: 3, children: 1, infants: 1 });
+    expect(component.guests).toBe(4);
+  });
+
+  it('syncs date-picker changes back into the central search store', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom()));
+    const searchStore = TestBed.inject(BookingSearchStore);
+    const updateDatesSpy = jest.spyOn(searchStore, 'updateDates');
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    const onDateChangeSpy = jest.spyOn(component, 'onDateChange');
+
+    component.onDatePickerChange({ checkIn: '2026-04-11', checkOut: '2026-04-13' });
+
+    expect(component.checkIn).toBe('2026-04-11');
+    expect(component.checkOut).toBe('2026-04-13');
+    expect(updateDatesSpy).toHaveBeenCalledWith('2026-04-11', '2026-04-13');
+    expect(onDateChangeSpy).toHaveBeenCalled();
   });
 
   it('does not set conflict for single-date or no selection', () => {

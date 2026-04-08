@@ -70,11 +70,11 @@ jobs:
         run: npm run build:prod
 
       - name: Verify output directory exists
-        run: test -d dist/stayease-booking-app/browser
+        run: test -d dist/stayvora-booking-app/browser
 
       - name: Upload build artefact
         uses: actions/upload-artifact@v4
         with:
           name: stayease-dist
-          path: dist/stayease-booking-app/browser/
+          path: dist/stayvora-booking-app/browser/
           retention-days: 7

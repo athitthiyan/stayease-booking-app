@@ -53,6 +53,18 @@ describe('msal.config', () => {
 
     const providers = module.msalProviders();
     expect(providers).toHaveLength(4);
+
+    const instanceProvider = providers.find(
+      provider => typeof provider === 'object' && 'provide' in provider && provider.provide,
+    );
+    expect(instanceProvider && 'useFactory' in instanceProvider).toBe(true);
+
+    if (!instanceProvider || !('useFactory' in instanceProvider)) {
+      throw new Error('MSAL instance provider missing');
+    }
+
+    const instance = instanceProvider.useFactory() as { config: typeof module.msalConfig };
+    expect(instance.config).toEqual(module.msalConfig);
   });
 
   it('completes backend login during APP_INITIALIZER and stores tokens', async () => {
@@ -181,6 +193,57 @@ describe('msal.config', () => {
     const initializerTwo = appInitializerProvider.useFactory(instance as never) as () => Promise<void>;
     await initializerTwo();
     expect(module.getMsalRedirectResult()).toBeNull();
+  });
+
+  it('returns false when backend login throws during initializer execution', async () => {
+    const { APP_INITIALIZER } = await import('@angular/core');
+    const initialize = jest.fn().mockResolvedValue(undefined);
+    const handleRedirectPromise = jest.fn().mockResolvedValue({ idToken: 'id-token-789' });
+
+    jest.doMock('./msal-browser-shim', () => {
+      enum LogLevel {
+        Error = 'error',
+        Warning = 'warning',
+      }
+
+      class PublicClientApplication {
+        initialize = initialize;
+        handleRedirectPromise = handleRedirectPromise;
+      }
+
+      return {
+        BrowserCacheLocation: { LocalStorage: 'localStorage' },
+        LogLevel,
+        PublicClientApplication,
+      };
+    });
+
+    jest.doMock('./msal-angular-shim', () => ({
+      MSAL_INSTANCE: Symbol('MSAL_INSTANCE'),
+      MsalService: class {},
+      MsalBroadcastService: class {},
+    }));
+
+    fetchMock.mockRejectedValue(new Error('network down'));
+
+    const module = await import('./msal.config');
+    const appInitializerProvider = module
+      .msalProviders()
+      .find(provider => typeof provider === 'object' && 'provide' in provider && provider.provide === APP_INITIALIZER);
+
+    if (!appInitializerProvider || !('useFactory' in appInitializerProvider)) {
+      throw new Error('APP_INITIALIZER provider missing');
+    }
+
+    const initializer = appInitializerProvider.useFactory({
+      initialize,
+      handleRedirectPromise,
+    } as never) as () => Promise<void>;
+
+    await initializer();
+
+    expect(module.getMsalRedirectResult()).toEqual({ idToken: 'id-token-789' });
+    expect(module.wasBackendLoginDone()).toBe(false);
   });
 
   it('treats successful backend responses without an access token as an incomplete login', async () => {

@@ -137,4 +137,9 @@ export interface MyBookingsResponse {
   upcoming: number;
   past: number;
   cancelled: number;
+  expired: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+  tab: 'upcoming' | 'past' | 'cancelled' | 'expired';
 }
