@@ -44,7 +44,8 @@ describe('msal.config', () => {
     expect(module.msalConfig.auth.clientId).toBe('041f5aef-c9db-4eb8-9bb0-349a19fc3002');
     expect(module.msalConfig.auth.redirectUri).toContain('/auth/callback/microsoft');
     expect(module.msalConfig.auth.postLogoutRedirectUri).toBe(window.location.origin);
-    expect(module.msalConfig.cache.cacheLocation).toBe('localStorage');
+    expect(module.msalConfig.cache).toBeDefined();
+    expect(module.msalConfig.cache?.cacheLocation).toBe('localStorage');
     expect(module.loginRequest).toEqual({
       scopes: ['openid', 'profile', 'email'],
       prompt: 'select_account',
