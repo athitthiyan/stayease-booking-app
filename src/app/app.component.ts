@@ -6,6 +6,14 @@ import { ActiveBookingCtaBarComponent } from './shared/components/active-booking
 import { ComingSoonComponent } from './features/coming-soon/coming-soon.component';
 import { environment } from '../environments/environment';
 
+export function shouldShowMaintenanceMode(hostname: string, config: { maintenanceMode: boolean; maintenanceHosts?: string[] }): boolean {
+  if (config.maintenanceMode) {
+    return true;
+  }
+
+  return (config.maintenanceHosts || []).includes(hostname.toLowerCase());
+}
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -29,5 +37,5 @@ import { environment } from '../environments/environment';
   `],
 })
 export class AppComponent {
-  protected readonly maintenanceMode = environment.maintenanceMode;
+  protected readonly maintenanceMode = shouldShowMaintenanceMode(globalThis.location?.hostname ?? '', environment);
 }

@@ -13,5 +13,6 @@ export const environment = {
   googleMapsApiKey: 'AIzaSyA2Bgbm2nroTHIaPS-0oKGdSmyEktwT1s',
   stripePublishableKey: 'pk_test_51TH0UuBDYx3dIveAYRnmWFuHY6EB8yZigeKqjltdRnQpc3iidRxSDV6rdmZrH8bcRt9fg3HIBCp32GRpMTnjSGcy00KPKiGzPL',
   stripeEnabled: false,
-  maintenanceMode: true,
+  maintenanceMode: false,
+  maintenanceHosts: ['www.stayvora.co.in'],
 };

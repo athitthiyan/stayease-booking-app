@@ -17,4 +17,5 @@ export const environment = {
   // Feature toggle: set false to disable Stripe globally (Razorpay/mock remain available)
   stripeEnabled: true,
   maintenanceMode: false,
+  maintenanceHosts: [] as string[],
 };
