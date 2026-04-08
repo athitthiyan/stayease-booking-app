@@ -13,7 +13,7 @@ describe('msal.config', () => {
   });
 
   it('exports config, login request, and providers with the expected local redirect settings', async () => {
-    jest.doMock('@azure/msal-browser', () => {
+    jest.doMock('./msal-browser-shim', () => {
       enum LogLevel {
         Error = 'error',
         Warning = 'warning',
@@ -33,7 +33,7 @@ describe('msal.config', () => {
       };
     });
 
-    jest.doMock('@azure/msal-angular', () => ({
+    jest.doMock('./msal-angular-shim', () => ({
       MSAL_INSTANCE: Symbol('MSAL_INSTANCE'),
       MsalService: class {},
       MsalBroadcastService: class {},
@@ -60,7 +60,7 @@ describe('msal.config', () => {
     const initialize = jest.fn().mockResolvedValue(undefined);
     const handleRedirectPromise = jest.fn().mockResolvedValue({ idToken: 'id-token-123' });
 
-    jest.doMock('@azure/msal-browser', () => {
+    jest.doMock('./msal-browser-shim', () => {
       enum LogLevel {
         Error = 'error',
         Warning = 'warning',
@@ -83,7 +83,7 @@ describe('msal.config', () => {
     });
 
     const msalInstanceToken = Symbol('MSAL_INSTANCE');
-    jest.doMock('@azure/msal-angular', () => ({
+    jest.doMock('./msal-angular-shim', () => ({
       MSAL_INSTANCE: msalInstanceToken,
       MsalService: class {},
       MsalBroadcastService: class {},
@@ -133,7 +133,7 @@ describe('msal.config', () => {
       .mockResolvedValueOnce({ idToken: 'id-token-123' })
       .mockRejectedValueOnce(new Error('redirect failed'));
 
-    jest.doMock('@azure/msal-browser', () => {
+    jest.doMock('./msal-browser-shim', () => {
       enum LogLevel {
         Error = 'error',
         Warning = 'warning',
@@ -151,7 +151,7 @@ describe('msal.config', () => {
       };
     });
 
-    jest.doMock('@azure/msal-angular', () => ({
+    jest.doMock('./msal-angular-shim', () => ({
       MSAL_INSTANCE: Symbol('MSAL_INSTANCE'),
       MsalService: class {},
       MsalBroadcastService: class {},
@@ -188,7 +188,7 @@ describe('msal.config', () => {
     const initialize = jest.fn().mockResolvedValue(undefined);
     const handleRedirectPromise = jest.fn().mockResolvedValue({ idToken: 'id-token-456' });
 
-    jest.doMock('@azure/msal-browser', () => {
+    jest.doMock('./msal-browser-shim', () => {
       enum LogLevel {
         Error = 'error',
         Warning = 'warning',
@@ -210,7 +210,7 @@ describe('msal.config', () => {
       };
     });
 
-    jest.doMock('@azure/msal-angular', () => ({
+    jest.doMock('./msal-angular-shim', () => ({
       MSAL_INSTANCE: Symbol('MSAL_INSTANCE'),
       MsalService: class {},
       MsalBroadcastService: class {},

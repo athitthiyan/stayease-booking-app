@@ -34,7 +34,7 @@
               "src/styles.scss"
             ],
             "scripts": [],
-            "allowedCommonJsDependencies": ["leaflet"]
+            "allowedCommonJsDependencies": ["leaflet", "@azure/msal-browser/lib/msal-browser.cjs"]
           },
           "configurations": {
             "production": {

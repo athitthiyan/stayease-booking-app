@@ -5,8 +5,8 @@ import {
 } from '@angular/common/http/testing';
 import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
-import { MsalService } from '@azure/msal-angular';
-import { BrowserAuthError } from '@azure/msal-browser';
+import { MsalService } from '../auth/msal-angular-shim';
+import { BrowserAuthError } from '../auth/msal-browser-shim';
 import { AuthService } from './auth.service';
 import { TokenResponse, UserResponse } from '../models/auth.model';
 import * as env from '../../../environments/environment';

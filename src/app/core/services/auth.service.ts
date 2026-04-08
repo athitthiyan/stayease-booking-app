@@ -2,8 +2,8 @@ import { Injectable, NgZone, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, firstValueFrom, tap } from 'rxjs';
-import { BrowserAuthError, RedirectRequest } from '@azure/msal-browser';
-import { MsalService } from '@azure/msal-angular';
+import { BrowserAuthError, RedirectRequest } from '../auth/msal-browser-shim';
+import { MsalService } from '../auth/msal-angular-shim';
 import { environment } from '../../../environments/environment';
 import { loginRequest } from '../auth/msal.config';
 import {

@@ -80,11 +80,24 @@ export class SsoCallbackComponent implements OnInit {
   }
 
   private handleFragmentFallback(): void {
+    const searchParams = new URLSearchParams(window.location.search);
     const fragment = this.route.snapshot.fragment || '';
     const params = new URLSearchParams(fragment);
+    const error = searchParams.get('error') || params.get('error');
+    const errorDescription = searchParams.get('error_description') || params.get('error_description');
+
+    if (error) {
+      this.error.set(this.humanizeOAuthError(error, errorDescription));
+      return;
+    }
+
     const idToken = params.get('id_token');
 
     if (!idToken) {
+      if (searchParams.get('code')) {
+        this.error.set('Sign-in could not be completed. Please try again.');
+        return;
+      }
       this.error.set('Sign-in failed. No authentication token received.');
       return;
     }
@@ -111,6 +124,18 @@ export class SsoCallbackComponent implements OnInit {
 
   goToLogin(): void {
     this.router.navigate(['/auth/login']);
+  }
+
+  private humanizeOAuthError(error: string, description: string | null): string {
+    if (error === 'unsupported_response_type') {
+      return 'Microsoft Sign-In is not configured correctly for this app. Please try again after updating the Microsoft app registration.';
+    }
+
+    if (!description) {
+      return 'Sign-in failed. Please try again.';
+    }
+
+    return decodeURIComponent(description.replace(/\+/g, ' '));
   }
 
   private resolveProvider(): 'google' | 'apple' | 'microsoft' {

@@ -7,8 +7,8 @@ import {
   RedirectRequest,
   LogLevel,
   AuthenticationResult,
-} from '@azure/msal-browser';
-import { MSAL_INSTANCE, MsalService, MsalBroadcastService } from '@azure/msal-angular';
+} from './msal-browser-shim';
+import { MSAL_INSTANCE, MsalService, MsalBroadcastService } from './msal-angular-shim';
 import { environment } from '../../../environments/environment';
 
 /**
@@ -28,7 +28,7 @@ export function wasBackendLoginDone(): boolean {
 export const msalConfig: Configuration = {
   auth: {
     clientId: environment.microsoftClientId,
-    authority: 'https://login.microsoftonline.com/common',
+    authority: `https://login.microsoftonline.com/${environment.microsoftTenantId || 'common'}`,
     redirectUri: window.location.origin + '/auth/callback/microsoft',
     postLogoutRedirectUri: window.location.origin,
   },

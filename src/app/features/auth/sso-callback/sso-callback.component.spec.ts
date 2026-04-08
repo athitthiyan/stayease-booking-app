@@ -39,11 +39,13 @@ describe('SsoCallbackComponent', () => {
     authService.socialLoginWithToken.mockReset();
     getMsalRedirectResultSpy = jest.spyOn(msalConfig, 'getMsalRedirectResult').mockReturnValue(null);
     wasBackendLoginDoneSpy = jest.spyOn(msalConfig, 'wasBackendLoginDone').mockReturnValue(false);
+    window.history.replaceState({}, '', '/auth/callback/microsoft');
   });
 
   afterEach(() => {
     getMsalRedirectResultSpy.mockRestore();
     wasBackendLoginDoneSpy.mockRestore();
+    window.history.replaceState({}, '', '/');
   });
 
   // ─── Backend login completed in APP_INITIALIZER ───────────────────────
@@ -76,6 +78,31 @@ describe('SsoCallbackComponent', () => {
     component.ngOnInit();
     expect(component.error()).toBe('Sign-in failed. No authentication token received.');
     expect(authService.socialLoginWithToken).not.toHaveBeenCalled();
+  });
+
+  it('surfaces OAuth callback errors from the URL', () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/auth/callback/microsoft?error=unsupported_response_type&error_description=The+provided+value+for+the+input+parameter+response_type+is+not+supported.',
+    );
+
+    const { component } = setup(null);
+    component.ngOnInit();
+
+    expect(component.error()).toBe(
+      'Microsoft Sign-In is not configured correctly for this app. Please try again after updating the Microsoft app registration.',
+    );
+    expect(authService.socialLoginWithToken).not.toHaveBeenCalled();
+  });
+
+  it('shows a retry message when a code exists but token completion did not happen', () => {
+    window.history.replaceState({}, '', '/auth/callback/microsoft?code=auth-code-123');
+
+    const { component } = setup(null);
+    component.ngOnInit();
+
+    expect(component.error()).toBe('Sign-in could not be completed. Please try again.');
   });
 
   it('falls back to fragment parsing with id_token', () => {
