@@ -16,4 +16,5 @@ export const environment = {
   stripePublishableKey: 'pk_test_51TH0UuBDYx3dIveAYRnmWFuHY6EB8yZigeKqjltdRnQpc3iidRxSDV6rdmZrH8bcRt9fg3HIBCp32GRpMTnjSGcy00KPKiGzPL',
   // Feature toggle: set false to disable Stripe globally (Razorpay/mock remain available)
   stripeEnabled: true,
+  maintenanceMode: false,
 };

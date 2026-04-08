@@ -44,6 +44,7 @@ describe('AppComponent', () => {
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('app-coming-soon')).toBeNull();
     expect(element.querySelector('app-navbar')).not.toBeNull();
     expect(element.querySelector('app-active-booking-cta-bar')).not.toBeNull();
     expect(element.querySelector('router-outlet')).not.toBeNull();
