@@ -215,6 +215,7 @@ describe('ActiveBookingService', () => {
 
     authState$.next(mockUser);
     routerEvents$.next(new NavigationEnd(1, '/search', '/search'));
+    jest.advanceTimersByTime(250);
 
     expect(bookingService.getActiveHold).toHaveBeenCalledTimes(2);
   });
@@ -281,6 +282,7 @@ describe('ActiveBookingService', () => {
     bookingService.getActiveHold.mockClear();
 
     window.dispatchEvent(new StorageEvent('storage', { key: 'se_user', newValue: JSON.stringify(mockUser) }));
+    jest.advanceTimersByTime(250);
     expect(bookingService.getActiveHold).toHaveBeenCalled();
   });
 
@@ -298,6 +300,7 @@ describe('ActiveBookingService', () => {
     bookingService.getActiveHold.mockClear();
 
     window.dispatchEvent(new Event('focus'));
+    jest.advanceTimersByTime(250);
     expect(bookingService.getActiveHold).toHaveBeenCalled();
   });
 
@@ -308,6 +311,7 @@ describe('ActiveBookingService', () => {
 
     Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true, configurable: true });
     document.dispatchEvent(new Event('visibilitychange'));
+    jest.advanceTimersByTime(250);
     expect(bookingService.getActiveHold).toHaveBeenCalled();
   });
 
@@ -379,6 +383,7 @@ describe('ActiveBookingService', () => {
     router.url = '/checkout/17';
 
     routerEvents$.next(new NavigationEnd(2, '/checkout/17', '/checkout/17'));
+    jest.advanceTimersByTime(250);
 
     expect(service.toastMessage()).toBe('Booking confirmed in another tab.');
     expect(router.navigate).toHaveBeenCalledWith(['/booking-confirmation'], {
@@ -394,6 +399,7 @@ describe('ActiveBookingService', () => {
     bookingService.getBooking.mockReturnValue(of(mockBooking({ status: 'cancelled' })));
 
     routerEvents$.next(new NavigationEnd(2, '/', '/'));
+    jest.advanceTimersByTime(250);
 
     expect(service.toastMessage()).toBe('Booking was cancelled.');
   });
@@ -406,6 +412,7 @@ describe('ActiveBookingService', () => {
     bookingService.getBooking.mockReturnValue(of(mockBooking({ status: 'expired', payment_status: 'pending' })));
 
     routerEvents$.next(new NavigationEnd(2, '/', '/'));
+    jest.advanceTimersByTime(250);
 
     expect(service.toastMessage()).toBe('Booking hold expired.');
   });
@@ -418,6 +425,7 @@ describe('ActiveBookingService', () => {
     bookingService.getBooking.mockReturnValue(throwError(() => new Error('not found')));
 
     routerEvents$.next(new NavigationEnd(2, '/', '/'));
+    jest.advanceTimersByTime(250);
 
     expect(service.toastMessage()).toBe('Booking hold expired.');
   });
@@ -455,6 +463,7 @@ describe('ActiveBookingService', () => {
     // A DIFFERENT booking appears
     bookingService.getActiveHold.mockReturnValue(of(mockHold({ booking_id: 99 })));
     routerEvents$.next(new NavigationEnd(3, '/', '/'));
+    jest.advanceTimersByTime(250);
     expect(service.activeHold()?.booking_id).toBe(99);
   });
 
@@ -521,6 +530,7 @@ describe('ActiveBookingService', () => {
     bookingService.getActiveHold.mockClear();
 
     window.dispatchEvent(new StorageEvent('storage', { key: 'se_active_booking_sync', newValue: 'updated' }));
+    jest.advanceTimersByTime(250);
     expect(bookingService.getActiveHold).toHaveBeenCalled();
   });
 });

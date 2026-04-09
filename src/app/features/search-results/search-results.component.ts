@@ -1,4 +1,5 @@
-import { Component, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -9,11 +10,14 @@ import { BookingSearchStore } from '../../core/services/booking-search.store';
 import { RoomCardComponent } from '../../shared/components/room-card/room-card.component';
 import { Room, RoomSearchParams, RoomSortOption } from '../../core/models/room.model';
 import { GuestPickerComponent, GuestSelection } from '../../shared/components/guest-picker/guest-picker.component';
+import { DateRangePickerComponent } from '../../shared/components/date-range-picker/date-range-picker.component';
 import { SearchMapComponent } from './search-map.component';
+import { AvailabilityService } from '../../core/services/availability.service';
 import {
   ROOM_IMAGE_PLACEHOLDER,
   normalizeRoomImageUrl,
 } from '../../shared/utils/image-fallback';
+import { switchMap, tap } from 'rxjs/operators';
 
 type FilterKey =
   | 'query'
@@ -39,7 +43,7 @@ interface ActiveFilterTag {
 @Component({
   selector: 'app-search-results',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, RoomCardComponent, GuestPickerComponent, SearchMapComponent],
+  imports: [CommonModule, RouterLink, FormsModule, RoomCardComponent, GuestPickerComponent, DateRangePickerComponent, SearchMapComponent],
   template: `
     <div class="search-page" [class.search-page--fullscreen]="fullscreenMap()">
       <!-- Filter Bar -->
@@ -82,6 +86,16 @@ interface ActiveFilterTag {
               />
             </div>
 
+            <div class="filter-bar__stack filter-bar__stack--dates">
+              <label class="filter-label" for="search-dates-picker">Dates</label>
+              <app-date-range-picker
+                id="search-dates-picker"
+                [checkIn]="draftFilters.check_in || ''"
+                [checkOut]="draftFilters.check_out || ''"
+                (dateChange)="onDateChange($event)"
+              />
+            </div>
+
             <div class="filter-bar__stack filter-bar__stack--guests">
               <label class="filter-label" for="search-guests-picker">Guests</label>
               <app-guest-picker
@@ -121,7 +135,7 @@ interface ActiveFilterTag {
                 Filters {{ activeFilterTags().length ? '(' + activeFilterTags().length + ')' : '' }}
               </button>
               <button class="btn btn--secondary btn--sm" (click)="toggleMap()">
-                {{ showMap() ? 'List Only' : 'Split View' }}
+                {{ showMap() ? 'Hide Map' : 'Show Map' }}
               </button>
               <button class="btn btn--secondary btn--sm" (click)="clearFilters()">Clear</button>
             </div>
@@ -196,10 +210,15 @@ interface ActiveFilterTag {
       </div>
 
       <!-- ═══ SPLIT-SCREEN LAYOUT ═══ -->
-      <div class="explore-layout" [class.explore-layout--split]="showMap()" [class.explore-layout--fullscreen]="fullscreenMap()">
+      <div
+        class="explore-layout"
+        [class.explore-layout--split]="showMap()"
+        [class.explore-layout--fullscreen]="fullscreenMap()"
+        [class.map-collapsed]="isMapCollapsed()"
+      >
 
         <!-- Left Panel: Room List -->
-        <div class="explore-panel" [class.explore-panel--hidden]="fullscreenMap()">
+        <section class="explore-panel hotel-results-panel" [class.explore-panel--hidden]="fullscreenMap()">
           <div class="explore-panel__header">
             @if (!loading()) {
               <h1 class="results-title">
@@ -316,11 +335,11 @@ interface ActiveFilterTag {
               }
             }
           </div>
-        </div>
+        </section>
 
         <!-- Right Panel: Map (always visible in split mode) -->
         @if (showMap()) {
-          <div class="explore-map" [class.explore-map--fullscreen]="fullscreenMap()">
+          <aside class="explore-map map-panel" [class.explore-map--fullscreen]="fullscreenMap()">
             @defer (when showMap()) {
               <app-search-map
                 [rooms]="rooms()"
@@ -345,7 +364,7 @@ interface ActiveFilterTag {
               {{ fullscreenMap() ? '⊟' : '⊞' }}
               <span>{{ fullscreenMap() ? 'Exit Fullscreen' : 'Fullscreen' }}</span>
             </button>
-          </div>
+          </aside>
         }
       </div>
     </div>
@@ -353,6 +372,8 @@ interface ActiveFilterTag {
   styleUrl: './search-results.component.scss',
 })
 export class SearchResultsComponent implements OnInit {
+  private static readonly MAP_PREFERENCE_KEY = 'stayvora_explore_map_collapsed';
+
   @ViewChild(SearchMapComponent) private mapComponent?: SearchMapComponent;
 
   private roomService = inject(RoomService);
@@ -361,6 +382,8 @@ export class SearchResultsComponent implements OnInit {
   private wishlistService = inject(WishlistService);
   private authService = inject(AuthService);
   protected searchStore = inject(BookingSearchStore);
+  private availabilityService = inject(AvailabilityService);
+  private destroyRef = inject(DestroyRef);
 
   rooms = signal<Room[]>([]);
   loading = signal(true);
@@ -438,6 +461,8 @@ export class SearchResultsComponent implements OnInit {
 
   totalPages = computed(() => Math.ceil(this.total() / this.perPage));
 
+  readonly isMapCollapsed = computed(() => !this.showMap());
+
   pageNumbers = computed(() => {
     const pages: number[] = [];
     const total = Math.ceil(this.total() / this.perPage);
@@ -470,41 +495,70 @@ export class SearchResultsComponent implements OnInit {
       this.wishlistService.loadStatus().subscribe();
     }
 
-    this.route.queryParams.subscribe(params => {
-      this.page.set(params['page'] ? +params['page'] : 1);
-      if (params['view'] === 'list') {
-        this.showMap.set(false);
-      }
-      const adults = params['adults'] ? +params['adults'] : undefined;
-      const children = params['children'] ? +params['children'] : undefined;
-      const infants = params['infants'] ? +params['infants'] : undefined;
-      const guests = params['guests'] ? +params['guests'] : (adults !== undefined ? (adults + (children || 0)) : undefined);
+    const storedMapPreference = this.readStoredMapPreference();
+    if (storedMapPreference !== null) {
+      this.showMap.set(!storedMapPreference);
+    }
 
-      this.draftFilters = {
-        query: params['query'] || '',
-        city: params['city'] || '',
-        landmark: params['landmark'] || '',
-        room_type: params['room_type'] || '',
-        min_price: params['min_price'] ? +params['min_price'] : undefined,
-        max_price: params['max_price'] ? +params['max_price'] : undefined,
-        min_rating: params['min_rating'] ? +params['min_rating'] : undefined,
-        amenities: params['amenities'] || '',
-        guests,
-        adults,
-        children,
-        infants,
-        sort_by: this.normalizeSortValue(params['sort_by']),
-        check_in: params['check_in'] || '',
-        check_out: params['check_out'] || '',
+    this.route.queryParams.pipe(
+      tap(params => {
+        const searchState = this.searchStore.state();
+        this.page.set(params['page'] ? +params['page'] : 1);
+        if (params['view'] === 'list') {
+          this.showMap.set(false);
+          this.persistMapPreference(true);
+        } else if (params['view'] === 'map') {
+          this.showMap.set(true);
+          this.persistMapPreference(false);
+        } else if (storedMapPreference !== null) {
+          this.showMap.set(!storedMapPreference);
+        }
+
+        const adults = params['adults'] ? +params['adults'] : searchState.adults || undefined;
+        const children = params['children'] ? +params['children'] : searchState.children || undefined;
+        const infants = params['infants'] ? +params['infants'] : searchState.infants || undefined;
+        const guests = params['guests'] ? +params['guests'] : (adults !== undefined ? (adults + (children || 0)) : undefined);
+
+        this.draftFilters = {
+          query: params['query'] || '',
+          city: params['city'] || searchState.destination || '',
+          landmark: params['landmark'] || '',
+          room_type: params['room_type'] || '',
+          min_price: params['min_price'] ? +params['min_price'] : undefined,
+          max_price: params['max_price'] ? +params['max_price'] : undefined,
+          min_rating: params['min_rating'] ? +params['min_rating'] : undefined,
+          amenities: params['amenities'] || '',
+          guests,
+          adults,
+          children,
+          infants,
+          sort_by: this.normalizeSortValue(params['sort_by']),
+          check_in: params['check_in'] || '',
+          check_out: params['check_out'] || '',
+          page: this.page(),
+          per_page: this.perPage,
+        };
+        this.guestSelection = {
+          adults: adults || 2,
+          children: children || 0,
+          infants: infants || 0,
+        };
+        this.syncSearchStore();
+        this.loading.set(true);
+        this.error.set(false);
+      }),
+      switchMap(() => this.availabilityService.getRoomsForSearch({
+        ...this.draftFilters,
+        sort_by: this.draftFilters.sort_by || 'recommended',
         page: this.page(),
         per_page: this.perPage,
-      };
-      this.guestSelection = {
-        adults: adults || 2,
-        children: children || 0,
-        infants: infants || 0,
-      };
-      this.loadRooms();
+      })),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(response => {
+      this.rooms.set(response.rooms);
+      this.total.set(response.total);
+      this.error.set(false);
+      this.loading.set(false);
     });
 
     // ESC exits fullscreen map
@@ -521,6 +575,7 @@ export class SearchResultsComponent implements OnInit {
 
   toggleMap(): void {
     this.showMap.update(current => !current);
+    this.persistMapPreference(!this.showMap());
     if (!this.showMap()) {
       this.fullscreenMap.set(false);
     }
@@ -588,6 +643,15 @@ export class SearchResultsComponent implements OnInit {
     this.applyFilters();
   }
 
+  onDateChange(selection: { checkIn: string; checkOut: string }): void {
+    this.draftFilters = {
+      ...this.draftFilters,
+      check_in: selection.checkIn,
+      check_out: selection.checkOut,
+    };
+    this.applyFilters();
+  }
+
   applySuggestion(suggestion: SearchSuggestion): void {
     this.draftFilters = {
       ...this.defaultFilters(),
@@ -610,6 +674,7 @@ export class SearchResultsComponent implements OnInit {
       this.draftFilters.max_price = currentMin;
     }
     this.page.set(1);
+    this.syncSearchStore();
     this.syncQueryParams();
   }
 
@@ -657,6 +722,7 @@ export class SearchResultsComponent implements OnInit {
   clearFilters(): void {
     this.draftFilters = this.defaultFilters();
     this.page.set(1);
+    this.syncSearchStore();
     this.syncQueryParams();
   }
 
@@ -742,6 +808,17 @@ export class SearchResultsComponent implements OnInit {
     });
   }
 
+  private syncSearchStore(): void {
+    this.searchStore.patchState({
+      destination: this.draftFilters.city || '',
+      checkIn: this.draftFilters.check_in || '',
+      checkOut: this.draftFilters.check_out || '',
+      adults: this.draftFilters.adults ?? this.guestSelection.adults,
+      children: this.draftFilters.children ?? this.guestSelection.children,
+      infants: this.draftFilters.infants ?? this.guestSelection.infants,
+    });
+  }
+
   private loadRooms(): void {
     this.loading.set(true);
     this.error.set(false);
@@ -753,7 +830,7 @@ export class SearchResultsComponent implements OnInit {
       per_page: this.perPage,
     };
 
-    this.roomService.getRooms(params).subscribe({
+    this.availabilityService.getRoomsForSearch(params).subscribe({
       next: response => {
         this.rooms.set(response.rooms);
         this.total.set(response.total);
@@ -767,5 +844,24 @@ export class SearchResultsComponent implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  private readStoredMapPreference(): boolean | null {
+    try {
+      const raw = globalThis.localStorage?.getItem(SearchResultsComponent.MAP_PREFERENCE_KEY);
+      if (raw === 'true') return true;
+      if (raw === 'false') return false;
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  private persistMapPreference(collapsed: boolean): void {
+    try {
+      globalThis.localStorage?.setItem(SearchResultsComponent.MAP_PREFERENCE_KEY, String(collapsed));
+    } catch {
+      // Ignore storage failures so search UX still works in restricted environments.
+    }
   }
 }

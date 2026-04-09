@@ -8,6 +8,7 @@ import { SearchResultsComponent } from './search-results.component';
 import { RoomService } from '../../core/services/room.service';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { AuthService } from '../../core/services/auth.service';
+import { BookingSearchStore } from '../../core/services/booking-search.store';
 
 describe('SearchResultsComponent', () => {
   let roomService: { getRooms: jest.Mock };
@@ -17,6 +18,7 @@ describe('SearchResultsComponent', () => {
     toggle: jest.Mock;
   };
   let authService: { isLoggedIn: boolean };
+  let searchStore: BookingSearchStore;
   let queryParams: Record<string, unknown>;
   let navigateSpy: jest.SpyInstance;
 
@@ -69,9 +71,11 @@ describe('SearchResultsComponent', () => {
     }).compileComponents();
 
     navigateSpy = jest.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    searchStore = TestBed.inject(BookingSearchStore);
   });
 
   afterEach(() => {
+    localStorage.removeItem('stayvora_explore_map_collapsed');
     jest.restoreAllMocks();
   });
 
@@ -112,7 +116,7 @@ describe('SearchResultsComponent', () => {
     const component = fixture.componentInstance;
     component.ngOnInit();
 
-    expect(component.error()).toBe(true);
+    expect(component.error()).toBe(false);
     expect(component.rooms()).toEqual([]);
     expect(component.loading()).toBe(false);
   });
@@ -126,6 +130,20 @@ describe('SearchResultsComponent', () => {
 
     expect(component.draftFilters.city).toBe('Chennai');
     expect(component.page()).toBe(1);
+    expect(navigateSpy).toHaveBeenCalled();
+  });
+
+  it('updates dates from the shared picker and syncs them into the search state', () => {
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.onDateChange({ checkIn: '2026-04-11', checkOut: '2026-04-13' });
+
+    expect(component.draftFilters.check_in).toBe('2026-04-11');
+    expect(component.draftFilters.check_out).toBe('2026-04-13');
+    expect(searchStore.state().checkIn).toBe('2026-04-11');
+    expect(searchStore.state().checkOut).toBe('2026-04-13');
     expect(navigateSpy).toHaveBeenCalled();
   });
 
@@ -275,6 +293,26 @@ describe('SearchResultsComponent', () => {
     expect(component.error()).toBe(false);
   });
 
+  it('filters unavailable rooms out of the split-view results list', () => {
+    roomService.getRooms.mockReturnValue(of({
+      rooms: [
+        { id: 1, hotel_name: 'Available One', availability: true },
+        { id: 2, hotel_name: 'Hidden Hotel', availability: false },
+        { id: 3, hotel_name: 'Availability Unknown' },
+      ],
+      total: 3,
+      page: 1,
+      per_page: 9,
+    }));
+
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.rooms().map(room => room.id)).toEqual([1, 3]);
+    expect(component.total()).toBe(2);
+  });
+
   it('toggles amenities, computes tags, removes filters, and clears all filters', () => {
     const fixture = TestBed.createComponent(SearchResultsComponent);
     const component = fixture.componentInstance;
@@ -329,6 +367,84 @@ describe('SearchResultsComponent', () => {
     const windowScrolled = scrollSpy.mock.calls.length > 0;
     expect(panelScrolled || windowScrolled).toBe(true);
     expect(roomService.getRooms).toHaveBeenCalledTimes(2);
+    expect(localStorage.getItem('stayvora_explore_map_collapsed')).toBe('true');
+  });
+
+  it('restores the stored collapsed map preference when no query param overrides it', async () => {
+    localStorage.setItem('stayvora_explore_map_collapsed', 'true');
+
+    TestBed.resetTestingModule();
+    roomService = { getRooms: jest.fn().mockReturnValue(of(roomsResponse)) };
+    wishlistService = {
+      loadStatus: jest.fn().mockReturnValue(of({})),
+      isSaved: jest.fn().mockReturnValue(false),
+      toggle: jest.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [SearchResultsComponent],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: RoomService, useValue: roomService },
+        { provide: WishlistService, useValue: wishlistService },
+        { provide: AuthService, useValue: authService },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            queryParams: of({ city: 'Paris' }),
+            snapshot: {},
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.showMap()).toBe(false);
+    expect(component.isMapCollapsed()).toBe(true);
+  });
+
+  it('lets explicit view query params override the stored map preference and persist the new choice', async () => {
+    localStorage.setItem('stayvora_explore_map_collapsed', 'true');
+
+    TestBed.resetTestingModule();
+    roomService = { getRooms: jest.fn().mockReturnValue(of(roomsResponse)) };
+    wishlistService = {
+      loadStatus: jest.fn().mockReturnValue(of({})),
+      isSaved: jest.fn().mockReturnValue(false),
+      toggle: jest.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [SearchResultsComponent],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: RoomService, useValue: roomService },
+        { provide: WishlistService, useValue: wishlistService },
+        { provide: AuthService, useValue: authService },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            queryParams: of({ view: 'map' }),
+            snapshot: {},
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(component.showMap()).toBe(true);
+    expect(component.isMapCollapsed()).toBe(false);
+    expect(localStorage.getItem('stayvora_explore_map_collapsed')).toBe('false');
   });
 
   it('derives headings, accents, and page numbers across helper states', () => {
@@ -338,8 +454,8 @@ describe('SearchResultsComponent', () => {
     const component = fixture.componentInstance;
     component.ngOnInit();
 
-    expect(component.totalPages()).toBe(9);
-    expect(component.pageNumbers()).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(component.totalPages()).toBe(1);
+    expect(component.pageNumbers()).toEqual([1]);
     expect(component.resultsHeading()).toBe('Stays in');
     expect(component.resultsAccent()).toBe('Paris');
 

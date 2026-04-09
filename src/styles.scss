@@ -46,12 +46,21 @@
   // Spacing
   --space-xs:   4px;
   --space-sm:   8px;
+  --space-sm-md: 12px;
   --space-md:   16px;
+  --space-md-lg: 20px;
   --space-lg:   24px;
   --space-xl:   32px;
+  --space-2xl-sm: 40px;
   --space-2xl:  48px;
   --space-3xl:  64px;
   --space-4xl:  96px;
+
+  --layout-max-width: 1440px;
+  --layout-padding: 16px;
+  --layout-padding-tablet: 24px;
+  --layout-padding-desktop: 32px;
+  --layout-padding-wide: 48px;
 
   // Radii
   --radius-sm:   6px;
@@ -152,20 +161,75 @@ input, select, textarea {
 // ─── Layout Utilities ─────────────────────────────────────────────────────────
 .container {
   width: 100%;
-  max-width: 1280px;
+  max-width: var(--layout-max-width);
   margin-inline: auto;
-  padding-inline: var(--space-xl);
-
-  @media (max-width: 768px) {
-    padding-inline: var(--space-md);
-  }
+  padding-inline: var(--layout-padding);
 }
 
 .section {
-  padding-block: var(--space-4xl);
+  padding-block: var(--space-3xl);
+}
 
-  @media (max-width: 768px) {
-    padding-block: var(--space-3xl);
+.page-shell {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.content-wrapper {
+  width: 100%;
+  max-width: var(--layout-max-width);
+  margin-inline: auto;
+  padding-inline: var(--layout-padding);
+}
+
+.section-grid {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.responsive-card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-lg);
+}
+
+@media (min-width: 480px) {
+  .responsive-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --layout-padding: var(--layout-padding-tablet);
+  }
+
+  .section {
+    padding-block: var(--space-4xl);
+  }
+
+  .section-grid {
+    gap: var(--space-xl);
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --layout-padding: var(--layout-padding-desktop);
+  }
+
+  .responsive-card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1440px) {
+  :root {
+    --layout-padding: var(--layout-padding-wide);
+  }
+
+  .responsive-card-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 

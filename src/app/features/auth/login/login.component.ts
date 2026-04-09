@@ -315,7 +315,10 @@ export class LoginComponent {
 
     this.authService.login(this.form.getRawValue()).subscribe({
       next: () => {
-        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/';
+        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl')
+          || sessionStorage.getItem('sv_redirect_after_login')
+          || '/';
+        sessionStorage.removeItem('sv_redirect_after_login');
         this.router.navigateByUrl(returnUrl);
       },
       error: (err: HttpErrorResponse) => {
@@ -325,9 +328,22 @@ export class LoginComponent {
     });
   }
 
+  /**
+   * Persist the returnUrl query-param (if present) into sessionStorage
+   * so that SSO flows (which leave the page or open popups) can redirect
+   * back to the intended destination after authentication.
+   */
+  private saveReturnUrlForSso(): void {
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+    if (returnUrl) {
+      sessionStorage.setItem('sv_redirect_after_login', returnUrl);
+    }
+  }
+
   signInWithGoogle(): void {
     this.socialLoading.set(true);
     this.errorMsg.set('');
+    this.saveReturnUrlForSso();
     this.authService.loginWithGoogle().catch((err: Error) => {
       this.errorMsg.set(err.message || 'Google Sign-In failed. Please try again.');
       this.socialLoading.set(false);
@@ -337,6 +353,7 @@ export class LoginComponent {
   signInWithMicrosoft(): void {
     this.socialLoading.set(true);
     this.errorMsg.set('');
+    this.saveReturnUrlForSso();
     this.authService.loginWithMicrosoft().catch((err: Error) => {
       this.errorMsg.set(err.message || 'Microsoft Sign-In failed. Please try again.');
       this.socialLoading.set(false);

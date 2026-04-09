@@ -2,12 +2,20 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { RoomService } from '../../core/services/room.service';
 import { RoomCardComponent } from '../../shared/components/room-card/room-card.component';
 import { GuestPickerComponent, GuestSelection } from '../../shared/components/guest-picker/guest-picker.component';
 import { DateRangePickerComponent } from '../../shared/components/date-range-picker/date-range-picker.component';
 import { BookingSearchStore } from '../../core/services/booking-search.store';
 import { Room } from '../../core/models/room.model';
+import { AvailabilityService } from '../../core/services/availability.service';
+
+/** Format a Date as YYYY-MM-DD using local timezone (avoids UTC shift from toISOString). */
+function formatLocalDate(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 interface Destination {
   name: string;
@@ -273,8 +281,8 @@ interface Destination {
   styleUrl: './landing.component.scss',
 })
 export class LandingComponent implements OnInit {
-  private roomService = inject(RoomService);
   private router = inject(Router);
+  private availabilityService = inject(AvailabilityService);
   searchStore = inject(BookingSearchStore);
 
   featuredRooms = signal<Room[]>([]);
@@ -287,8 +295,8 @@ export class LandingComponent implements OnInit {
   checkOut = '';
   guests = 2;
   guestSelection: GuestSelection = { adults: 2, children: 0, infants: 0 };
-  today = new Date().toISOString().split('T')[0];
-  tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  today = formatLocalDate(new Date());
+  tomorrow = formatLocalDate(new Date(Date.now() + 86400000));
   searchValidationError = '';
 
   particles = Array.from({ length: 20 }, () => {
@@ -339,18 +347,7 @@ export class LandingComponent implements OnInit {
       this.showRecoveryBanner.set(true);
     }
 
-    this.roomService.getFeaturedRooms(6).subscribe({
-      next: rooms => {
-        this.featuredRooms.set(rooms);
-        this.roomsError.set(false);
-        this.loadingRooms.set(false);
-      },
-      error: () => {
-        this.featuredRooms.set([]);
-        this.roomsError.set(true);
-        this.loadingRooms.set(false);
-      },
-    });
+    this.loadFeaturedRooms();
   }
 
   onDateChange(event: { checkIn: string; checkOut: string }) {
@@ -358,6 +355,7 @@ export class LandingComponent implements OnInit {
     this.checkOut = event.checkOut;
     this.searchStore.updateDates(event.checkIn, event.checkOut);
     this.validateSearch();
+    this.loadFeaturedRooms();
   }
 
   onGuestChange(selection: GuestSelection) {
@@ -420,6 +418,24 @@ export class LandingComponent implements OnInit {
   dismissRecovery(event: MouseEvent) {
     event.stopPropagation();
     this.showRecoveryBanner.set(false);
+  }
+
+  private loadFeaturedRooms(): void {
+    this.loadingRooms.set(true);
+    this.roomsError.set(false);
+
+    this.availabilityService.getFeaturedRooms(6, this.checkIn, this.checkOut).subscribe({
+      next: rooms => {
+        this.featuredRooms.set(rooms);
+        this.roomsError.set(false);
+        this.loadingRooms.set(false);
+      },
+      error: () => {
+        this.featuredRooms.set([]);
+        this.roomsError.set(true);
+        this.loadingRooms.set(false);
+      },
+    });
   }
 
 }

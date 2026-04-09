@@ -1,15 +1,15 @@
 import {
+  AfterViewInit,
   Component,
   ElementRef,
   EventEmitter,
   HostListener,
   Input,
-  Output,
-  signal,
-  ViewChild,
-  AfterViewInit,
   OnDestroy,
+  Output,
+  ViewChild,
   inject,
+  signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
@@ -39,117 +39,106 @@ export interface GuestSelection {
         <span class="guest-picker__summary">{{ summaryText }}</span>
         <span class="guest-picker__caret" [class.rotated]="open()">&#9662;</span>
       </button>
+
+      @if (open()) {
+        <div
+          #dropdownPanel
+          class="guest-picker__dropdown"
+          role="listbox"
+          aria-label="Guest selection"
+          (click)="$event.stopPropagation()"
+          (keydown.escape)="close()"
+          tabindex="-1"
+          [class.guest-picker__dropdown--centered]="panelCentered()"
+          [style.top.px]="panelTop()"
+          [style.left.px]="panelOffsetLeft()"
+          [style.width.px]="panelWidth()"
+        >
+          <div class="guest-picker__row">
+            <div class="guest-picker__info">
+              <span class="guest-picker__label">Adults</span>
+              <span class="guest-picker__hint">Age 13+</span>
+            </div>
+            <div class="guest-picker__controls">
+              <button
+                type="button"
+                class="guest-picker__btn"
+                [disabled]="adults() <= 1"
+                (click)="decrement('adults')"
+                aria-label="Decrease adults"
+              >&minus;</button>
+              <span class="guest-picker__count" aria-live="polite">{{ adults() }}</span>
+              <button
+                type="button"
+                class="guest-picker__btn"
+                [disabled]="adults() + children() >= maxGuests"
+                (click)="increment('adults')"
+                aria-label="Increase adults"
+              >+</button>
+            </div>
+          </div>
+
+          <div class="guest-picker__row">
+            <div class="guest-picker__info">
+              <span class="guest-picker__label">Children</span>
+              <span class="guest-picker__hint">Age 2 - 12</span>
+            </div>
+            <div class="guest-picker__controls">
+              <button
+                type="button"
+                class="guest-picker__btn"
+                [disabled]="children() <= 0"
+                (click)="decrement('children')"
+                aria-label="Decrease children"
+              >&minus;</button>
+              <span class="guest-picker__count" aria-live="polite">{{ children() }}</span>
+              <button
+                type="button"
+                class="guest-picker__btn"
+                [disabled]="adults() + children() >= maxGuests"
+                (click)="increment('children')"
+                aria-label="Increase children"
+              >+</button>
+            </div>
+          </div>
+
+          <div class="guest-picker__row">
+            <div class="guest-picker__info">
+              <span class="guest-picker__label">Infants</span>
+              <span class="guest-picker__hint">Under 2</span>
+            </div>
+            <div class="guest-picker__controls">
+              <button
+                type="button"
+                class="guest-picker__btn"
+                [disabled]="infants() <= 0"
+                (click)="decrement('infants')"
+                aria-label="Decrease infants"
+              >&minus;</button>
+              <span class="guest-picker__count" aria-live="polite">{{ infants() }}</span>
+              <button
+                type="button"
+                class="guest-picker__btn"
+                [disabled]="infants() >= maxInfants || infants() >= adults()"
+                (click)="increment('infants')"
+                aria-label="Increase infants"
+              >+</button>
+            </div>
+          </div>
+
+          @if (adults() + children() >= maxGuests) {
+            <div class="guest-picker__limit">Maximum {{ maxGuests }} guests reached</div>
+          }
+          @if (infants() >= adults()) {
+            <div class="guest-picker__limit">Infants cannot exceed number of adults</div>
+          }
+
+          <div class="guest-picker__footer">
+            <button type="button" class="guest-picker__done" (click)="close()">Done</button>
+          </div>
+        </div>
+      }
     </div>
-
-    <!-- Fixed-position portal dropdown — rendered outside clipped parents -->
-    @if (open()) {
-      <div
-        class="guest-picker__overlay"
-        (click)="close()"
-        (keydown.escape)="close()"
-        role="presentation"
-        tabindex="-1"
-      ></div>
-      <div
-        #dropdownPanel
-        class="guest-picker__dropdown"
-        role="listbox"
-        aria-label="Guest selection"
-        (click)="$event.stopPropagation()"
-        (keydown.escape)="close()"
-        tabindex="-1"
-        [style.top.px]="panelTop()"
-        [style.left.px]="panelLeft()"
-        [style.width.px]="panelWidth()"
-      >
-        <!-- Adults -->
-        <div class="guest-picker__row">
-          <div class="guest-picker__info">
-            <span class="guest-picker__label">Adults</span>
-            <span class="guest-picker__hint">Age 13+</span>
-          </div>
-          <div class="guest-picker__controls">
-            <button
-              type="button"
-              class="guest-picker__btn"
-              [disabled]="adults() <= 1"
-              (click)="decrement('adults')"
-              aria-label="Decrease adults"
-            >&minus;</button>
-            <span class="guest-picker__count" aria-live="polite">{{ adults() }}</span>
-            <button
-              type="button"
-              class="guest-picker__btn"
-              [disabled]="adults() + children() >= maxGuests"
-              (click)="increment('adults')"
-              aria-label="Increase adults"
-            >+</button>
-          </div>
-        </div>
-
-        <!-- Children -->
-        <div class="guest-picker__row">
-          <div class="guest-picker__info">
-            <span class="guest-picker__label">Children</span>
-            <span class="guest-picker__hint">Age 2 - 12</span>
-          </div>
-          <div class="guest-picker__controls">
-            <button
-              type="button"
-              class="guest-picker__btn"
-              [disabled]="children() <= 0"
-              (click)="decrement('children')"
-              aria-label="Decrease children"
-            >&minus;</button>
-            <span class="guest-picker__count" aria-live="polite">{{ children() }}</span>
-            <button
-              type="button"
-              class="guest-picker__btn"
-              [disabled]="adults() + children() >= maxGuests"
-              (click)="increment('children')"
-              aria-label="Increase children"
-            >+</button>
-          </div>
-        </div>
-
-        <!-- Infants -->
-        <div class="guest-picker__row">
-          <div class="guest-picker__info">
-            <span class="guest-picker__label">Infants</span>
-            <span class="guest-picker__hint">Under 2</span>
-          </div>
-          <div class="guest-picker__controls">
-            <button
-              type="button"
-              class="guest-picker__btn"
-              [disabled]="infants() <= 0"
-              (click)="decrement('infants')"
-              aria-label="Decrease infants"
-            >&minus;</button>
-            <span class="guest-picker__count" aria-live="polite">{{ infants() }}</span>
-            <button
-              type="button"
-              class="guest-picker__btn"
-              [disabled]="infants() >= maxInfants || infants() >= adults()"
-              (click)="increment('infants')"
-              aria-label="Increase infants"
-            >+</button>
-          </div>
-        </div>
-
-        <!-- Guest limit hint -->
-        @if (adults() + children() >= maxGuests) {
-          <div class="guest-picker__limit">Maximum {{ maxGuests }} guests reached</div>
-        }
-        @if (infants() >= adults()) {
-          <div class="guest-picker__limit">Infants cannot exceed number of adults</div>
-        }
-
-        <div class="guest-picker__footer">
-          <button type="button" class="guest-picker__done" (click)="close()">Done</button>
-        </div>
-      </div>
-    }
   `,
   styles: [`
     :host {
@@ -159,6 +148,7 @@ export interface GuestSelection {
     .guest-picker {
       position: relative;
       width: 100%;
+      overflow: visible;
     }
 
     .guest-picker__trigger {
@@ -206,20 +196,12 @@ export interface GuestSelection {
       transform: rotate(180deg);
     }
 
-    /* Full-screen invisible overlay for click-outside */
-    .guest-picker__overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 9998;
-      background: transparent;
-    }
-
-    /* Fixed-position dropdown — escapes all overflow:hidden parents */
     .guest-picker__dropdown {
-      position: fixed;
-      z-index: 9999;
-      pointer-events: auto;
-      min-width: 300px;
+      position: absolute;
+      left: 0;
+      z-index: 1200;
+      width: min(340px, calc(100vw - 32px));
+      max-width: calc(100vw - 32px);
       background: rgba(12, 18, 32, 0.98);
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
@@ -232,9 +214,23 @@ export interface GuestSelection {
       animation: guestPickerSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
+    .guest-picker__dropdown--centered {
+      left: 50% !important;
+      transform: translateX(-50%);
+    }
+
     @keyframes guestPickerSlideIn {
       from { opacity: 0; transform: translateY(-6px) scale(0.98); }
       to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .guest-picker__dropdown--centered {
+      animation-name: guestPickerSlideInCentered;
+    }
+
+    @keyframes guestPickerSlideInCentered {
+      from { opacity: 0; transform: translateX(-50%) translateY(-6px) scale(0.98); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
     }
 
     .guest-picker__row {
@@ -342,15 +338,6 @@ export interface GuestSelection {
       opacity: 0.9;
       transform: translateY(-1px);
     }
-
-    @media (max-width: 640px) {
-      .guest-picker__dropdown {
-        left: 16px !important;
-        right: 16px !important;
-        width: auto !important;
-        min-width: unset;
-      }
-    }
   `],
 })
 export class GuestPickerComponent implements AfterViewInit, OnDestroy {
@@ -374,14 +361,13 @@ export class GuestPickerComponent implements AfterViewInit, OnDestroy {
   children = signal(0);
   infants = signal(0);
   open = signal(false);
-
-  // Fixed-position panel coordinates
   panelTop = signal(0);
-  panelLeft = signal(0);
+  panelOffsetLeft = signal(0);
   panelWidth = signal(300);
+  panelCentered = signal(false);
 
   private resizeObserver?: ResizeObserver;
-  private scrollListener?: () => void;
+  private elementRef = inject(ElementRef<HTMLElement>);
 
   get summaryText(): string {
     const parts: string[] = [];
@@ -400,13 +386,12 @@ export class GuestPickerComponent implements AfterViewInit, OnDestroy {
     return this.adults() + this.children();
   }
 
-  private elementRef = inject(ElementRef);
-
   ngAfterViewInit(): void {
-    // Watch for layout shifts that might move the trigger button
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => {
-        if (this.open()) this.positionPanel();
+        if (this.open()) {
+          this.positionPanel();
+        }
       });
       this.resizeObserver.observe(this.elementRef.nativeElement);
     }
@@ -414,14 +399,23 @@ export class GuestPickerComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
-    if (this.scrollListener) {
-      window.removeEventListener('scroll', this.scrollListener, true);
-    }
   }
 
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {
     if (this.open()) this.close();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (!this.open()) {
+      return;
+    }
+
+    const target = event.target;
+    if (target instanceof Node && !this.elementRef.nativeElement.contains(target)) {
+      this.close();
+    }
   }
 
   toggle(): void {
@@ -430,72 +424,73 @@ export class GuestPickerComponent implements AfterViewInit, OnDestroy {
     } else {
       this.positionPanel();
       this.open.set(true);
-      // Re-position on scroll (capture phase to catch scrollable containers)
-      this.scrollListener = () => {
-        if (this.open()) this.positionPanel();
-      };
-      window.addEventListener('scroll', this.scrollListener, true);
     }
   }
 
   close(): void {
     this.open.set(false);
     this.emit();
-    if (this.scrollListener) {
-      window.removeEventListener('scroll', this.scrollListener, true);
-      this.scrollListener = undefined;
-    }
   }
 
   increment(type: 'adults' | 'children' | 'infants'): void {
     if (type === 'infants') {
       if (this.infants() < this.maxInfants && this.infants() < this.adults()) {
-        this.infants.update(v => v + 1);
+        this.infants.update((value) => value + 1);
       }
     } else if (this.adults() + this.children() < this.maxGuests) {
-      this[type].update(v => v + 1);
+      this[type].update((value) => value + 1);
     }
     this.emit();
   }
 
   decrement(type: 'adults' | 'children' | 'infants'): void {
     if (type === 'adults' && this.adults() > 1) {
-      this.adults.update(v => v - 1);
-      // Enforce infants <= adults
+      this.adults.update((value) => value - 1);
       if (this.infants() > this.adults()) {
         this.infants.set(this.adults());
       }
     } else if (type === 'children' && this.children() > 0) {
-      this.children.update(v => v - 1);
+      this.children.update((value) => value - 1);
     } else if (type === 'infants' && this.infants() > 0) {
-      this.infants.update(v => v - 1);
+      this.infants.update((value) => value - 1);
     }
     this.emit();
   }
 
-  /** Calculate fixed-position coordinates from trigger button's bounding rect */
   private positionPanel(): void {
-    if (!this.triggerBtn) return;
-    const rect = this.triggerBtn.nativeElement.getBoundingClientRect();
-    const panelW = Math.max(300, rect.width);
-    let left = rect.left;
-    // Keep within viewport horizontally
-    if (left + panelW > window.innerWidth - 16) {
-      left = window.innerWidth - panelW - 16;
+    if (!this.triggerBtn) {
+      return;
     }
-    if (left < 16) left = 16;
 
-    // Flip above trigger if not enough room below (estimated panel height ~320px)
-    const estimatedPanelHeight = 320;
-    const spaceBelow = window.innerHeight - rect.bottom - 8;
-    const spaceAbove = rect.top - 8;
-    if (spaceBelow < estimatedPanelHeight && spaceAbove > spaceBelow) {
-      this.panelTop.set(rect.top - estimatedPanelHeight - 8);
-    } else {
-      this.panelTop.set(rect.bottom + 8);
-    }
-    this.panelLeft.set(left);
+    const triggerRect = this.triggerBtn.nativeElement.getBoundingClientRect();
+    const hostRect = this.elementRef.nativeElement.getBoundingClientRect();
+    const hostWidth = Math.max(hostRect.width, triggerRect.width);
+    const viewportMargin = 16;
+    const isMobile = window.innerWidth <= 768;
+    const panelW = Math.min(340, window.innerWidth - viewportMargin * 2);
+    const panelTop = Math.max(this.triggerBtn.nativeElement.offsetHeight, triggerRect.height) + 8;
+
     this.panelWidth.set(panelW);
+    this.panelTop.set(panelTop);
+    this.panelCentered.set(isMobile);
+
+    if (isMobile) {
+      this.panelOffsetLeft.set(hostWidth / 2);
+      return;
+    }
+
+    let leftOffset = 0;
+    const minLocalLeft = viewportMargin - hostRect.left;
+    const maxLocalLeft = window.innerWidth - viewportMargin - hostRect.left - panelW;
+
+    if (leftOffset < minLocalLeft) {
+      leftOffset = minLocalLeft;
+    }
+    if (leftOffset > maxLocalLeft) {
+      leftOffset = maxLocalLeft;
+    }
+
+    this.panelOffsetLeft.set(leftOffset);
   }
 
   private emit(): void {

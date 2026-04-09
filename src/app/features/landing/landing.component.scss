@@ -6,10 +6,11 @@
     // ─── Hero ─────────────────────────────────────────────────────────────────
     .hero {
       position: relative;
-      min-height: 100vh;
+      min-height: clamp(760px, 100vh, 980px);
       display: flex;
-      align-items: center;
-      padding-top: 100px;
+      align-items: flex-start;
+      padding-top: 88px;
+      padding-bottom: clamp(48px, 8vw, 88px);
       overflow: visible;
 
       &__bg {
@@ -83,7 +84,7 @@
       &__content {
         position: relative;
         z-index: 1;
-        padding-block: var(--space-4xl);
+        padding-block: clamp(56px, 10vw, var(--space-4xl));
       }
 
       &__eyebrow {
@@ -112,7 +113,7 @@
         font-size: clamp(1rem, 2vw, 1.2rem);
         color: var(--color-text-muted);
         line-height: 1.8;
-        margin-bottom: var(--space-3xl);
+        margin-bottom: clamp(24px, 5vw, var(--space-3xl));
         animation: fadeInUp 0.7s ease 0.15s both;
       }
 
@@ -123,6 +124,8 @@
         flex-wrap: wrap;
         margin-top: var(--space-3xl);
         animation: fadeInUp 0.7s ease 0.4s both;
+        position: relative;
+        z-index: 0;
       }
 
       &__trust-item {
@@ -170,24 +173,35 @@
       }
     }
 
-    // ─── Search Box ───────────────────────────────────────────────────────────
+    /* ─── Search Box ─────────────────────────────────────────────────────────── */
     .search-box {
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      align-items: stretch;
+      position: relative;
+      z-index: 100;
+      overflow: visible;
       background: rgba(17, 24, 39, 0.85);
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
       border: 1px solid var(--color-border-light);
       border-radius: var(--radius-xl);
-      padding: 8px;
-      gap: 0;
+      padding: var(--space-sm);
+      gap: var(--space-sm);
       animation: fadeInUp 0.7s ease 0.25s both;
       box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-      max-width: 900px;
+      width: min(100%, 1120px);
 
       &__field {
-        flex: 1;
-        padding: 12px 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 72px;
+        padding: 12px 16px;
+        min-width: 0;
+        border-radius: var(--radius-lg);
+        position: relative;
+        overflow: visible;
 
         label {
           display: block;
@@ -215,26 +229,55 @@
       }
 
       &__divider {
-        width: 1px;
-        height: 48px;
+        width: 100%;
+        height: 1px;
         background: var(--color-border);
-        flex-shrink: 0;
       }
 
       &__btn {
-        flex-shrink: 0;
-        margin: 4px;
-        padding: 16px 28px;
+        width: 100%;
+        min-height: 56px;
+        margin: 0;
+        padding: 14px 28px;
         font-size: 15px;
+        position: relative;
+        z-index: auto;
+        border-radius: var(--radius-lg);
+        flex-shrink: 0;
       }
+    }
 
-      @media (max-width: 768px) {
-        flex-direction: column;
+    /* Desktop / Laptop: single horizontal row */
+    @media (min-width: 900px) {
+      .search-box {
+        flex-direction: row;
+        align-items: center;
+        padding: 6px 6px 6px 8px;
         gap: 0;
-        padding: var(--space-md);
 
-        &__divider { width: 100%; height: 1px; }
-        &__btn { width: 100%; margin: 8px 0 0; }
+        &__field {
+          flex: 1 1 0;
+          min-height: 68px;
+          padding: 10px 18px;
+          border-radius: 0;
+        }
+
+        &__divider {
+          width: 1px;
+          height: 40px;
+          flex-shrink: 0;
+          align-self: center;
+        }
+
+        &__btn {
+          width: auto;
+          min-height: 56px;
+          min-width: 140px;
+          padding: 14px 32px;
+          margin-left: 6px;
+          border-radius: var(--radius-lg);
+          white-space: nowrap;
+        }
       }
     }
 
@@ -319,27 +362,45 @@
         }
       }
 
-      @media (max-width: 640px) {
-        flex-wrap: wrap;
+      // Mobile default: wrapped layout
+      flex-wrap: wrap;
 
-        &__text { width: 100%; order: 2; }
-        &__btn { order: 3; }
-        &__close { order: 1; margin-left: auto; }
+      &__text { width: 100%; order: 2; }
+      &__btn { order: 3; }
+      &__close { order: 1; margin-left: auto; }
+
+      @media (min-width: 641px) {
+        flex-wrap: nowrap;
+        &__text { width: auto; order: 0; }
+        &__btn { order: 0; }
+        &__close { order: 0; margin-left: 0; }
       }
     }
 
     // ─── Featured Header ──────────────────────────────────────────────────────
     .featured__header {
       display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-lg);
       margin-bottom: var(--space-3xl);
 
-      @media (max-width: 600px) {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: var(--space-lg);
+      @media (min-width: 601px) {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 0;
       }
+    }
+
+    .grid-rooms {
+      align-items: stretch;
+    }
+
+    .skeleton-card,
+    app-room-card {
+      height: 100%;
+      min-height: 100%;
     }
 
     // ─── Section Dark ──────────────────────────────────────────────────────────
@@ -350,13 +411,13 @@
     // ─── Destinations ─────────────────────────────────────────────────────────
     .destinations {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: 1fr;
       grid-template-rows: auto auto;
       gap: var(--space-md);
       margin-top: var(--space-3xl);
 
-      @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
-      @media (max-width: 480px) { grid-template-columns: 1fr; }
+      @media (min-width: 481px) { grid-template-columns: repeat(2, 1fr); }
+      @media (min-width: 901px) { grid-template-columns: repeat(3, 1fr); }
     }
 
     .dest-card {
@@ -413,11 +474,11 @@
     // ─── Why Us ───────────────────────────────────────────────────────────────
     .why-us {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       gap: var(--space-4xl);
       align-items: center;
 
-      @media (max-width: 900px) { grid-template-columns: 1fr; }
+      @media (min-width: 901px) { grid-template-columns: 1fr 1fr; }
 
       &__features {
         display: flex;

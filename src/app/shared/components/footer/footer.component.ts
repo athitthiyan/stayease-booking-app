@@ -75,8 +75,8 @@ import { RouterLink } from '@angular/router';
 
     .footer__grid {
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr;
-      gap: var(--space-3xl);
+      grid-template-columns: 1fr;
+      gap: var(--space-xl);
       padding-bottom: var(--space-3xl);
       border-bottom: 1px solid var(--color-border);
     }
@@ -124,30 +124,32 @@ import { RouterLink } from '@angular/router';
 
     .footer__bottom {
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
+      gap: var(--space-sm);
+      text-align: center;
       align-items: center;
       padding-block: var(--space-xl);
       font-size: 13px;
       color: var(--color-text-subtle);
     }
 
-    @media (max-width: 900px) {
-      .footer__grid { grid-template-columns: 1fr 1fr; }
+    /* sm (480px+) */
+    @media (min-width: 480px) {
+      .footer__grid { grid-template-columns: 1fr 1fr; gap: var(--space-3xl); }
     }
 
-    @media (max-width: 600px) {
+    /* md (768px+) */
+    @media (min-width: 768px) {
       .footer__bottom {
-        flex-direction: column;
-        gap: var(--space-sm);
-        text-align: center;
+        flex-direction: row;
+        justify-content: space-between;
+        text-align: left;
       }
     }
 
-    @media (max-width: 480px) {
-      .footer__grid {
-        grid-template-columns: 1fr;
-        gap: var(--space-xl);
-      }
+    /* lg (1024px+) */
+    @media (min-width: 1024px) {
+      .footer__grid { grid-template-columns: 2fr 1fr 1fr 1fr; }
     }
   `],
 })

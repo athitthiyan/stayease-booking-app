@@ -170,6 +170,47 @@ describe('BookingService', () => {
     );
   });
 
+  it('deduplicates concurrent active-hold fetches into a single request', () => {
+    const results: Array<unknown> = [];
+
+    service.getActiveHold().subscribe(value => results.push(value));
+    service.getActiveHold().subscribe(value => results.push(value));
+
+    const reqs = httpMock.match(`${environment.apiUrl}/bookings/active-hold`);
+    expect(reqs).toHaveLength(1);
+    reqs[0].flush({
+      booking_id: 12,
+      room_id: 5,
+      hotel_name: 'Azure',
+      room_name: 'suite',
+      check_in: '2026-05-01',
+      check_out: '2026-05-03',
+      guests: 2,
+      adults: 2,
+      children: 0,
+      infants: 0,
+      expires_at: '2026-05-01T10:00:00.000Z',
+      remaining_seconds: 600,
+    });
+
+    expect(results).toHaveLength(2);
+    expect(results[0]).toEqual(results[1]);
+  });
+
+  it('allows a new active-hold fetch after the previous one completes', () => {
+    service.getActiveHold().subscribe();
+    httpMock.expectOne(`${environment.apiUrl}/bookings/active-hold`).flush(null, {
+      status: 204,
+      statusText: 'No Content',
+    });
+
+    service.getActiveHold().subscribe();
+    httpMock.expectOne(`${environment.apiUrl}/bookings/active-hold`).flush(null, {
+      status: 204,
+      statusText: 'No Content',
+    });
+  });
+
   it('re-throws non-204 errors from getActiveHold', () => {
     let error: unknown;
     service.getActiveHold().subscribe({ error: err => (error = err) });

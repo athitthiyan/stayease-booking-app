@@ -10,11 +10,12 @@ import {
   applyRoomImageFallback,
   normalizeRoomImageUrl,
 } from '../../shared/utils/image-fallback';
+import { DateRangePickerComponent } from '../../shared/components/date-range-picker/date-range-picker.component';
 
 @Component({
   selector: 'app-checkout',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, DateRangePickerComponent],
   template: `
     <div class="checkout-page">
       <div class="container checkout-page__inner">
@@ -133,32 +134,95 @@ import {
             </div>
           </section>
 
-          <!-- Stay Details -->
+          <!-- Stay Details with inline date editing -->
           <section class="checkout-section">
-            <h2>Stay Details</h2>
-            <div class="stay-details">
-              <div class="stay-detail">
-                <span class="stay-detail__label">Check-in</span>
-                <span class="stay-detail__value">{{ checkoutState()?.checkIn | date:'MMM d, yyyy' }}</span>
-              </div>
-              <div class="stay-detail">
-                <span class="stay-detail__label">Check-out</span>
-                <span class="stay-detail__value">{{ checkoutState()?.checkOut | date:'MMM d, yyyy' }}</span>
-              </div>
-              <div class="stay-detail">
-                <span class="stay-detail__label">Duration</span>
-                <span class="stay-detail__value">{{ nights() }} Night{{ nights() !== 1 ? 's' : '' }}</span>
-              </div>
-              <div class="stay-detail">
-                <span class="stay-detail__label">Guests</span>
-                <span class="stay-detail__value">{{ guestSummary() }}</span>
-              </div>
+            <div class="stay-details-header">
+              <h2>Stay Details</h2>
+              @if (!editingDates() && !isPaymentConfirmed(resumableBooking())) {
+                <button class="btn-edit-dates" (click)="startEditingDates()">Edit dates</button>
+              }
             </div>
+
+            @if (editingDates()) {
+              <div class="inline-date-editor">
+                <app-date-range-picker
+                  [checkIn]="editCheckIn()"
+                  [checkOut]="editCheckOut()"
+                  (dateChange)="onInlineDateChange($event)"
+                ></app-date-range-picker>
+                <div class="inline-date-editor__actions">
+                  <button class="btn btn--primary btn--sm" (click)="applyDateChange()" [disabled]="!editCheckIn() || !editCheckOut()">
+                    Apply dates
+                  </button>
+                  <button class="btn btn--ghost btn--sm" (click)="cancelEditingDates()">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            } @else {
+              <div class="stay-details">
+                <div class="stay-detail">
+                  <span class="stay-detail__label">Check-in</span>
+                  <span class="stay-detail__value">{{ checkoutState()?.checkIn | date:'MMM d, yyyy' }}</span>
+                </div>
+                <div class="stay-detail">
+                  <span class="stay-detail__label">Check-out</span>
+                  <span class="stay-detail__value">{{ checkoutState()?.checkOut | date:'MMM d, yyyy' }}</span>
+                </div>
+                <div class="stay-detail">
+                  <span class="stay-detail__label">Duration</span>
+                  <span class="stay-detail__value">{{ nights() }} Night{{ nights() !== 1 ? 's' : '' }}</span>
+                </div>
+                <div class="stay-detail">
+                  <span class="stay-detail__label">Guests</span>
+                  <span class="stay-detail__value">{{ guestSummary() }}</span>
+                </div>
+              </div>
+            }
           </section>
 
           <!-- Error banner -->
           @if (submitError()) {
             <div class="checkout-error">⚠️ {{ submitError() }}</div>
+          }
+
+          <!-- Conflict recovery banner -->
+          @if (bookingConflict()) {
+            <div class="checkout-conflict" role="alert">
+              <div class="checkout-conflict__header">
+                <span class="checkout-conflict__icon">⚠️</span>
+                <strong>Room no longer available for selected dates.</strong>
+              </div>
+              <p>{{ conflictDateSummary() }}</p>
+              <div class="checkout-conflict__actions">
+                <button
+                  class="btn btn--primary btn--sm checkout-conflict__retry"
+                  (click)="retryAfterConflict()"
+                  [disabled]="checkingAvailability()">
+                  @if (checkingAvailability()) {
+                    <span class="spinner-sm"></span> Checking…
+                  } @else {
+                    Check availability again
+                  }
+                </button>
+                <button
+                  class="btn btn--ghost btn--sm"
+                  (click)="startEditingDates()">
+                  Edit dates
+                </button>
+                @if (checkoutState()?.room?.id) {
+                  <a class="btn btn--ghost btn--sm" [routerLink]="['/rooms', checkoutState()!.room!.id]">
+                    Choose different room
+                  </a>
+                }
+              </div>
+            </div>
+          }
+
+          @if (toastMessage()) {
+            <div class="checkout-toast" role="status" aria-live="polite">
+              {{ toastMessage() }}
+            </div>
           }
 
           <!-- Submit -->
@@ -249,9 +313,36 @@ import {
 
             <!-- Trust badges -->
             <div class="order-summary__trust">
-              <div class="trust-item">✅ Free cancellation (48h)</div>
-              <div class="trust-item">🔒 Secure payment</div>
-              <div class="trust-item">⭐ Best price guaranteed</div>
+              <div class="trust-badges-grid">
+                <div class="trust-badge">
+                  <span class="trust-badge__icon">🔒</span>
+                  <div class="trust-badge__text">
+                    <strong>256-bit SSL Encrypted</strong>
+                    <span>Secure checkout</span>
+                  </div>
+                </div>
+                <div class="trust-badge">
+                  <span class="trust-badge__icon">💳</span>
+                  <div class="trust-badge__text">
+                    <strong>PCI DSS Compliant</strong>
+                    <span>Razorpay secured</span>
+                  </div>
+                </div>
+                <div class="trust-badge">
+                  <span class="trust-badge__icon">✅</span>
+                  <div class="trust-badge__text">
+                    <strong>Free Cancellation</strong>
+                    <span>Up to 48hrs before</span>
+                  </div>
+                </div>
+                <div class="trust-badge">
+                  <span class="trust-badge__icon">⭐</span>
+                  <div class="trust-badge__text">
+                    <strong>Best Price Guarantee</strong>
+                    <span>Or we'll match it</span>
+                  </div>
+                </div>
+              </div>
               <div class="trust-item trust-item--meta">
                 <a routerLink="/cancellation-policy">Cancellation policy</a>
                 <span>•</span>
@@ -296,6 +387,21 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   extendingHold = signal(false);
   /** True while the cancel booking API call is in-flight. */
   cancellingHold = signal(false);
+  /** True once booking creation fails due to a 409 availability conflict. */
+  bookingConflict = signal(false);
+  /** Lightweight local status toast for conflict refresh feedback. */
+  toastMessage = signal('');
+  /** Latest blocked dates returned from room availability refresh. */
+  unavailableDates = signal<string[]>([]);
+  /** Latest held dates returned from room availability refresh. */
+  heldDates = signal<string[]>([]);
+  /** True while the retry/check-availability API call is in-flight. */
+  checkingAvailability = signal(false);
+
+  // ── Inline date editing state ──────────────────────────────────────────────
+  editingDates = signal(false);
+  editCheckIn = signal('');
+  editCheckOut = signal('');
 
   private countdownInterval: ReturnType<typeof setInterval> | null = null;
   protected readonly placeholderImg = ROOM_IMAGE_PLACEHOLDER;
@@ -311,6 +417,21 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     if (c > 0) parts.push(`${c} Child${c !== 1 ? 'ren' : ''}`);
     if (i > 0) parts.push(`${i} Infant${i !== 1 ? 's' : ''}`);
     return parts.join(', ');
+  });
+
+  conflictDateSummary = computed(() => {
+    const blocked = this.unavailableDates().length;
+    const held = this.heldDates().length;
+    if (!blocked && !held) {
+      return 'Live availability has been refreshed. Please pick different dates before trying again.';
+    }
+    if (blocked && held) {
+      return `${blocked} blocked date${blocked !== 1 ? 's' : ''} and ${held} held date${held !== 1 ? 's' : ''} were found for this stay window.`;
+    }
+    if (blocked) {
+      return `${blocked} blocked date${blocked !== 1 ? 's' : ''} were found for this stay window.`;
+    }
+    return `${held} held date${held !== 1 ? 's' : ''} were found for this stay window.`;
   });
 
   form = {
@@ -351,6 +472,161 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     return !!booking && (booking.payment_status === 'paid' || booking.status === 'confirmed');
   }
 
+  // ── Dedicated state management methods ─────────────────────────────────────
+
+  /** Set the conflict state with all related signals. */
+  setConflictState(errorMessage: string, toast: string): void {
+    this.bookingConflict.set(true);
+    this.submitError.set(errorMessage);
+    this.toastMessage.set(toast);
+  }
+
+  /** Clear the conflict state, re-enabling the checkout flow. */
+  clearConflictState(): void {
+    this.bookingConflict.set(false);
+    this.submitError.set('');
+    this.toastMessage.set('');
+    this.unavailableDates.set([]);
+    this.heldDates.set([]);
+  }
+
+  /** Reset all transient checkout error signals. */
+  resetCheckoutErrors(): void {
+    this.submitError.set('');
+    this.toastMessage.set('');
+    this.nameError.set('');
+    this.emailError.set('');
+    this.phoneError.set('');
+  }
+
+  /** Reset hold-related state. */
+  resetHoldState(): void {
+    this.stopCountdown();
+    this.holdSecondsLeft.set(0);
+    this.holdExpired.set(false);
+    this.extendingHold.set(false);
+  }
+
+  // ── Inline date editing ────────────────────────────────────────────────────
+
+  startEditingDates(): void {
+    const state = this.checkoutState();
+    if (!state) return;
+    this.editCheckIn.set(state.checkIn);
+    this.editCheckOut.set(state.checkOut);
+    this.editingDates.set(true);
+  }
+
+  cancelEditingDates(): void {
+    this.editingDates.set(false);
+    this.editCheckIn.set('');
+    this.editCheckOut.set('');
+  }
+
+  onInlineDateChange(event: { checkIn: string; checkOut: string }): void {
+    this.editCheckIn.set(event.checkIn);
+    this.editCheckOut.set(event.checkOut);
+  }
+
+  /** Apply the new dates from the inline editor and trigger recovery. */
+  applyDateChange(): void {
+    const newCheckIn = this.editCheckIn();
+    const newCheckOut = this.editCheckOut();
+    if (!newCheckIn || !newCheckOut) return;
+
+    const state = this.checkoutState();
+    if (!state) return;
+
+    // Update checkout state with new dates
+    const updatedState: CheckoutState = {
+      ...state,
+      checkIn: newCheckIn,
+      checkOut: newCheckOut,
+    };
+    this.bookingService.setCheckoutState(updatedState);
+    this.initializePricing(updatedState);
+
+    // Clear conflict + errors (date change = recovery)
+    this.clearConflictState();
+    this.resetCheckoutErrors();
+
+    // Clear any stale hold/resumable booking (dates changed, old booking invalid)
+    this.clearTransientBookingState();
+
+    this.editingDates.set(false);
+    this.editCheckIn.set('');
+    this.editCheckOut.set('');
+  }
+
+  // ── Retry after conflict ───────────────────────────────────────────────────
+
+  /** Re-check availability for current dates. If clear, reset conflict state. */
+  retryAfterConflict(): void {
+    const state = this.checkoutState();
+    const roomId = state?.room?.id;
+    if (!state || !roomId) return;
+
+    this.checkingAvailability.set(true);
+    this.bookingService.getUnavailableDates(roomId, state.checkIn, state.checkOut).subscribe({
+      next: response => {
+        this.checkingAvailability.set(false);
+        const hasOverlap = this.datesOverlap(
+          state.checkIn,
+          state.checkOut,
+          response.unavailable_dates,
+          response.held_dates,
+        );
+        if (hasOverlap) {
+          // Still conflicted — update the displayed info
+          this.unavailableDates.set(response.unavailable_dates);
+          this.heldDates.set(response.held_dates);
+          this.toastMessage.set('Dates are still unavailable. Try different dates.');
+        } else {
+          // Conflict cleared — dates are now free
+          this.clearConflictState();
+          this.toastMessage.set('Dates are now available! You can proceed.');
+        }
+      },
+      error: () => {
+        this.checkingAvailability.set(false);
+        this.toastMessage.set('Could not check availability. Please try again.');
+      },
+    });
+  }
+
+  // ── Date overlap check (data-driven) ──────────────────────────────────────
+
+  /** Check if the stay window overlaps with any unavailable/held dates. */
+  datesOverlap(
+    checkIn: string,
+    checkOut: string,
+    unavailable: string[],
+    held: string[],
+  ): boolean {
+    const blockedSet = new Set([...unavailable, ...held]);
+    if (blockedSet.size === 0) return false;
+
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
+    const current = new Date(start);
+
+    while (current < end) {
+      const dateStr = this.formatLocalDate(current);
+      if (blockedSet.has(dateStr)) return true;
+      current.setDate(current.getDate() + 1);
+    }
+    return false;
+  }
+
+  private formatLocalDate(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  // ── Pricing ────────────────────────────────────────────────────────────────
+
   private initializePricing(state: CheckoutState): void {
     this.checkoutState.set(state);
     const nights = Math.floor(
@@ -364,6 +640,11 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.taxes.set(tax);
     this.serviceFee.set(fee);
     this.total.set(sub + tax + fee);
+    // initializePricing is called for fresh state hydration — clear conflict
+    this.bookingConflict.set(false);
+    this.toastMessage.set('');
+    this.unavailableDates.set([]);
+    this.heldDates.set([]);
   }
 
   private restorePendingBooking(state: CheckoutState): void {
@@ -623,6 +904,42 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
   // ── Cancel booking ────────────────────────────────────────────────────────
 
+  private clearTransientBookingState(): void {
+    sessionStorage.removeItem('pending_booking');
+    sessionStorage.removeItem('booking_auth_redirect');
+    this.resumableBooking.set(null);
+    this.stopCountdown();
+    this.holdSecondsLeft.set(0);
+    this.holdExpired.set(false);
+  }
+
+  private refreshAvailabilityForConflict(): void {
+    const state = this.checkoutState();
+    const roomId = state?.room?.id;
+    if (!state || !roomId) {
+      this.unavailableDates.set([]);
+      this.heldDates.set([]);
+      return;
+    }
+
+    this.bookingService.getUnavailableDates(roomId, state.checkIn, state.checkOut).subscribe({
+      next: response => {
+        this.unavailableDates.set(response.unavailable_dates);
+        this.heldDates.set(response.held_dates);
+      },
+      error: () => {
+        this.unavailableDates.set([]);
+        this.heldDates.set([]);
+      },
+    });
+  }
+
+  private handleBookingConflict(err: unknown): void {
+    this.setConflictState(this.mapApiError(err), 'Selected dates are no longer available.');
+    this.clearTransientBookingState();
+    this.refreshAvailabilityForConflict();
+  }
+
   cancelHold(): void {
     const booking = this.resumableBooking();
     if (!booking || this.cancellingHold()) return;
@@ -650,9 +967,45 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ── Main flow ─────────────────────────────────────────────────────────────
+  // ── Main flow (data-driven, not signal-blocked) ───────────────────────────
 
   proceedToPayment() {
+    // Data-driven conflict check: verify current dates against latest availability
+    // instead of permanently blocking on stale bookingConflict signal
+    if (this.bookingConflict()) {
+      // If conflict is still active, re-check availability live
+      const state = this.checkoutState();
+      const roomId = state?.room?.id;
+      if (state && roomId) {
+        this.checkingAvailability.set(true);
+        this.bookingService.getUnavailableDates(roomId, state.checkIn, state.checkOut).subscribe({
+          next: response => {
+            this.checkingAvailability.set(false);
+            const hasOverlap = this.datesOverlap(
+              state.checkIn,
+              state.checkOut,
+              response.unavailable_dates,
+              response.held_dates,
+            );
+            if (hasOverlap) {
+              this.unavailableDates.set(response.unavailable_dates);
+              this.heldDates.set(response.held_dates);
+              this.toastMessage.set('Dates are still unavailable. Edit dates or try again later.');
+            } else {
+              // Conflict cleared! Reset and proceed normally.
+              this.clearConflictState();
+              this.proceedToPayment();
+            }
+          },
+          error: () => {
+            this.checkingAvailability.set(false);
+            this.toastMessage.set('Could not verify availability. Please try again.');
+          },
+        });
+      }
+      return;
+    }
+
     if (this.isPaymentConfirmed(this.resumableBooking())) {
       this.submitError.set('This booking has already been confirmed.');
       return;
@@ -666,6 +1019,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     if (this.submitting()) return;
     this.submitting.set(true);
     this.submitError.set('');
+    this.toastMessage.set('');
 
     const state = this.checkoutState()!;
 
@@ -722,6 +1076,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
               special_requests: this.form.special_requests,
             }).subscribe({
               next: booking => {
+                this.bookingConflict.set(false);
                 this.resumableBooking.set(booking);
                 if (booking.hold_expires_at) {
                   this.startCountdown(booking.hold_expires_at);
@@ -729,7 +1084,11 @@ export class CheckoutComponent implements OnInit, OnDestroy {
                 this.redirectToPayment(booking);
               },
               error: err => {
-                this.submitError.set(this.mapApiError(err));
+                if ((err as { status?: number })?.status === 409) {
+                  this.handleBookingConflict(err);
+                } else {
+                  this.submitError.set(this.mapApiError(err));
+                }
                 this.submitting.set(false);
               },
             });

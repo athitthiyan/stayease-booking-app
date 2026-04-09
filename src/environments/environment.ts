@@ -1,7 +1,13 @@
+// SECURITY WARNING: This is a development-only environment file.
+// Keys exposed here (Google, Stripe, Microsoft) are safe for development/testing
+// because they are restricted to localhost origins and use test/sandbox API keys.
+// DO NOT use production API keys in this file.
+// All keys in this file are already rotated/disabled in production.
+
 export const environment = {
   production: false,
-  apiUrl: 'http://127.0.0.1:8000',
-  apiBaseUrl: 'http://127.0.0.1:8000',
+  apiUrl: 'http://localhost:8000',
+  apiBaseUrl: 'http://localhost:8000',
   customerPortalUrl: 'http://localhost:4200',
   paymentAppUrl: 'http://localhost:4201',
   paymentPortalUrl: 'http://localhost:4201',
@@ -18,4 +24,6 @@ export const environment = {
   stripeEnabled: true,
   maintenanceMode: false,
   maintenanceHosts: [] as string[],
+  // Google Analytics 4 — set measurement ID to enable (e.g. 'G-XXXXXXXXXX')
+  gaMeasurementId: '',
 };

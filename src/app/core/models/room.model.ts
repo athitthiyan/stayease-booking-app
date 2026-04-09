@@ -32,6 +32,8 @@ export interface Room {
   latitude?: number;
   longitude?: number;
   map_embed_url?: string;
+  availabilityState?: 'available' | 'unavailable' | 'loading';
+  availabilityMessage?: string;
 }
 
 export interface RoomListResponse {

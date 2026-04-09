@@ -87,10 +87,10 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
     }
     .active-booking-bar__content {
       display: grid;
-      align-items: center;
-      grid-template-columns: minmax(240px, 1.2fr) minmax(220px, 1fr) auto auto;
-      gap: 18px;
-      padding: 18px 22px;
+      align-items: stretch;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      padding: 16px;
     }
 
     .active-booking-bar__status {
@@ -169,9 +169,9 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
       display: flex;
       flex-direction: column;
       gap: 4px;
-      align-items: flex-end;
+      align-items: flex-start;
       min-width: 130px;
-      text-align: right;
+      text-align: left;
     }
 
     .active-booking-bar__countdown strong {
@@ -182,9 +182,15 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
 
     .active-booking-bar__actions {
       display: flex;
+      flex-direction: column;
       align-items: center;
       gap: 12px;
       flex-shrink: 0;
+      width: 100%;
+    }
+
+    .active-booking-bar__actions .btn {
+      width: 100%;
     }
 
     .active-booking-toast {
@@ -213,55 +219,56 @@ import { ActiveBookingService } from '../../../core/services/active-booking.serv
       }
     }
 
-    @media (max-width: 1080px) {
+    .active-booking-toast {
+      left: 12px;
+      right: 12px;
+      top: 164px;
+      transform: none;
+      text-align: center;
+      border-radius: 18px;
+    }
+
+    /* md (768px+) */
+    @media (min-width: 768px) {
       .active-booking-bar__content {
         grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.9fr);
-      }
-
-      .active-booking-bar__countdown {
-        align-items: flex-start;
-        text-align: left;
+        align-items: center;
+        padding: 18px 22px;
+        gap: 18px;
       }
 
       .active-booking-bar__actions {
         grid-column: 1 / -1;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .active-booking-shell {
-        top: 74px;
-        padding: 12px 12px 0;
-      }
-
-      .active-booking-bar__content {
-        grid-template-columns: 1fr;
-        align-items: stretch;
-        padding: 16px;
-        gap: 14px;
-      }
-
-      .active-booking-bar__actions {
-        width: 100%;
-        flex-direction: column;
+        flex-direction: row;
+        width: auto;
       }
 
       .active-booking-bar__actions .btn {
-        width: 100%;
-      }
-
-      .active-booking-bar__countdown {
-        align-items: flex-start;
-        text-align: left;
+        width: auto;
       }
 
       .active-booking-toast {
-        left: 12px;
-        right: 12px;
-        top: 164px;
-        transform: none;
-        text-align: center;
-        border-radius: 18px;
+        left: 50%;
+        right: auto;
+        top: 168px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+      }
+    }
+
+    /* lg (1024px+) */
+    @media (min-width: 1024px) {
+      .active-booking-bar__content {
+        grid-template-columns: minmax(240px, 1.2fr) minmax(220px, 1fr) auto auto;
+      }
+
+      .active-booking-bar__countdown {
+        align-items: flex-end;
+        text-align: right;
+      }
+
+      .active-booking-bar__actions {
+        grid-column: auto;
       }
     }
   `],

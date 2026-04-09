@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { of, Subject, throwError } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
@@ -71,6 +72,7 @@ describe('CheckoutComponent', () => {
     getBooking: jest.Mock;
     setCheckoutState: jest.Mock;
     createBooking: jest.Mock;
+    getUnavailableDates: jest.Mock;
     findResumableBooking: jest.Mock;
     extendHold: jest.Mock;
     cancelBooking: jest.Mock;
@@ -82,6 +84,12 @@ describe('CheckoutComponent', () => {
       getBooking: jest.fn(),
       setCheckoutState: jest.fn(),
       createBooking: jest.fn(),
+      getUnavailableDates: jest.fn().mockReturnValue(
+        of({
+          unavailable_dates: [],
+          held_dates: [],
+        }),
+      ),
       findResumableBooking: jest.fn().mockReturnValue(of(null)),
       extendHold: jest.fn(),
       cancelBooking: jest.fn(),
@@ -217,9 +225,9 @@ describe('CheckoutComponent', () => {
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
-    expect(element.textContent).toContain('Free cancellation (48h)');
-    expect(element.textContent).toContain('Secure payment');
-    expect(element.textContent).toContain('Best price guaranteed');
+    expect(element.textContent).toContain('Free Cancellation');
+    expect(element.textContent).toContain('Secure checkout');
+    expect(element.textContent).toContain('Best Price Guarantee');
     expect(element.textContent).toContain('Cancellation policy');
     expect(element.textContent).toContain('Refund policy');
     expect(element.textContent).toContain('support@stayvora.co.in');
@@ -326,6 +334,9 @@ describe('CheckoutComponent', () => {
 
     expect(component.submitError()).toContain('no longer available');
     expect(component.submitting()).toBe(false);
+    expect(component.bookingConflict()).toBe(true);
+    expect(component.toastMessage()).toBe('Selected dates are no longer available.');
+    expect(bookingService.getUnavailableDates).toHaveBeenCalledWith(5, '2026-04-10', '2026-04-12');
   });
 
   // ── Resumable booking ────────────────────────────────────────────────────────
@@ -482,6 +493,72 @@ describe('CheckoutComponent', () => {
         error: { detail: 'Room is already reserved for the selected dates' },
       })),
     );
+    sessionStorage.setItem('pending_booking', JSON.stringify(makeBooking({ id: 401 })));
+    sessionStorage.setItem('booking_auth_redirect', '1');
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.holdSecondsLeft.set(45);
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    expect(component.submitError()).toContain('already reserved');
+    expect(component.submitting()).toBe(false);
+    expect(component.bookingConflict()).toBe(true);
+    expect(bookingService.getUnavailableDates).toHaveBeenCalledWith(5, '2026-04-10', '2026-04-12');
+    expect(component.resumableBooking()).toBeNull();
+    expect(component.holdSecondsLeft()).toBe(0);
+    expect(sessionStorage.getItem('pending_booking')).toBeNull();
+    expect(sessionStorage.getItem('booking_auth_redirect')).toBeNull();
+  });
+
+  // ── UPDATED: conflict state now shows recovery actions, button is NOT permanently disabled ──
+
+  it('renders the conflict state with recovery actions after availability is lost', async () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    component.bookingConflict = signal(true);
+    component.unavailableDates = signal(['2026-04-10']);
+    component.heldDates = signal(['2026-04-11']);
+    component.toastMessage = signal('Selected dates are no longer available.');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const primaryButton = element.querySelector('.checkout-actions .btn--primary') as HTMLButtonElement;
+
+    expect(component.bookingConflict()).toBe(true);
+    // Button is NOT disabled — data-driven check on click instead
+    expect(primaryButton.disabled).toBe(false);
+    expect(component.unavailableDates()).toEqual(['2026-04-10']);
+    expect(component.heldDates()).toEqual(['2026-04-11']);
+    expect(component.conflictDateSummary()).toContain('blocked date');
+    expect(element.textContent).toContain('Room no longer available for selected dates.');
+    expect(element.textContent).toContain('Selected dates are no longer available.');
+    // Recovery actions present
+    expect(element.textContent).toContain('Check availability again');
+    expect(element.textContent).toContain('Edit dates');
+  });
+
+  it('uses a safe fallback when conflict availability refresh fails', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.findResumableBooking.mockReturnValue(of(null));
+    bookingService.createBooking.mockReturnValue(
+      throwError(() => ({
+        status: 409,
+        error: {},
+      })),
+    );
+    bookingService.getUnavailableDates.mockReturnValue(
+      throwError(() => new Error('timeout')),
+    );
 
     const fixture = TestBed.createComponent(CheckoutComponent);
     const component = fixture.componentInstance;
@@ -491,8 +568,35 @@ describe('CheckoutComponent', () => {
 
     component.proceedToPayment();
 
-    expect(component.submitError()).toContain('already reserved');
-    expect(component.submitting()).toBe(false);
+    expect(component.bookingConflict()).toBe(true);
+    expect(component.unavailableDates()).toEqual([]);
+    expect(component.heldDates()).toEqual([]);
+    expect(component.conflictDateSummary()).toContain('Live availability has been refreshed');
+  });
+
+  // ── UPDATED: proceedToPayment in conflict mode does data-driven re-check ──
+
+  it('re-checks availability when proceedToPayment is called in conflict mode', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    // Return conflicting dates so it stays blocked
+    bookingService.getUnavailableDates.mockReturnValue(
+      of({ unavailable_dates: ['2026-04-10'], held_dates: [] }),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.bookingConflict.set(true);
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    // Should have called getUnavailableDates for data-driven check
+    expect(bookingService.getUnavailableDates).toHaveBeenCalledWith(5, '2026-04-10', '2026-04-12');
+    // Still conflicting because the dates overlap
+    expect(component.bookingConflict()).toBe(true);
+    expect(component.toastMessage()).toContain('still unavailable');
   });
 
   // ── SessionStorage recovery tests ────────────────────────────────────────────
@@ -1017,5 +1121,308 @@ describe('CheckoutComponent', () => {
     expect(component.submitError()).toBe('This booking has already been confirmed.');
     expect(component.submitting()).toBe(false);
     expect(sessionStorage.getItem('pending_booking')).toBeNull();
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // ── NEW: 10 Critical Test Cases for Checkout State Refactoring ─────────────
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // 1. 409 sets conflict state via dedicated setConflictState()
+  it('sets conflict state with dedicated method after 409', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.findResumableBooking.mockReturnValue(of(null));
+    bookingService.createBooking.mockReturnValue(
+      throwError(() => ({ status: 409, error: { detail: 'Dates taken' } })),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    // All conflict signals set correctly via setConflictState
+    expect(component.bookingConflict()).toBe(true);
+    expect(component.submitError()).toBe('Dates taken');
+    expect(component.toastMessage()).toBe('Selected dates are no longer available.');
+  });
+
+  // 2. clearConflictState resets all conflict-related signals
+  it('clearConflictState resets all conflict signals', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    // Simulate active conflict
+    component.setConflictState('Error msg', 'Toast msg');
+    component.unavailableDates.set(['2026-04-10']);
+    component.heldDates.set(['2026-04-11']);
+
+    expect(component.bookingConflict()).toBe(true);
+
+    // Clear it
+    component.clearConflictState();
+
+    expect(component.bookingConflict()).toBe(false);
+    expect(component.submitError()).toBe('');
+    expect(component.toastMessage()).toBe('');
+    expect(component.unavailableDates()).toEqual([]);
+    expect(component.heldDates()).toEqual([]);
+  });
+
+  // 3. Inline date change clears conflict state
+  it('clears conflict state when dates are changed via inline editor', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    // Set conflict state
+    component.setConflictState('Dates conflict', 'Dates unavailable');
+    component.unavailableDates.set(['2026-04-10']);
+    expect(component.bookingConflict()).toBe(true);
+
+    // Open inline editor and apply new dates
+    component.startEditingDates();
+    expect(component.editingDates()).toBe(true);
+
+    component.onInlineDateChange({ checkIn: '2026-04-15', checkOut: '2026-04-17' });
+    component.applyDateChange();
+
+    // Conflict should be completely cleared
+    expect(component.bookingConflict()).toBe(false);
+    expect(component.submitError()).toBe('');
+    expect(component.toastMessage()).toBe('');
+    expect(component.unavailableDates()).toEqual([]);
+    expect(component.editingDates()).toBe(false);
+
+    // Pricing should be recalculated for new dates
+    expect(component.nights()).toBe(2);
+    expect(component.checkoutState()?.checkIn).toBe('2026-04-15');
+    expect(component.checkoutState()?.checkOut).toBe('2026-04-17');
+  });
+
+  // 4. Retry button clears conflict when dates become available
+  it('clears conflict when retry finds dates are now available', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.getUnavailableDates.mockReturnValue(
+      of({ unavailable_dates: [], held_dates: [] }),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    // Simulate conflict state
+    component.setConflictState('Dates unavailable', 'Try again');
+    component.unavailableDates.set(['2026-04-10']);
+    expect(component.bookingConflict()).toBe(true);
+
+    // Retry
+    component.retryAfterConflict();
+
+    expect(component.checkingAvailability()).toBe(false);
+    expect(component.bookingConflict()).toBe(false);
+    expect(component.toastMessage()).toBe('Dates are now available! You can proceed.');
+  });
+
+  // 5. Hold expiry triggers auto-extend
+  it('auto-extends hold when countdown reaches zero', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    const extended = makeBooking({ hold_expires_at: new Date(Date.now() + 600_000).toISOString() });
+    bookingService.extendHold.mockReturnValue(of(extended));
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.email = 'athit@example.com';
+    component.resumableBooking.set(makeBooking({ id: 50 }));
+
+    // Start countdown with already-expired time
+    component.startCountdown(new Date(Date.now() - 1000).toISOString());
+
+    expect(bookingService.extendHold).toHaveBeenCalledWith(50, 'athit@example.com');
+    expect(component.holdExpired()).toBe(false);
+    expect(component.holdSecondsLeft()).toBeGreaterThan(0);
+
+    component.ngOnDestroy();
+  });
+
+  // 6. Extend hold success resets holdExpired and restarts countdown
+  it('resets holdExpired and restarts countdown after successful extend', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    const newExpiry = new Date(Date.now() + 300_000).toISOString();
+    bookingService.extendHold.mockReturnValue(of(makeBooking({ hold_expires_at: newExpiry })));
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.holdExpired.set(true);
+    component.extendingHold.set(false);
+    component.form.email = 'test@example.com';
+    component.resumableBooking.set(makeBooking({ id: 60 }));
+
+    // Trigger extend
+    (component as unknown as { tryExtendHold: (id: number, email: string) => void })
+      .tryExtendHold(60, 'test@example.com');
+
+    expect(component.holdExpired()).toBe(false);
+    expect(component.extendingHold()).toBe(false);
+    expect(component.holdSecondsLeft()).toBeGreaterThan(0);
+
+    component.ngOnDestroy();
+  });
+
+  // 7. Extend hold failure sets appropriate error
+  it('sets error and clears resumable booking when extend fails with 409', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.extendHold.mockReturnValue(
+      throwError(() => ({
+        status: 409,
+        error: { detail: 'no longer available' },
+      })),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.resumableBooking.set(makeBooking({ id: 70 }));
+
+    (component as unknown as { tryExtendHold: (id: number, email: string) => void })
+      .tryExtendHold(70, 'test@example.com');
+
+    expect(component.submitError()).toContain('no longer available');
+    expect(component.resumableBooking()).toBeNull();
+    expect(component.extendingHold()).toBe(false);
+  });
+
+  // 8. clearTransientBookingState cleans up everything
+  it('clearTransientBookingState removes session data and resets hold signals', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    // Set up state to clear
+    sessionStorage.setItem('pending_booking', '{}');
+    sessionStorage.setItem('booking_auth_redirect', '1');
+    component.resumableBooking.set(makeBooking());
+    component.holdSecondsLeft.set(100);
+    component.holdExpired.set(true);
+
+    (component as unknown as { clearTransientBookingState: () => void }).clearTransientBookingState();
+
+    expect(sessionStorage.getItem('pending_booking')).toBeNull();
+    expect(sessionStorage.getItem('booking_auth_redirect')).toBeNull();
+    expect(component.resumableBooking()).toBeNull();
+    expect(component.holdSecondsLeft()).toBe(0);
+    expect(component.holdExpired()).toBe(false);
+  });
+
+  // 9. proceedToPayment clears conflict and retries when dates become free
+  it('proceedToPayment in conflict mode clears and retries when availability returns clean', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    // Return no conflicts
+    bookingService.getUnavailableDates.mockReturnValue(
+      of({ unavailable_dates: [], held_dates: [] }),
+    );
+    bookingService.findResumableBooking.mockReturnValue(of(null));
+    bookingService.createBooking.mockReturnValue(of(makeBooking()));
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    const redirectSpy = redirectSpyFor(component);
+    component.ngOnInit();
+    component.bookingConflict.set(true);
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    // Should have cleared conflict and recursed into the normal flow
+    expect(component.bookingConflict()).toBe(false);
+    expect(bookingService.createBooking).toHaveBeenCalled();
+    expect(redirectSpy).toHaveBeenCalled();
+  });
+
+  // 10. Button is enabled after date change recovery
+  it('submit button is enabled after inline date change clears conflict', async () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    fixture.detectChanges();
+
+    // Enter conflict state
+    component.setConflictState('Dates taken', 'Unavailable');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    let primaryButton = element.querySelector('.checkout-actions .btn--primary') as HTMLButtonElement;
+
+    // Button should NOT be disabled (data-driven approach)
+    expect(primaryButton.disabled).toBe(false);
+
+    // Apply new dates via inline editor
+    component.startEditingDates();
+    component.onInlineDateChange({ checkIn: '2026-05-01', checkOut: '2026-05-03' });
+    component.applyDateChange();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    primaryButton = element.querySelector('.checkout-actions .btn--primary') as HTMLButtonElement;
+
+    // After date change, conflict is cleared, button is enabled
+    expect(component.bookingConflict()).toBe(false);
+    expect(primaryButton.disabled).toBe(false);
+    expect(primaryButton.textContent).toContain('Proceed to Payment');
+  });
+
+  // ── datesOverlap utility tests ──────────────────────────────────────────────
+
+  it('datesOverlap returns true when stay window overlaps blocked dates', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.datesOverlap('2026-04-10', '2026-04-12', ['2026-04-10'], [])).toBe(true);
+    expect(component.datesOverlap('2026-04-10', '2026-04-12', [], ['2026-04-11'])).toBe(true);
+    expect(component.datesOverlap('2026-04-10', '2026-04-12', [], [])).toBe(false);
+    expect(component.datesOverlap('2026-04-10', '2026-04-12', ['2026-04-12'], [])).toBe(false); // checkout day excluded
+  });
+
+  // ── resetCheckoutErrors utility ──────────────────────────────────────────────
+
+  it('resetCheckoutErrors clears all error and toast signals', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.submitError.set('Some error');
+    component.toastMessage.set('Some toast');
+    component.nameError.set('Name err');
+    component.emailError.set('Email err');
+    component.phoneError.set('Phone err');
+
+    component.resetCheckoutErrors();
+
+    expect(component.submitError()).toBe('');
+    expect(component.toastMessage()).toBe('');
+    expect(component.nameError()).toBe('');
+    expect(component.emailError()).toBe('');
+    expect(component.phoneError()).toBe('');
   });
 });

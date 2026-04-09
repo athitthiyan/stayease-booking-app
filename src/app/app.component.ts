@@ -1,9 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { NavbarComponent } from './shared/components/navbar/navbar.component';
 import { FooterComponent } from './shared/components/footer/footer.component';
 import { ActiveBookingCtaBarComponent } from './shared/components/active-booking-cta-bar/active-booking-cta-bar.component';
 import { ComingSoonComponent } from './features/coming-soon/coming-soon.component';
+import { AnalyticsService } from './core/services/analytics.service';
 import { environment } from '../environments/environment';
 
 export function shouldShowMaintenanceMode(hostname: string, config: { maintenanceMode: boolean; maintenanceHosts?: string[] }): boolean {
@@ -36,6 +37,11 @@ export function shouldShowMaintenanceMode(hostname: string, config: { maintenanc
     }
   `],
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
+  private analytics = inject(AnalyticsService);
   protected readonly maintenanceMode = shouldShowMaintenanceMode(globalThis.location?.hostname ?? '', environment);
+
+  ngOnInit(): void {
+    this.analytics.init();
+  }
 }

@@ -3,22 +3,22 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 
 import { LandingComponent } from './landing.component';
-import { RoomService } from '../../core/services/room.service';
+import { AvailabilityService } from '../../core/services/availability.service';
 import { BookingSearchStore } from '../../core/services/booking-search.store';
 
 describe('LandingComponent', () => {
-  const roomService = {
+  const availabilityService = {
     getFeaturedRooms: jest.fn(),
   };
 
   beforeEach(async () => {
-    roomService.getFeaturedRooms.mockReset();
+    availabilityService.getFeaturedRooms.mockReset();
 
     await TestBed.configureTestingModule({
       imports: [LandingComponent],
       providers: [
         provideRouter([]),
-        { provide: RoomService, useValue: roomService },
+        { provide: AvailabilityService, useValue: availabilityService },
       ],
     }).compileComponents();
   });
@@ -29,13 +29,13 @@ describe('LandingComponent', () => {
   });
 
   it('loads featured rooms successfully', () => {
-    roomService.getFeaturedRooms.mockReturnValue(of([{ id: 1, hotel_name: 'Azure' }]));
+    availabilityService.getFeaturedRooms.mockReturnValue(of([{ id: 1, hotel_name: 'Azure' }]));
 
     const fixture = TestBed.createComponent(LandingComponent);
     const component = fixture.componentInstance;
     component.ngOnInit();
 
-    expect(roomService.getFeaturedRooms).toHaveBeenCalledWith(6);
+    expect(availabilityService.getFeaturedRooms).toHaveBeenCalledWith(6, '', '');
     expect(component.featuredRooms()).toEqual([{ id: 1, hotel_name: 'Azure' }]);
     expect(component.roomsError()).toBe(false);
     expect(component.loadingRooms()).toBe(false);
@@ -46,7 +46,7 @@ describe('LandingComponent', () => {
   });
 
   it('handles featured room load failure', () => {
-    roomService.getFeaturedRooms.mockReturnValue(throwError(() => new Error('boom')));
+    availabilityService.getFeaturedRooms.mockReturnValue(throwError(() => new Error('boom')));
 
     const fixture = TestBed.createComponent(LandingComponent);
     const component = fixture.componentInstance;
@@ -58,7 +58,7 @@ describe('LandingComponent', () => {
   });
 
   it('builds search params and navigates', () => {
-    roomService.getFeaturedRooms.mockReturnValue(of([]));
+    availabilityService.getFeaturedRooms.mockReturnValue(of([]));
 
     const fixture = TestBed.createComponent(LandingComponent);
     const component = fixture.componentInstance;
@@ -85,7 +85,7 @@ describe('LandingComponent', () => {
   });
 
   it('omits empty search params', () => {
-    roomService.getFeaturedRooms.mockReturnValue(of([]));
+    availabilityService.getFeaturedRooms.mockReturnValue(of([]));
 
     const fixture = TestBed.createComponent(LandingComponent);
     const component = fixture.componentInstance;
@@ -103,7 +103,7 @@ describe('LandingComponent', () => {
   });
 
   it('restores recent search state and shows the recovery banner when destination is empty', () => {
-    roomService.getFeaturedRooms.mockReturnValue(of([]));
+    availabilityService.getFeaturedRooms.mockReturnValue(of([]));
 
     const fixture = TestBed.createComponent(LandingComponent);
     const component = fixture.componentInstance;
@@ -129,7 +129,7 @@ describe('LandingComponent', () => {
   });
 
   it('updates dates and validates past and same-day ranges', () => {
-    roomService.getFeaturedRooms.mockReturnValue(of([]));
+    availabilityService.getFeaturedRooms.mockReturnValue(of([]));
 
     const fixture = TestBed.createComponent(LandingComponent);
     const component = fixture.componentInstance;
@@ -145,7 +145,7 @@ describe('LandingComponent', () => {
   });
 
   it('updates guests through the store and resumes a dismissed recovery search', () => {
-    roomService.getFeaturedRooms.mockReturnValue(of([]));
+    availabilityService.getFeaturedRooms.mockReturnValue(of([]));
 
     const fixture = TestBed.createComponent(LandingComponent);
     const component = fixture.componentInstance;
@@ -189,7 +189,7 @@ describe('LandingComponent', () => {
   });
 
   it('blocks navigation when validation fails and lets users dismiss recovery', () => {
-    roomService.getFeaturedRooms.mockReturnValue(of([]));
+    availabilityService.getFeaturedRooms.mockReturnValue(of([]));
 
     const fixture = TestBed.createComponent(LandingComponent);
     const component = fixture.componentInstance;

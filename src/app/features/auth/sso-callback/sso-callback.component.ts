@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { getMsalRedirectResult, wasBackendLoginDone } from '../../../core/auth/msal.config';
+import { getMsalRedirectResult, wasBackendLoginDone, consumePendingSession } from '../../../core/auth/msal.config';
 import { AuthService } from '../../../core/services/auth.service';
 import { BookingSearchStore } from '../../../core/services/booking-search.store';
 
@@ -60,10 +60,17 @@ export class SsoCallbackComponent implements OnInit {
   private searchStore = inject(BookingSearchStore);
 
   error = signal('');
+  private callbackHandled = false;
 
   ngOnInit(): void {
     // Case 1: Backend login already completed in APP_INITIALIZER
     if (wasBackendLoginDone()) {
+      // Bridge the session into AuthService (access token in memory,
+      // HttpOnly refresh cookie already stored by the browser).
+      const pending = consumePendingSession();
+      if (pending) {
+        this.authService.hydrateSession(pending.accessToken, pending.user);
+      }
       this.redirectToIntendedRoute();
       return;
     }
@@ -106,16 +113,28 @@ export class SsoCallbackComponent implements OnInit {
   }
 
   private handleToken(provider: 'google' | 'apple' | 'microsoft', idToken: string): void {
+    if (this.callbackHandled) {
+      return;
+    }
+
+    this.callbackHandled = true;
     this.authService.socialLoginWithToken(provider, idToken).subscribe({
       next: () => this.redirectToIntendedRoute(),
-      error: () => this.error.set('Sign-in failed. Please try again.'),
+      error: () => {
+        this.callbackHandled = false;
+        this.error.set('Sign-in failed. Please try again.');
+      },
     });
   }
 
   /** Redirect to the route the user was trying to reach before login */
   private redirectToIntendedRoute(): void {
-    const intended = this.searchStore.getAndClearRedirectIntent();
+    const intended =
+      this.searchStore.getAndClearRedirectIntent()
+      || sessionStorage.getItem('sv_redirect_after_login');
+
     if (intended) {
+      sessionStorage.removeItem('sv_redirect_after_login');
       this.router.navigateByUrl(intended);
     } else {
       this.router.navigate(['/']);

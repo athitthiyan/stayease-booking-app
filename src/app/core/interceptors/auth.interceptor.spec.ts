@@ -21,7 +21,6 @@ describe('authInterceptor', () => {
   function setupModule(overrides: Partial<AuthService> = {}) {
     mockAuth = {
       getAccessToken: jest.fn().mockReturnValue(null),
-      getRefreshToken: jest.fn().mockReturnValue(null),
       refreshToken: jest.fn(),
       logout: jest.fn(),
       ...overrides,
@@ -80,7 +79,6 @@ describe('authInterceptor', () => {
   it('refreshes the token and retries the request after a 401', () => {
     setupModule({
       getAccessToken: jest.fn().mockReturnValue('expired-token'),
-      getRefreshToken: jest.fn().mockReturnValue('refresh-token'),
       refreshToken: jest.fn().mockReturnValue(of({ access_token: 'fresh-token' })),
     });
 
@@ -105,7 +103,6 @@ describe('authInterceptor', () => {
   it('logs out and redirects when token refresh fails', () => {
     setupModule({
       getAccessToken: jest.fn().mockReturnValue('expired-token'),
-      getRefreshToken: jest.fn().mockReturnValue('refresh-token'),
       refreshToken: jest.fn().mockReturnValue(
         throwError(() => new Error('refresh failed')),
       ),
@@ -128,7 +125,6 @@ describe('authInterceptor', () => {
   it('passes through non-401 API errors without refreshing', () => {
     setupModule({
       getAccessToken: jest.fn().mockReturnValue('token'),
-      getRefreshToken: jest.fn().mockReturnValue('refresh-token'),
       refreshToken: jest.fn(),
     });
 
@@ -137,6 +133,27 @@ describe('authInterceptor', () => {
 
     const req = httpMock.expectOne(`${apiUrl}/rooms`);
     req.flush({ detail: 'forbidden' }, { status: 403, statusText: 'Forbidden' });
+
+    expect(mockAuth.refreshToken).not.toHaveBeenCalled();
+    expect(mockAuth.logout).not.toHaveBeenCalled();
+    expect(mockRouter.navigate).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it('passes through active hold 401s without refreshing or logging out', () => {
+    setupModule({
+      getAccessToken: jest.fn().mockReturnValue('expired-token'),
+      refreshToken: jest.fn(),
+    });
+
+    const errorSpy = jest.fn();
+    httpClient.get(`${apiUrl}/bookings/active-hold`).subscribe({ error: errorSpy });
+
+    const req = httpMock.expectOne(`${apiUrl}/bookings/active-hold`);
+    req.flush(
+      { detail: 'missing session' },
+      { status: 401, statusText: 'Unauthorized' },
+    );
 
     expect(mockAuth.refreshToken).not.toHaveBeenCalled();
     expect(mockAuth.logout).not.toHaveBeenCalled();

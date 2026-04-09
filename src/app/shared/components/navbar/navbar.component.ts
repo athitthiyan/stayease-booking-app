@@ -109,7 +109,10 @@ import { WishlistService } from '../../../core/services/wishlist.service';
     .navbar__inner {
       display: flex;
       align-items: center;
-      gap: var(--space-lg);
+      justify-content: space-between;
+      gap: var(--space-md);
+      min-height: 56px;
+      flex-wrap: nowrap;
     }
 
     .navbar__logo {
@@ -127,11 +130,7 @@ import { WishlistService } from '../../../core/services/wishlist.service';
     .navbar__logo-text span { color: var(--color-primary); }
 
     .navbar__links {
-      display: flex;
-      align-items: center;
-      gap: var(--space-xl);
-      list-style: none;
-      margin: 0 auto;
+      display: none;
     }
 
     .navbar__links a {
@@ -166,12 +165,13 @@ import { WishlistService } from '../../../core/services/wishlist.service';
     }
 
     .navbar__burger {
-      display: none;
+      display: flex;
       flex-direction: column;
       gap: 5px;
       background: none;
       padding: 4px;
       margin-left: auto;
+      flex-shrink: 0;
     }
 
     .navbar__burger span {
@@ -227,21 +227,10 @@ import { WishlistService } from '../../../core/services/wishlist.service';
     .navbar__mobile a:hover { color: var(--color-primary); }
 
     .navbar__actions {
-      display: flex;
+      display: none;
       align-items: center;
       gap: 10px;
       flex-shrink: 0;
-    }
-
-    @media (max-width: 768px) {
-      .navbar__links,
-      .navbar__actions {
-        display: none;
-      }
-
-      .navbar__burger {
-        display: flex;
-      }
     }
 
     .navbar__icon-btn {
@@ -329,6 +318,35 @@ import { WishlistService } from '../../../core/services/wishlist.service';
       border-bottom: 1px solid var(--color-border);
       cursor: pointer;
       text-align: left;
+    }
+
+    @media (min-width: 768px) {
+      .navbar {
+        padding: 16px 0;
+      }
+
+      .navbar__inner {
+        min-height: 64px;
+        gap: var(--space-lg);
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .navbar__links,
+      .navbar__actions {
+        display: flex;
+      }
+
+      .navbar__links {
+        align-items: center;
+        gap: var(--space-xl);
+        list-style: none;
+        margin: 0 auto;
+      }
+
+      .navbar__burger {
+        display: none;
+      }
     }
   `],
 })

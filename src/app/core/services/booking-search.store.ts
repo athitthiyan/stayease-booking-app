@@ -144,8 +144,12 @@ export class BookingSearchStore {
     sessionStorage.setItem(this.REDIRECT_KEY, url);
   }
 
+  getRedirectIntent(): string | null {
+    return sessionStorage.getItem(this.REDIRECT_KEY);
+  }
+
   getAndClearRedirectIntent(): string | null {
-    const url = sessionStorage.getItem(this.REDIRECT_KEY);
+    const url = this.getRedirectIntent();
     if (url) sessionStorage.removeItem(this.REDIRECT_KEY);
     return url;
   }

@@ -113,8 +113,8 @@ describe('AuthService', () => {
     expect(req.request.method).toBe('POST');
     req.flush(mockTokenResponse);
 
-    expect(localStorage.getItem('se_access_token')).toBe('access-token-abc');
-    expect(localStorage.getItem('se_refresh_token')).toBe('refresh-token-xyz');
+    expect(service.getAccessToken()).toBe('access-token-abc');
+    expect(localStorage.getItem('se_user')).toEqual(JSON.stringify(mockUser));
     expect(service.isLoggedIn).toBe(true);
     expect(emitted).toEqual(mockUser);
   });
@@ -150,14 +150,27 @@ describe('AuthService', () => {
   // ─── refresh token ────────────────────────────────────────────────────────
 
   it('should refresh token and persist new session', () => {
-    localStorage.setItem('se_refresh_token', 'old-refresh');
     service.refreshToken().subscribe();
 
     const req = http.expectOne(`${env.environment.apiUrl}/auth/refresh`);
-    expect(req.request.body).toEqual({ refresh_token: 'old-refresh' });
+    expect(req.request.body).toEqual({});
+    expect(req.request.withCredentials).toBe(true);
     req.flush(mockTokenResponse);
 
-    expect(localStorage.getItem('se_access_token')).toBe('access-token-abc');
+    expect(service.getAccessToken()).toBe('access-token-abc');
+  });
+
+  it('should deduplicate in-flight refresh token requests', () => {
+    const results: TokenResponse[] = [];
+
+    service.refreshToken().subscribe(value => results.push(value));
+    service.refreshToken().subscribe(value => results.push(value));
+
+    const reqs = http.match(`${env.environment.apiUrl}/auth/refresh`);
+    expect(reqs).toHaveLength(1);
+    reqs[0].flush(mockTokenResponse);
+
+    expect(results).toEqual([mockTokenResponse, mockTokenResponse]);
   });
 
   // ─── get me ───────────────────────────────────────────────────────────────
@@ -221,22 +234,21 @@ describe('AuthService', () => {
   // ─── logout ───────────────────────────────────────────────────────────────
 
   it('should clear storage, reset user, call logout endpoint, and navigate on logout', () => {
-    localStorage.setItem('se_access_token', 'tok');
-    localStorage.setItem('se_refresh_token', 'ref');
     localStorage.setItem('se_user', JSON.stringify(mockUser));
+    service.hydrateSession('tok', mockUser);
 
     service.logout();
 
     // Flush the fire-and-forget logout POST
     const req = http.expectOne(`${env.environment.apiUrl}/auth/logout`);
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ refresh_token: 'ref' });
+    expect(req.request.body).toEqual({});
+    expect(req.request.withCredentials).toBe(true);
     req.flush({ message: 'Logged out successfully' });
 
-    expect(localStorage.getItem('se_access_token')).toBeNull();
-    expect(localStorage.getItem('se_refresh_token')).toBeNull();
     expect(localStorage.getItem('se_user')).toBeNull();
     expect(service.isLoggedIn).toBe(false);
+    expect(service.getAccessToken()).toBeNull();
     expect(routerSpy.navigate).toHaveBeenCalledWith(['/auth/login']);
   });
 
@@ -247,9 +259,10 @@ describe('AuthService', () => {
     win.google = {
       accounts: { oauth2: { revoke: revokeMock } },
     };
-    localStorage.setItem('se_access_token', 'goog-tok');
+    service.hydrateSession('goog-tok', mockUser);
 
     service.logout();
+    http.expectOne(`${env.environment.apiUrl}/auth/logout`).flush({ message: 'Logged out successfully' });
 
     expect(revokeMock).toHaveBeenCalledWith('goog-tok', expect.any(Function));
     delete win.google;
@@ -258,10 +271,11 @@ describe('AuthService', () => {
   it('should not call google revoke when GIS is not loaded', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (window as any).google;
-    localStorage.setItem('se_access_token', 'tok');
+    service.hydrateSession('tok', mockUser);
 
     // Should not throw
     service.logout();
+    http.expectOne(`${env.environment.apiUrl}/auth/logout`).flush({ message: 'Logged out successfully' });
     expect(service.isLoggedIn).toBe(false);
   });
 
@@ -269,10 +283,6 @@ describe('AuthService', () => {
 
   it('getAccessToken should return null when not set', () => {
     expect(service.getAccessToken()).toBeNull();
-  });
-
-  it('getRefreshToken should return null when not set', () => {
-    expect(service.getRefreshToken()).toBeNull();
   });
 
   it('getAccessToken should return token after login', () => {
@@ -391,7 +401,36 @@ describe('AuthService', () => {
     expect(req.request.body).toEqual({ provider: 'google', id_token: 'test-id-token' });
     req.flush(mockTokenResponse);
 
-    expect(localStorage.getItem('se_access_token')).toBe('access-token-abc');
+    expect(service.getAccessToken()).toBe('access-token-abc');
+    expect(localStorage.getItem('se_user')).toEqual(JSON.stringify(mockUser));
+    expect(service.isLoggedIn).toBe(true);
+  });
+
+  it('should deduplicate in-flight social login requests for the same provider and token', () => {
+    const responses: TokenResponse[] = [];
+
+    service.socialLoginWithToken('google', 'same-token').subscribe(value => responses.push(value));
+    service.socialLoginWithToken('google', 'same-token').subscribe(value => responses.push(value));
+
+    const reqs = http.match(`${env.environment.apiUrl}/auth/social-login`);
+    expect(reqs).toHaveLength(1);
+    reqs[0].flush(mockTokenResponse);
+
+    expect(responses).toEqual([mockTokenResponse, mockTokenResponse]);
+  });
+
+  it('should allow retrying social login after an in-flight request fails', () => {
+    const errors: unknown[] = [];
+
+    service.socialLoginWithToken('google', 'retry-token').subscribe({ error: err => errors.push(err) });
+    const failedReq = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
+    failedReq.flush({ detail: 'nope' }, { status: 500, statusText: 'Server Error' });
+
+    service.socialLoginWithToken('google', 'retry-token').subscribe();
+    const retryReq = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
+    retryReq.flush(mockTokenResponse);
+
+    expect(errors).toHaveLength(1);
     expect(service.isLoggedIn).toBe(true);
   });
 

@@ -1,5 +1,5 @@
     .room-detail {
-      padding-top: 72px;
+      padding-top: 60px;
       min-height: 100vh;
       opacity: 0;
       transition: opacity var(--transition-slow);
@@ -15,15 +15,11 @@
 
       &__body {
         display: grid;
-        grid-template-columns: 1fr 380px;
-        gap: var(--space-3xl);
-        padding-top: var(--space-3xl);
-        padding-bottom: var(--space-4xl);
+        grid-template-columns: 1fr;
+        gap: var(--space-lg);
+        padding-top: var(--space-xl);
+        padding-bottom: var(--space-xl);
         align-items: start;
-
-        @media (max-width: 1024px) {
-          grid-template-columns: 1fr;
-        }
       }
 
       &__header {
@@ -42,7 +38,7 @@
 
       &__name {
         font-family: var(--font-serif);
-        font-size: clamp(1.8rem, 4vw, 2.8rem);
+        font-size: clamp(1.4rem, 4vw, 2.8rem);
         color: var(--color-text);
         line-height: 1.2;
         margin-bottom: var(--space-sm);
@@ -88,7 +84,7 @@
       &__main {
         position: relative;
         width: 100%;
-        height: clamp(300px, 50vh, 500px);
+        height: clamp(200px, 35vh, 320px);
         overflow: hidden;
 
         img {
@@ -114,8 +110,8 @@
       }
 
       &__thumb {
-        width: 80px;
-        height: 60px;
+        width: 60px;
+        height: 44px;
         object-fit: cover;
         border-radius: var(--radius-sm);
         cursor: pointer;
@@ -132,9 +128,9 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 13px;
+      font-size: 12px;
       color: var(--color-text-muted);
-      margin-bottom: var(--space-xl);
+      margin-bottom: var(--space-md);
 
       a { transition: color var(--transition-fast); &:hover { color: var(--color-primary); } }
       span { color: var(--color-text-subtle); }
@@ -142,7 +138,7 @@
 
     .amenities {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      grid-template-columns: 1fr;
       gap: var(--space-sm);
     }
 
@@ -175,14 +171,15 @@
 
     // ── Booking Panel ──────────────────────────────────────────────────────────
     .booking-panel {
-      position: sticky;
-      top: 100px;
+      position: relative;
+      top: 0;
+      z-index: 10;
 
       &__card {
         background: var(--gradient-card);
         border: 1px solid var(--color-border-light);
         border-radius: var(--radius-xl);
-        padding: var(--space-xl);
+        padding: var(--space-md);
         box-shadow: var(--shadow-xl);
       }
 
@@ -269,9 +266,9 @@
 
       .map-iframe {
         width: 100%;
-        height: 320px;
+        height: 200px;
         border: none;
-        border-radius: 12px;
+        border-radius: 8px;
         background: #1a2030;
       }
 
@@ -282,41 +279,41 @@
       }
     }
 
-    // ── Responsive ─────────────────────────────────────────────────────────
-    // Tablet (768–900px)
-    @media (min-width: 768px) and (max-width: 900px) {
-      .room-detail__body {
-        grid-template-columns: 1fr;
-        gap: var(--space-xl);
-      }
-      .booking-panel { position: relative; top: 0; }
-      .gallery__main { height: clamp(240px, 40vh, 400px); }
-      .amenities { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    // ── Responsive (mobile-first) ──────────────────────────────────────────
+
+    // sm (480px+)
+    @media (min-width: 480px) {
+      .amenities { grid-template-columns: repeat(2, 1fr); }
+      .booking-panel__card { padding: var(--space-lg); }
+      .room-map .map-iframe { height: 240px; border-radius: 12px; }
     }
 
-    // Mobile (<768px)
-    @media (max-width: 767px) {
-      .room-detail { padding-top: 60px; }
+    // md (768px+)
+    @media (min-width: 768px) {
+      .room-detail { padding-top: 72px; }
       .room-detail__body {
         padding-top: var(--space-xl);
         padding-bottom: var(--space-xl);
-        gap: var(--space-lg);
+        gap: var(--space-xl);
       }
-      .booking-panel { position: relative; top: 0; }
-      .booking-panel__card { padding: var(--space-lg); }
-      .gallery__main { height: clamp(200px, 35vh, 320px); }
-      .gallery__thumb { width: 60px; height: 44px; }
-      .breadcrumb { font-size: 12px; margin-bottom: var(--space-md); }
-      .amenities { grid-template-columns: repeat(2, 1fr); }
-      .room-map .map-iframe { height: 240px; }
+      .gallery__main { height: clamp(240px, 40vh, 400px); }
+      .gallery__thumb { width: 80px; height: 60px; }
+      .breadcrumb { font-size: 13px; margin-bottom: var(--space-xl); }
+      .amenities { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+      .booking-panel__card { padding: var(--space-xl); }
+      .room-map .map-iframe { height: 320px; }
     }
 
-    // Small mobile (<480px)
-    @media (max-width: 480px) {
-      .room-detail__name { font-size: 1.4rem; }
-      .room-detail__section h2 { font-size: 1.15rem; }
-      .amenities { grid-template-columns: 1fr; }
-      .booking-panel__card { padding: var(--space-md); }
-      .room-map .map-iframe { height: 200px; border-radius: 8px; }
+    // lg (1024px+)
+    @media (min-width: 1024px) {
+      .room-detail__body {
+        grid-template-columns: 1fr 380px;
+        gap: var(--space-3xl);
+        padding-top: var(--space-3xl);
+        padding-bottom: var(--space-4xl);
+      }
+      .booking-panel { position: sticky; top: 100px; }
+      .gallery__main { height: clamp(300px, 50vh, 500px); }
+      .amenities { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
     }
 

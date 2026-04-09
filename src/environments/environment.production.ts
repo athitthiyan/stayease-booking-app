@@ -1,3 +1,8 @@
+// SECURITY NOTE: All production URLs use HTTPS for secure communication.
+// Verify SSL certificates are properly configured and certificate pinning is implemented
+// at the network/backend level to prevent man-in-the-middle attacks.
+// See: https://owasp.org/www-community/attacks/Manipulator-in-the-middle_attack
+
 export const environment = {
   production: true,
   apiUrl: 'https://hotel-api-production-447d.up.railway.app',
@@ -15,4 +20,6 @@ export const environment = {
   stripeEnabled: false,
   maintenanceMode: false,
   maintenanceHosts: ['www.stayvora.co.in'],
+  // Google Analytics 4 — set to your GA4 measurement ID (e.g. 'G-XXXXXXXXXX')
+  gaMeasurementId: '',
 };

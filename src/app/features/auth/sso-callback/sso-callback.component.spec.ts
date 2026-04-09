@@ -13,6 +13,7 @@ describe('SsoCallbackComponent', () => {
   };
   const searchStore = {
     getAndClearRedirectIntent: jest.fn(),
+    getRedirectIntent: jest.fn(),
   };
 
   let getMsalRedirectResultSpy: jest.SpyInstance;
@@ -43,16 +44,20 @@ describe('SsoCallbackComponent', () => {
   beforeEach(() => {
     authService.socialLoginWithToken.mockReset();
     searchStore.getAndClearRedirectIntent.mockReset();
+    searchStore.getRedirectIntent.mockReset();
     searchStore.getAndClearRedirectIntent.mockReturnValue(null);
+    searchStore.getRedirectIntent.mockReturnValue(null);
     getMsalRedirectResultSpy = jest.spyOn(msalConfig, 'getMsalRedirectResult').mockReturnValue(null);
     wasBackendLoginDoneSpy = jest.spyOn(msalConfig, 'wasBackendLoginDone').mockReturnValue(false);
     window.history.replaceState({}, '', '/auth/callback/microsoft');
+    sessionStorage.removeItem('sv_redirect_after_login');
   });
 
   afterEach(() => {
     getMsalRedirectResultSpy.mockRestore();
     wasBackendLoginDoneSpy.mockRestore();
     window.history.replaceState({}, '', '/');
+    sessionStorage.removeItem('sv_redirect_after_login');
   });
 
   // ─── Backend login completed in APP_INITIALIZER ───────────────────────
@@ -75,6 +80,19 @@ describe('SsoCallbackComponent', () => {
     component.ngOnInit();
 
     expect(navigateByUrlSpy).toHaveBeenCalledWith('/checkout/5');
+  });
+
+  it('falls back to the persisted session redirect when no in-memory intent remains', () => {
+    wasBackendLoginDoneSpy.mockReturnValue(true);
+    sessionStorage.setItem('sv_redirect_after_login', '/rooms/5');
+
+    const { component, router } = setup(null);
+    const navigateByUrlSpy = jest.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+
+    component.ngOnInit();
+
+    expect(navigateByUrlSpy).toHaveBeenCalledWith('/rooms/5');
+    expect(sessionStorage.getItem('sv_redirect_after_login')).toBeNull();
   });
 
   // ─── MSAL result available but backend not done ───────────────────────
@@ -179,11 +197,35 @@ describe('SsoCallbackComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/']);
   });
 
+  it('uses the persisted session redirect after a successful callback when store intent is absent', () => {
+    authService.socialLoginWithToken.mockReturnValue(of({ access_token: 'tok' }));
+    sessionStorage.setItem('sv_redirect_after_login', '/checkout/room-5');
+
+    const { component, router } = setup('id_token=jwt');
+    const navigateByUrlSpy = jest.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+
+    component.ngOnInit();
+
+    expect(navigateByUrlSpy).toHaveBeenCalledWith('/checkout/room-5');
+    expect(router.navigate).not.toHaveBeenCalledWith(['/']);
+    expect(sessionStorage.getItem('sv_redirect_after_login')).toBeNull();
+  });
+
   it('sets error when socialLoginWithToken fails', () => {
     authService.socialLoginWithToken.mockReturnValue(throwError(() => new Error('fail')));
     const { component } = setup('id_token=bad-jwt');
     component.ngOnInit();
     expect(component.error()).toBe('Sign-in failed. Please try again.');
+  });
+
+  it('does not process the same callback twice while login completion is already in flight', () => {
+    authService.socialLoginWithToken.mockReturnValue(of({ access_token: 'tok' }));
+    const { component } = setup('id_token=jwt');
+
+    component.ngOnInit();
+    component.ngOnInit();
+
+    expect(authService.socialLoginWithToken).toHaveBeenCalledTimes(1);
   });
 
   it('navigates to login on goToLogin()', () => {

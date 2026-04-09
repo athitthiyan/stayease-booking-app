@@ -1,11 +1,11 @@
 import { Injectable, NgZone, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { BehaviorSubject, Observable, firstValueFrom, tap } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, finalize, firstValueFrom, of, shareReplay, switchMap, tap } from 'rxjs';
 import { BrowserAuthError, RedirectRequest } from '../auth/msal-browser-shim';
 import { MsalService } from '../auth/msal-angular-shim';
 import { environment } from '../../../environments/environment';
-import { loginRequest } from '../auth/msal.config';
+import { loginRequest, consumePendingSession } from '../auth/msal.config';
 import {
   ChangePasswordRequest,
   ForgotPasswordRequest,
@@ -22,8 +22,9 @@ import {
   UserSignup,
 } from '../models/auth.model';
 
-const ACCESS_TOKEN_KEY = 'se_access_token';
-const REFRESH_TOKEN_KEY = 'se_refresh_token';
+// Access token is stored in memory only (never persisted to localStorage).
+// Refresh token is stored as an HttpOnly cookie by the backend (inaccessible to JS).
+// User profile is cached in localStorage for convenience (non-sensitive data).
 const USER_KEY = 'se_user';
 
 @Injectable({ providedIn: 'root' })
@@ -34,6 +35,16 @@ export class AuthService {
   private msalService = inject(MsalService);
   private base = `${environment.apiUrl}/auth`;
   private googleLoginInProgress = false;
+  private socialLoginInFlight:
+    | {
+        key: string;
+        request$: Observable<TokenResponse>;
+      }
+    | null = null;
+  private refreshTokenInFlight$: Observable<TokenResponse> | null = null;
+
+  // In-memory access token (never persisted to localStorage)
+  private accessTokenMemory: string | null = null;
 
   private currentUserSubject = new BehaviorSubject<UserResponse | null>(
     this.loadUserFromStorage()
@@ -54,11 +65,36 @@ export class AuthService {
   }
 
   getAccessToken(): string | null {
-    return localStorage.getItem(ACCESS_TOKEN_KEY);
+    // Lazy-consume the SSO session obtained during APP_INITIALIZER.
+    // This fires the instant any service (e.g. ActiveBookingService) asks
+    // for a token — before the SsoCallbackComponent even loads.
+    if (!this.accessTokenMemory) {
+      const pending = consumePendingSession();
+      if (pending) {
+        this.hydrateSession(pending.accessToken, pending.user);
+      }
+    }
+    return this.accessTokenMemory;
   }
 
-  getRefreshToken(): string | null {
-    return localStorage.getItem(REFRESH_TOKEN_KEY);
+  /**
+   * Restore session on app init by calling /auth/refresh.
+   * The HttpOnly cookie is sent automatically by the browser.
+   * Returns true if session was restored, false otherwise.
+   */
+  initSession(): Observable<boolean> {
+    // If we have a cached user, attempt a silent refresh
+    if (this.loadUserFromStorage()) {
+      return this.refreshToken().pipe(
+        tap(() => { /* session restored */ }),
+        switchMap(() => of(true)),
+        catchError(() => {
+          this.clearLocal();
+          return of(false);
+        })
+      );
+    }
+    return of(false);
   }
 
   signup(payload: UserSignup): Observable<TokenResponse> {
@@ -80,10 +116,22 @@ export class AuthService {
   }
 
   refreshToken(): Observable<TokenResponse> {
-    const refresh_token = this.getRefreshToken();
-    return this.http
-      .post<TokenResponse>(`${this.base}/refresh`, { refresh_token })
-      .pipe(tap(res => this.persistSession(res)));
+    if (this.refreshTokenInFlight$) {
+      return this.refreshTokenInFlight$;
+    }
+
+    // Refresh token is sent automatically via HttpOnly cookie (withCredentials)
+    this.refreshTokenInFlight$ = this.http
+      .post<TokenResponse>(`${this.base}/refresh`, {}, { withCredentials: true })
+      .pipe(
+        tap(res => this.persistSession(res)),
+        finalize(() => {
+          this.refreshTokenInFlight$ = null;
+        }),
+        shareReplay(1),
+      );
+
+    return this.refreshTokenInFlight$;
   }
 
   getMe(): Observable<UserResponse> {
@@ -130,11 +178,11 @@ export class AuthService {
   }
 
   logout(): void {
-    // Revoke refresh token server-side (fire-and-forget)
-    const rt = this.getRefreshToken();
-    if (rt) {
-      this.http.post(`${this.base}/logout`, { refresh_token: rt }).subscribe();
-    }
+    // Revoke refresh token server-side (cookie sent automatically)
+    this.http.post(`${this.base}/logout`, {}, { withCredentials: true }).subscribe({
+      // The session may already be gone; local logout should still complete quietly.
+      error: () => void 0,
+    });
     // Revoke Google session if GIS is loaded
     const google = (window as unknown as { google?: { accounts: GoogleAccounts } }).google;
     if (google?.accounts?.oauth2?.revoke) {
@@ -143,11 +191,14 @@ export class AuthService {
         google.accounts.oauth2.revoke(token, () => { /* best-effort */ });
       }
     }
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    this.clearLocal();
+    this.router.navigate(['/auth/login']);
+  }
+
+  private clearLocal(): void {
+    this.accessTokenMemory = null;
     localStorage.removeItem(USER_KEY);
     this.currentUserSubject.next(null);
-    this.router.navigate(['/auth/login']);
   }
 
   private loadUserFromStorage(): UserResponse | null {
@@ -160,13 +211,25 @@ export class AuthService {
     }
   }
 
+  /**
+   * Hydrate the in-memory session from data obtained outside Angular
+   * (e.g. the MSAL APP_INITIALIZER fetch).  The HttpOnly refresh cookie
+   * was already stored by the browser; we just need the access token in memory.
+   */
+  hydrateSession(accessToken: string, user: unknown): void {
+    this.accessTokenMemory = accessToken;
+    if (user) {
+      const typed = user as UserResponse;
+      this.currentUserSubject.next(typed);
+      localStorage.setItem(USER_KEY, JSON.stringify(typed));
+    }
+  }
+
   private persistSession(resp: TokenResponse): void {
     if (resp.access_token) {
-      localStorage.setItem(ACCESS_TOKEN_KEY, resp.access_token);
+      this.accessTokenMemory = resp.access_token;
     }
-    if (resp.refresh_token) {
-      localStorage.setItem(REFRESH_TOKEN_KEY, resp.refresh_token);
-    }
+    // Refresh token is now in HttpOnly cookie (set by backend), not stored client-side
     if (resp.user) {
       this.currentUserSubject.next(resp.user);
       localStorage.setItem(USER_KEY, JSON.stringify(resp.user));
@@ -215,7 +278,14 @@ export class AuthService {
               this.socialLoginWithToken('google', response.access_token!).subscribe({
                 next: () => {
                   done();
-                  this.router.navigate(['/']);
+                  // Redirect to the page the user was on before login
+                  const intended = sessionStorage.getItem('sv_redirect_after_login');
+                  if (intended) {
+                    sessionStorage.removeItem('sv_redirect_after_login');
+                    this.router.navigateByUrl(intended);
+                  } else {
+                    this.router.navigate(['/']);
+                  }
                   resolve();
                 },
                 error: (err: unknown) => { done(); reject(err); },
@@ -260,12 +330,30 @@ export class AuthService {
   }
 
   socialLoginWithToken(provider: 'google' | 'apple' | 'microsoft', idToken: string): Observable<TokenResponse> {
-    return this.http.post<TokenResponse>(`${this.base}/social-login`, {
+    const key = `${provider}:${idToken}`;
+    if (this.socialLoginInFlight?.key === key) {
+      return this.socialLoginInFlight.request$;
+    }
+
+    const request$ = this.http.post<TokenResponse>(`${this.base}/social-login`, {
       provider,
-      id_token: idToken
+      id_token: idToken,
     }).pipe(
-      tap(resp => this.persistSession(resp))
+      tap(resp => this.persistSession(resp)),
+      finalize(() => {
+        if (this.socialLoginInFlight?.key === key) {
+          this.socialLoginInFlight = null;
+        }
+      }),
+      shareReplay(1),
     );
+
+    this.socialLoginInFlight = {
+      key,
+      request$,
+    };
+
+    return request$;
   }
 }
 

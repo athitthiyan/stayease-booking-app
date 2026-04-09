@@ -15,7 +15,11 @@ import {
   standalone: true,
   imports: [RouterLink, CommonModule],
   template: `
-    <article class="room-card" [routerLink]="['/rooms', room.id]">
+    <article
+      class="room-card"
+      [class.room-card--disabled]="!isRoomAvailable"
+      [routerLink]="isRoomAvailable ? ['/rooms', room.id] : null"
+    >
       <!-- Image -->
       <div class="room-card__image-wrap">
         <img
@@ -88,9 +92,17 @@ import {
             <span class="price__amount">₹{{ room.price | number:'1.0-0' }}</span>
             <span class="price__period">/ night</span>
           </div>
-          <a [routerLink]="['/rooms', room.id]" class="btn btn--primary btn--sm" (click)="$event.stopPropagation()">
-            Book Now
-          </a>
+          @if (room.availabilityState === 'loading') {
+            <span class="room-card__availability room-card__availability--loading">Checking availability…</span>
+          } @else if (!isRoomAvailable) {
+            <span class="room-card__availability room-card__availability--unavailable">
+              {{ room.availabilityMessage || 'Unavailable for selected dates' }}
+            </span>
+          } @else {
+            <a [routerLink]="['/rooms', room.id]" class="btn btn--primary btn--sm" (click)="$event.stopPropagation()">
+              Book Now
+            </a>
+          }
         </div>
       </div>
     </article>
@@ -111,6 +123,15 @@ import {
       border-color: rgba(201,168,76,0.3);
       transform: translateY(-6px);
       box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(201,168,76,0.08);
+    }
+
+    .room-card--disabled {
+      cursor: default;
+      opacity: 0.86;
+    }
+
+    .room-card--disabled:hover {
+      transform: none;
     }
 
     .room-card:hover .room-card__image { transform: scale(1.05); }
@@ -213,9 +234,24 @@ import {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 12px;
       margin-top: auto;
       padding-top: var(--space-md);
       border-top: 1px solid var(--color-border);
+    }
+
+    .room-card__availability {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--color-text-muted);
+    }
+
+    .room-card__availability--loading {
+      color: var(--color-primary);
+    }
+
+    .room-card__availability--unavailable {
+      color: #fca5a5;
     }
 
     .room-card__footer .price {
@@ -258,6 +294,7 @@ export class RoomCardComponent implements OnInit {
   starStr = '★★★★★';
   roomTypeLabel = '';
   discountPct = 0;
+  protected isRoomAvailable = true;
 
   ngOnInit() {
     const labelMap: Record<string, string> = {
@@ -276,6 +313,8 @@ export class RoomCardComponent implements OnInit {
         ((this.room.original_price - this.room.price) / this.room.original_price) * 100
       );
     }
+
+    this.isRoomAvailable = this.room.availabilityState !== 'unavailable';
   }
 
   onImgError(event: Event): void {

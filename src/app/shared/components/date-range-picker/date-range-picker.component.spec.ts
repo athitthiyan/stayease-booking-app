@@ -66,6 +66,58 @@ describe('DateRangePickerComponent', () => {
       component.toggleCalendar();
       expect(component.closeCalendar).toHaveBeenCalled();
     });
+
+    it('should anchor the calendar panel to the trigger when opening', () => {
+      fixture.detectChanges();
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 });
+
+      const trigger = fixture.nativeElement.querySelector('.drp__trigger') as HTMLButtonElement;
+      jest.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+        width: 260,
+        height: 48,
+        top: 120,
+        bottom: 168,
+        left: 80,
+        right: 340,
+        x: 80,
+        y: 120,
+        toJSON: () => ({}),
+      });
+      jest.spyOn(component['elementRef'].nativeElement, 'getBoundingClientRect').mockReturnValue({
+        width: 260,
+        height: 48,
+        top: 120,
+        bottom: 168,
+        left: 80,
+        right: 340,
+        x: 80,
+        y: 120,
+        toJSON: () => ({}),
+      } as DOMRect);
+
+      component.openCalendar();
+
+      expect(component.panelTop()).toBe(60);
+      expect(component.panelOffsetLeft()).toBe(-64);
+      expect(component.panelWidth()).toBe(900);
+      expect(component.panelCentered()).toBe(false);
+
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth });
+    });
+
+    it('should center the calendar on narrower viewports', () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 960 });
+
+      component.openCalendar();
+
+      expect(component.panelCentered()).toBe(true);
+      expect(component.panelTop()).toBeGreaterThan(0);
+      expect(component.panelOffsetLeft()).toBeGreaterThanOrEqual(0);
+
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth });
+    });
   });
 
   describe('Selecting Check-in Date', () => {
@@ -317,6 +369,55 @@ describe('DateRangePickerComponent', () => {
       clearBtn = fixture.nativeElement.querySelector('.cal-clear');
       expect(clearBtn).toBeTruthy();
     });
+
+    it('should keep the anchored panel coordinates when closing', () => {
+      fixture.detectChanges();
+
+      component.openCalendar();
+      const openLeft = component.panelOffsetLeft();
+      const openTop = component.panelTop();
+      component.closeCalendar();
+
+      expect(component.panelOffsetLeft()).toBe(openLeft);
+      expect(component.panelTop()).toBe(openTop);
+    });
+
+    it('should anchor the centered panel relative to the host width on mobile/tablet', () => {
+      fixture.detectChanges();
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 768 });
+
+      const trigger = fixture.nativeElement.querySelector('.drp__trigger') as HTMLButtonElement;
+      jest.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+        width: 320,
+        height: 48,
+        top: 120,
+        bottom: 168,
+        left: 200,
+        right: 520,
+        x: 200,
+        y: 120,
+        toJSON: () => ({}),
+      });
+      jest.spyOn(component['elementRef'].nativeElement, 'getBoundingClientRect').mockReturnValue({
+        width: 320,
+        height: 48,
+        top: 120,
+        bottom: 168,
+        left: 200,
+        right: 520,
+        x: 200,
+        y: 120,
+        toJSON: () => ({}),
+      } as DOMRect);
+
+      component.openCalendar();
+
+      expect(component.panelCentered()).toBe(true);
+      expect(component.panelOffsetLeft()).toBe(160);
+
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth });
+    });
   });
 
   describe('Nights Count Calculation', () => {
@@ -499,6 +600,32 @@ describe('DateRangePickerComponent', () => {
     it('should not error when escape pressed while already closed', () => {
       component.isOpen.set(false);
       expect(() => component.onEscapeKey()).not.toThrow();
+    });
+  });
+
+  describe('Outside Click Handling', () => {
+    it('should close the calendar when clicking outside the component', () => {
+      component.isOpen.set(true);
+      const event = new MouseEvent('click');
+      Object.defineProperty(event, 'target', {
+        value: document.createElement('div'),
+      });
+
+      component.onOutsideClick(event);
+
+      expect(component.isOpen()).toBe(false);
+    });
+
+    it('should keep the calendar open when clicking inside the component', () => {
+      component.isOpen.set(true);
+      const event = new MouseEvent('click');
+      Object.defineProperty(event, 'target', {
+        value: fixture.nativeElement.querySelector('.drp__trigger'),
+      });
+
+      component.onOutsideClick(event);
+
+      expect(component.isOpen()).toBe(true);
     });
   });
 

@@ -8,7 +8,7 @@
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 400px;
+  min-height: 300px;
   overflow: hidden;
   background: #0a1628;
 
@@ -27,19 +27,23 @@
 // ── Map Controls — top right stack ────────────────────────────────────
 .map-controls {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: 10px;
+  right: 10px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  align-items: stretch;
 }
 
 .map-ctrl-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 6px 10px;
+  min-width: 44px;
+  min-height: 40px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   background: rgba(15, 23, 42, 0.92);
@@ -72,6 +76,7 @@
   }
 
   &__text {
+    display: none; // shown at md+ via media query
     font-weight: 600;
   }
 
@@ -249,14 +254,15 @@
 // ── Popup Card (bottom center) ────────────────────────────────────────
 .map-popup {
   position: absolute;
-  bottom: 16px;
+  bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
-  width: min(460px, calc(100% - 32px));
+  width: calc(100% - 16px);
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  padding: 12px;
+  padding: 10px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(15, 23, 42, 0.96);
@@ -281,7 +287,7 @@
   }
 
   &__img {
-    width: 110px;
+    width: 100%;
     height: 100px;
     object-fit: cover;
     border-radius: 12px;
@@ -337,7 +343,7 @@
   }
 
   &__stats {
-    display: flex;
+    display: none;
     flex-wrap: wrap;
     gap: 10px;
     font-size: 11px;
@@ -368,7 +374,7 @@
   }
 
   &__price-now {
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 700;
     color: #f0d58f;
   }
@@ -444,34 +450,34 @@
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
-// ── Responsive ────────────────────────────────────────────────────────
+// ── Responsive (mobile-first) ─────────────────────────────────────────
 
-// Tablet (768–1024px)
-@media (max-width: 1024px) {
+// sm (480px+)
+@media (min-width: 480px) {
+  .map-wrapper { min-height: 400px; }
+  .map-popup__price-now { font-size: 18px; }
+}
+
+// md (768px+)
+@media (min-width: 768px) {
+  .map-controls { top: 14px; right: 14px; }
+  .map-ctrl-btn { padding: 8px 14px; font-size: 12px; min-width: 156px; min-height: 42px; }
+  .map-ctrl-btn__text { display: inline; }
+
   .map-popup {
-    width: calc(100% - 24px);
-    &__img { width: 90px; height: 80px; }
+    bottom: 16px;
+    width: min(460px, calc(100% - 24px));
+    flex-direction: row;
+    padding: 12px;
+    &__img { width: 110px; height: 100px; }
+    &__stats { display: flex; }
   }
 }
 
-// Mobile (<768px)
-@media (max-width: 767px) {
-  .map-controls { top: 10px; right: 10px; }
-  .map-ctrl-btn { padding: 6px 10px; font-size: 11px; }
-  .map-ctrl-btn__text { display: none; }
-
+// lg (1024px+)
+@media (min-width: 1024px) {
   .map-popup {
-    bottom: 10px;
-    width: calc(100% - 16px);
-    flex-direction: column;
-    padding: 10px;
-    &__img { width: 100%; height: 100px; }
-    &__stats { display: none; }
+    width: min(460px, calc(100% - 32px));
+    &__img { width: 110px; height: 100px; }
   }
-}
-
-// Small mobile (<480px)
-@media (max-width: 480px) {
-  .map-wrapper { min-height: 300px; }
-  .map-popup__price-now { font-size: 15px; }
 }

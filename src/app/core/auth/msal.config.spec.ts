@@ -128,11 +128,14 @@ describe('msal.config', () => {
     const initializer = appInitializerProvider.useFactory(instance as never) as () => Promise<void>;
     await initializer();
 
-    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/auth/social-login', expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:8000/auth/social-login', expect.objectContaining({
       method: 'POST',
     }));
-    expect(localStorage.getItem('se_access_token')).toBe('access-token');
-    expect(localStorage.getItem('se_refresh_token')).toBe('refresh-token');
+    expect(localStorage.getItem('se_user')).toBe(JSON.stringify({ email: 'user@example.com' }));
+    expect(module.consumePendingSession()).toEqual({
+      accessToken: 'access-token',
+      user: { email: 'user@example.com' },
+    });
     expect(module.getMsalRedirectResult()).toEqual({ idToken: 'id-token-123' });
     expect(module.wasBackendLoginDone()).toBe(true);
   });

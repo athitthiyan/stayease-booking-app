@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, BehaviorSubject, of, throwError } from 'rxjs';
+import { Observable, BehaviorSubject, finalize, of, shareReplay, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
@@ -28,6 +28,7 @@ export interface CheckoutState {
 export class BookingService {
   private http = inject(HttpClient);
   private base = `${environment.apiUrl}/bookings`;
+  private activeHoldRequest$: Observable<ActiveHold | null> | null = null;
 
   // In-memory checkout state (passed between booking and payment app)
   private _checkoutState$ = new BehaviorSubject<CheckoutState | null>(null);
@@ -105,12 +106,22 @@ export class BookingService {
   }
 
   getActiveHold(): Observable<ActiveHold | null> {
-    return this.http
+    if (this.activeHoldRequest$) {
+      return this.activeHoldRequest$;
+    }
+
+    this.activeHoldRequest$ = this.http
       .get<ActiveHold>(`${this.base}/active-hold`, { observe: 'response' })
       .pipe(
         map(response => response.body ?? null),
         catchError(error => (/* istanbul ignore next */ error.status === 204 ? of(null) : throwError(() => error))),
+        finalize(() => {
+          this.activeHoldRequest$ = null;
+        }),
+        shareReplay(1),
       );
+
+    return this.activeHoldRequest$;
   }
 
   getMyBookings(

@@ -14,6 +14,7 @@ import {
 
 const ACTIVE_BOOKING_SYNC_KEY = 'se_active_booking_sync';
 const ACTIVE_HOLD_POLL_MS = 30_000;
+const ACTIVE_HOLD_REFRESH_DEBOUNCE_MS = 200;
 const TOAST_DURATION_MS = 4_000;
 
 type SyncReason = ActiveHoldSyncReason;
@@ -38,15 +39,18 @@ export class ActiveBookingService {
   private countdownHandle: ReturnType<typeof setInterval> | null = null;
   private pollHandle: ReturnType<typeof setInterval> | null = null;
   private toastHandle: ReturnType<typeof setTimeout> | null = null;
+  private refreshHandle: ReturnType<typeof setTimeout> | null = null;
   private suppressedConfirmedBookingId: number | null = null;
   private stateVersion = 0;
+  private lastRefreshAt = 0;
+  private queuedSilentRefresh = true;
 
   constructor() {
     this.authService.currentUser$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(user => {
         if (user) {
-          this.refreshActiveHold(false);
+          this.scheduleRefresh(false, true);
           this.startPolling();
           this.broadcastSync('login');
           return;
@@ -64,7 +68,7 @@ export class ActiveBookingService {
       )
       .subscribe(() => {
         if (this.authService.isLoggedIn) {
-          this.refreshActiveHold(true);
+          this.scheduleRefresh(true);
         }
       });
 
@@ -82,12 +86,16 @@ export class ActiveBookingService {
       }
       this.stopCountdown();
       this.stopPolling();
+      if (this.refreshHandle !== null) {
+        clearTimeout(this.refreshHandle);
+        this.refreshHandle = null;
+      }
       this.clearToast();
     });
   }
 
   retryLoad(): void {
-    this.refreshActiveHold(false);
+    this.scheduleRefresh(false, true);
   }
 
   markBookingConfirmed(booking: Booking): void {
@@ -135,18 +143,43 @@ export class ActiveBookingService {
       },
       error: () => {
         this.showToast('Unable to cancel your active booking right now.');
-        this.refreshActiveHold(false);
+        this.scheduleRefresh(false, true);
       },
     });
   }
 
-  private refreshActiveHold(silent: boolean): void {
+  private scheduleRefresh(silent: boolean, immediate = false): void {
     if (!this.authService.isLoggedIn) {
       this.clearState(false);
       return;
     }
 
+    this.queuedSilentRefresh = this.queuedSilentRefresh && silent;
+    if (this.refreshHandle !== null) {
+      clearTimeout(this.refreshHandle);
+      this.refreshHandle = null;
+    }
+
+    const elapsed = Date.now() - this.lastRefreshAt;
+    const delay = immediate ? 0 : Math.max(0, ACTIVE_HOLD_REFRESH_DEBOUNCE_MS - elapsed);
+    if (delay === 0) {
+      const nextSilent = this.queuedSilentRefresh;
+      this.queuedSilentRefresh = true;
+      this.refreshActiveHold(nextSilent);
+      return;
+    }
+
+    this.refreshHandle = setTimeout(() => {
+      this.refreshHandle = null;
+      const nextSilent = this.queuedSilentRefresh;
+      this.queuedSilentRefresh = true;
+      this.refreshActiveHold(nextSilent);
+    }, delay);
+  }
+
+  private refreshActiveHold(silent: boolean): void {
     this.loading.set(!silent);
+    this.lastRefreshAt = Date.now();
     const requestVersion = this.stateVersion;
     this.bookingService.getActiveHold().subscribe({
       next: hold => {
@@ -270,7 +303,7 @@ export class ActiveBookingService {
         this.clearActiveBookingCache();
         this.showToast('Booking hold expired.');
         this.broadcastSync('expired');
-        this.refreshActiveHold(true);
+        this.scheduleRefresh(true);
       }
     };
 
@@ -291,7 +324,7 @@ export class ActiveBookingService {
     }
 
     this.pollHandle = setInterval(() => {
-      this.refreshActiveHold(true);
+      this.scheduleRefresh(true);
     }, ACTIVE_HOLD_POLL_MS);
   }
 
@@ -334,6 +367,10 @@ export class ActiveBookingService {
       clearTimeout(this.toastHandle);
       this.toastHandle = null;
     }
+    if (this.refreshHandle !== null) {
+      clearTimeout(this.refreshHandle);
+      this.refreshHandle = null;
+    }
     this.toastMessage.set('');
   }
 
@@ -360,13 +397,13 @@ export class ActiveBookingService {
 
   private readonly handleStorageSync = (event: StorageEvent): void => {
     if (event.key === ACTIVE_BOOKING_SYNC_KEY) {
-      this.refreshActiveHold(true);
+      this.scheduleRefresh(true);
       return;
     }
 
     if (event.key === 'se_user') {
       if (event.newValue) {
-        this.refreshActiveHold(true);
+        this.scheduleRefresh(true);
         this.startPolling();
       } else {
         this.clearState();
@@ -377,13 +414,13 @@ export class ActiveBookingService {
 
   private readonly handleWindowFocus = (): void => {
     if (this.authService.isLoggedIn) {
-      this.refreshActiveHold(true);
+      this.scheduleRefresh(true);
     }
   };
 
   private readonly handleVisibilityChange = (): void => {
     if (typeof document !== 'undefined' && document.visibilityState === 'visible' && this.authService.isLoggedIn) {
-      this.refreshActiveHold(true);
+      this.scheduleRefresh(true);
     }
   };
 }

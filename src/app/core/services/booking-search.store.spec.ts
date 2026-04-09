@@ -271,10 +271,10 @@ describe('BookingSearchStore', () => {
     it('should return error for past check-in date', () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
 
       store.updateDates(yesterdayStr, tomorrowStr);
       expect(store.validationError()).toBe('Check-in date cannot be in the past');
@@ -293,10 +293,10 @@ describe('BookingSearchStore', () => {
     it('should be valid for future dates', () => {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 10);
-      const futureDateStr = futureDate.toISOString().split('T')[0];
+      const futureDateStr = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}`;
       const checkOut = new Date(futureDate);
       checkOut.setDate(checkOut.getDate() + 5);
-      const checkOutStr = checkOut.toISOString().split('T')[0];
+      const checkOutStr = `${checkOut.getFullYear()}-${String(checkOut.getMonth() + 1).padStart(2, '0')}-${String(checkOut.getDate()).padStart(2, '0')}`;
 
       store.updateDates(futureDateStr, checkOutStr);
       expect(store.validationError()).toBe('');

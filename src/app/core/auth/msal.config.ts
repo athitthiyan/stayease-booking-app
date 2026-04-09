@@ -18,11 +18,32 @@ import { environment } from '../../../environments/environment';
 let _redirectResult: AuthenticationResult | null = null;
 let _backendLoginDone = false;
 
+/**
+ * Temporary storage for the session obtained during APP_INITIALIZER.
+ * Angular services are not available at that point, so we stash the
+ * access token + user here and let SsoCallbackComponent hand them
+ * to AuthService once it initialises.
+ */
+let _pendingAccessToken: string | null = null;
+let _pendingUser: unknown = null;
+
 export function getMsalRedirectResult(): AuthenticationResult | null {
   return _redirectResult;
 }
 export function wasBackendLoginDone(): boolean {
   return _backendLoginDone;
+}
+
+/**
+ * Retrieve (and clear) the session data obtained during APP_INITIALIZER
+ * so that AuthService can hydrate its in-memory access token.
+ */
+export function consumePendingSession(): { accessToken: string; user: unknown } | null {
+  if (!_pendingAccessToken) return null;
+  const result = { accessToken: _pendingAccessToken, user: _pendingUser };
+  _pendingAccessToken = null;
+  _pendingUser = null;
+  return result;
 }
 
 export const msalConfig: Configuration = {
@@ -60,13 +81,17 @@ async function completeBackendLogin(idToken: string): Promise<boolean> {
     const resp = await fetch(`${environment.apiUrl}/auth/social-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ provider: 'microsoft', id_token: idToken }),
     });
     if (!resp.ok) return false;
     const data = await resp.json();
     if (data.access_token) {
-      localStorage.setItem('se_access_token', data.access_token);
-      localStorage.setItem('se_refresh_token', data.refresh_token);
+      // Store in module-level variables for SsoCallbackComponent to bridge
+      // into AuthService (access token lives in memory, not localStorage).
+      _pendingAccessToken = data.access_token;
+      _pendingUser = data.user;
+      // User profile is still cached in localStorage (non-sensitive, matches auth.service pattern)
       localStorage.setItem('se_user', JSON.stringify(data.user));
       return true;
     }

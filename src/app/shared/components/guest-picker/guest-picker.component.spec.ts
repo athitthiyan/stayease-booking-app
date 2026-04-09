@@ -236,25 +236,11 @@ describe('GuestPickerComponent', () => {
       expect(component.open()).toBe(false);
     });
 
-    it('should register scroll listener when opening', () => {
-      jest.spyOn(window, 'addEventListener');
+    it('should keep the dropdown open without binding scroll listeners', () => {
+      const addEventListenerSpy = jest.spyOn(window, 'addEventListener');
       component.toggle();
-      expect(window.addEventListener).toHaveBeenCalledWith(
-        'scroll',
-        expect.any(Function),
-        true
-      );
-    });
-
-    it('should remove scroll listener when closing', () => {
-      jest.spyOn(window, 'removeEventListener');
-      component.toggle(); // Open
-      component.close(); // Close
-      expect(window.removeEventListener).toHaveBeenCalledWith(
-        'scroll',
-        expect.any(Function),
-        true
-      );
+      expect(component.open()).toBe(true);
+      expect(addEventListenerSpy).not.toHaveBeenCalledWith('scroll', expect.any(Function), true);
     });
   });
 
@@ -337,20 +323,66 @@ describe('GuestPickerComponent', () => {
     });
   });
 
-  describe('Fixed Positioning Panel', () => {
-    it('should have panelTop, panelLeft, and panelWidth signals', () => {
+  describe('Anchored Panel Positioning', () => {
+    it('should have panelOffsetLeft, panelWidth, and panelCentered signals', () => {
+      expect(component.panelOffsetLeft()).toBe(0);
       expect(component.panelTop()).toBe(0);
-      expect(component.panelLeft()).toBe(0);
       expect(component.panelWidth()).toBe(300);
+      expect(component.panelCentered()).toBe(false);
     });
 
-    it('should set panel position on toggle', () => {
+    it('should anchor the panel to the left edge of the trigger on desktop', () => {
       component.toggle();
       fixture.detectChanges();
-      // Panel position should be calculated based on trigger button position
-      expect(component.panelTop()).toBeGreaterThanOrEqual(0);
-      expect(component.panelLeft()).toBeGreaterThanOrEqual(0);
+      expect(component.panelTop()).toBeGreaterThan(0);
       expect(component.panelWidth()).toBeGreaterThanOrEqual(300);
+      expect(component.panelOffsetLeft()).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should shift left to keep the dropdown inside the viewport', () => {
+      const trigger = component.triggerBtn.nativeElement;
+      jest.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+        width: 320,
+        height: 48,
+        top: 120,
+        bottom: 168,
+        left: 760,
+        right: 1080,
+        x: 760,
+        y: 120,
+        toJSON: () => ({}),
+      });
+      jest.spyOn(component['elementRef'].nativeElement, 'getBoundingClientRect').mockReturnValue({
+        width: 320,
+        height: 48,
+        top: 120,
+        bottom: 168,
+        left: 760,
+        right: 1080,
+        x: 760,
+        y: 120,
+        toJSON: () => ({}),
+      } as DOMRect);
+
+      component.toggle();
+
+      expect(component.panelTop()).toBe(56);
+      expect(component.panelOffsetLeft()).toBeLessThan(trigger.getBoundingClientRect().left);
+      expect(component.panelWidth()).toBe(340);
+    });
+
+    it('should center the dropdown on mobile viewports', () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 480 });
+
+      component.toggle();
+
+      expect(component.panelCentered()).toBe(true);
+      expect(component.panelTop()).toBeGreaterThan(0);
+      expect(component.panelOffsetLeft()).toBeGreaterThanOrEqual(0);
+      expect(component.panelWidth()).toBe(340);
+
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth });
     });
 
     it('should update panel position when ResizeObserver fires', () => {
@@ -359,6 +391,64 @@ describe('GuestPickerComponent', () => {
       component.toggle();
       // ResizeObserver would trigger positionPanel, but we verify the spy
       expect(spy).toHaveBeenCalled();
+    });
+
+    it('should align the dropdown to the trigger left edge on desktop', () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
+      const trigger = component.triggerBtn.nativeElement;
+      jest.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+        width: 260,
+        height: 48,
+        top: 80,
+        bottom: 128,
+        left: 140,
+        right: 400,
+        x: 140,
+        y: 80,
+        toJSON: () => ({}),
+      });
+      jest.spyOn(component['elementRef'].nativeElement, 'getBoundingClientRect').mockReturnValue({
+        width: 260,
+        height: 48,
+        top: 80,
+        bottom: 128,
+        left: 140,
+        right: 400,
+        x: 140,
+        y: 80,
+        toJSON: () => ({}),
+      } as DOMRect);
+
+      component.toggle();
+
+      expect(component.panelOffsetLeft()).toBe(0);
+      expect(component.panelTop()).toBe(56);
+
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth });
+    });
+    it('should close when clicking outside the component', () => {
+      component.open.set(true);
+      const event = new MouseEvent('click');
+      Object.defineProperty(event, 'target', {
+        value: document.createElement('div'),
+      });
+
+      component.onDocumentClick(event);
+
+      expect(component.open()).toBe(false);
+    });
+
+    it('should keep the dropdown open when clicking inside the component', () => {
+      component.open.set(true);
+      const event = new MouseEvent('click');
+      Object.defineProperty(event, 'target', {
+        value: component.triggerBtn.nativeElement,
+      });
+
+      component.onDocumentClick(event);
+
+      expect(component.open()).toBe(true);
     });
   });
 
@@ -444,15 +534,10 @@ describe('GuestPickerComponent', () => {
       expect(disconnect).toHaveBeenCalled();
     });
 
-    it('should remove scroll listener on destroy', () => {
-      jest.spyOn(window, 'removeEventListener');
-      component.toggle(); // Create scroll listener
+    it('should destroy cleanly without scroll listener cleanup', () => {
+      component.toggle();
       component.ngOnDestroy();
-      expect(window.removeEventListener).toHaveBeenCalledWith(
-        'scroll',
-        expect.any(Function),
-        true
-      );
+      expect(component.open()).toBe(true);
     });
   });
 });

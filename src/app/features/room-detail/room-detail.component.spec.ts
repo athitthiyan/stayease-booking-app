@@ -81,7 +81,10 @@ describe('RoomDetailComponent', () => {
       toggle: jest.fn(),
       isSaved: jest.fn().mockReturnValue(false),
     };
-    mockAuth = { isLoggedIn: false };
+    mockAuth = {
+      isLoggedIn: false,
+      currentUser$: of(null),
+    };
 
     await TestBed.configureTestingModule({
       imports: [RoomDetailComponent],
@@ -512,6 +515,23 @@ describe('RoomDetailComponent', () => {
     component.checkOut = '2026-04-10';
     component.onDateChange();
     expect(component.dateConflict()).toBe('');
+  });
+
+  it('calculates totalAmount correctly immediately after onDateChange (verifies local nightCount fix)', () => {
+    roomService.getRoom.mockReturnValue(of(mockRoom({ price: 250 })));
+
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.checkIn = '2026-04-10';
+    component.checkOut = '2026-04-13'; // 3 nights
+    component.onDateChange();
+
+    // Should use local nightCount calculation, not this.nights() signal
+    expect(component.nights()).toBe(3);
+    expect(component.totalAmount()).toBe(Math.round(250 * 3 * 1.17)); // 877.5 -> 878
+    expect(component.totalAmount()).toBe(878);
   });
 
   it('calculates a zero total when the room price is missing', () => {

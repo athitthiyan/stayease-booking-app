@@ -8,6 +8,7 @@ import { BookingService } from '../../core/services/booking.service';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { AuthService } from '../../core/services/auth.service';
 import { BookingSearchStore } from '../../core/services/booking-search.store';
+import { ActiveBookingService } from '../../core/services/active-booking.service';
 import { Booking } from '../../core/models/booking.model';
 import { Room } from '../../core/models/room.model';
 import { ReviewsSectionComponent } from '../../shared/components/reviews-section/reviews-section.component';
@@ -21,6 +22,14 @@ import {
 
 /** ISO date string, e.g. "2026-05-10" */
 type ISODateString = string;
+
+/** Format a Date as YYYY-MM-DD using local timezone (avoids UTC shift from toISOString). */
+function formatLocalDate(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 @Component({
   selector: 'app-room-detail',
@@ -325,6 +334,7 @@ export class RoomDetailComponent implements OnInit {
   protected authService = inject(AuthService);
   private sanitizer = inject(DomSanitizer);
   private searchStore = inject(BookingSearchStore);
+  private activeBookingService = inject(ActiveBookingService);
 
   room = signal<Room | null>(null);
   loading = signal(true);
@@ -337,8 +347,8 @@ export class RoomDetailComponent implements OnInit {
   checkOut = '';
   guests = 2;
   guestSelection: GuestSelection = { adults: 2, children: 0, infants: 0 };
-  today = new Date().toISOString().split('T')[0];
-  tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  today = formatLocalDate(new Date());
+  tomorrow = formatLocalDate(new Date(Date.now() + 86400000));
 
   nights = signal(0);
   totalAmount = signal(0);
@@ -413,6 +423,10 @@ export class RoomDetailComponent implements OnInit {
         this.activeImage.set(imgs[0] || /* istanbul ignore next */ '');
         this.loading.set(false);
         this.loadUnavailableDates(room.id);
+        // Recalculate price now that room data (with price) is available
+        if (this.checkIn && this.checkOut) {
+          this.onDateChange();
+        }
       },
       error: () => {
         this.room.set(null);
@@ -473,7 +487,7 @@ export class RoomDetailComponent implements OnInit {
 
   private loadUnavailableDates(roomId: number): void {
     const fromDate = this.today;
-    const toDate = new Date(Date.now() + 180 * 86400000).toISOString().split('T')[0];
+    const toDate = formatLocalDate(new Date(Date.now() + 180 * 86400000));
     this.availabilityStatus.set('loading');
     this.bookingService.getUnavailableDates(roomId, fromDate, toDate).subscribe({
       next: res => {
@@ -511,7 +525,7 @@ export class RoomDetailComponent implements OnInit {
     for (let i = 0; i < nights; i++) {
       const d = new Date(this.checkIn);
       d.setDate(d.getDate() + i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = formatLocalDate(d);
       if (unavailable.has(dateStr)) {
         this.dateConflict.set('These dates are already booked. Please select different dates.');
         return;
@@ -538,7 +552,8 @@ export class RoomDetailComponent implements OnInit {
     if (this.checkIn && this.checkOut) {
       const nights = Math.max(0, (new Date(this.checkOut).getTime() - new Date(this.checkIn).getTime()) / 86400000);
       this.nights.set(Math.floor(nights));
-      const roomRate = (this.room()?.price || 0) * this.nights();
+      const nightCount = Math.floor(nights);
+      const roomRate = (this.room()?.price || 0) * nightCount;
       this.totalAmount.set(Math.round(roomRate * 1.17)); // +12% tax +5% service
     } else {
       this.nights.set(0);
@@ -558,18 +573,56 @@ export class RoomDetailComponent implements OnInit {
 
   bookNow() {
     if (!this.checkIn || !this.checkOut || this.nights() < 1) {
-      this.formError.set('Please select valid check-in and check-out dates.');
+      this.formError.set("Please select valid check-in and check-out dates.");
       return;
     }
-    if (this.availabilityStatus() !== 'ready') {
-      this.formError.set('We can’t confirm this room’s live availability right now. Please try again shortly.');
+    if (this.availabilityStatus() !== "ready") {
+      this.formError.set("We cannot confirm this room's live availability right now. Please try again shortly.");
       return;
     }
     if (this.dateConflict()) {
-      return; // Button should already be disabled; guard for keyboard/a11y activation
+      return;
     }
-    this.formError.set('');
+    this.formError.set("");
     this.blockingActiveBooking.set(null);
+    this.checkingExistingBooking.set(true);
+
+    // Check for an existing active hold before navigating to checkout
+    const activeHold = this.activeBookingService.activeHold();
+    if (activeHold) {
+      // If the active hold is for the SAME room, resume it
+      if (activeHold.room_id === this.room()!.id) {
+        this.bookingService.getBooking(activeHold.booking_id).subscribe({
+          next: (booking) => {
+            this.checkingExistingBooking.set(false);
+            sessionStorage.setItem("pending_booking", JSON.stringify(booking));
+            this.bookingService.setCheckoutState({
+              room: this.room()!,
+              checkIn: this.checkIn,
+              checkOut: this.checkOut,
+              guests: this.guests,
+              adults: this.guestSelection.adults,
+              children: this.guestSelection.children,
+              infants: this.guestSelection.infants,
+            });
+            this.router.navigate(["/checkout", this.room()!.id]);
+          },
+          error: () => {
+            this.checkingExistingBooking.set(false);
+            this.beginCheckout();
+          },
+        });
+        return;
+      }
+      // Different room - show blocking message
+      this.checkingExistingBooking.set(false);
+      this.bookingService.getBooking(activeHold.booking_id).subscribe({
+        next: (booking) => this.blockingActiveBooking.set(booking),
+        error: () => this.formError.set("You have an active booking hold. Please cancel it before starting a new one."),
+      });
+      return;
+    }
+
     this.checkingExistingBooking.set(false);
     this.beginCheckout();
   }
