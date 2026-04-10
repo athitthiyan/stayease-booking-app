@@ -1,56 +1,23 @@
 import { Room } from './room.model';
 
-export interface ApiErrorDetail {
-  code: string;
-  message: string;
-  field?: string;
-}
+// Re-export shared types so existing imports throughout the app keep working
+export type {
+  ApiErrorDetail,
+  ApiErrorResponse,
+  BookingStatus,
+  PaymentStatus,
+  RefundStatus,
+  BookingLifecycleState,
+  BookingSupportCategory,
+} from '@stayvora/models';
 
-export interface ApiErrorResponse {
-  detail: ApiErrorDetail | string;
-}
-
-export type BookingStatus =
-  | 'pending'
-  | 'processing'
-  | 'confirmed'
-  | 'cancelled'
-  | 'completed'
-  | 'expired';
-
-export type PaymentStatus =
-  | 'pending'
-  | 'processing'
-  | 'paid'
-  | 'failed'
-  | 'refunded'
-  | 'expired';
-
-export type RefundStatus =
-  | 'refund_requested'
-  | 'refund_initiated'
-  | 'refund_processing'
-  | 'refund_success'
-  | 'refund_failed'
-  | 'refund_reversed';
-
-export type BookingLifecycleState =
-  | 'HOLD_CREATED'
-  | 'PAYMENT_PENDING'
-  | 'PAYMENT_FAILED'
-  | 'PAYMENT_RETRY'
-  | 'PAYMENT_COOLDOWN'
-  | 'PAYMENT_SUCCESS'
-  | 'CONFIRMED'
-  | 'CANCELLED'
-  | 'EXPIRED'
-  | 'REFUNDED';
-
-export type BookingSupportCategory =
-  | 'payment_help'
-  | 'cancellation_help'
-  | 'refund_help'
-  | 'booking_issue';
+// Import types for use in this file's interfaces
+import type {
+  BookingStatus,
+  PaymentStatus,
+  RefundStatus,
+  BookingLifecycleState,
+} from '@stayvora/models';
 
 export interface CreateBookingRequest {
   user_name: string;

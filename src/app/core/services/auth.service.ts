@@ -1,7 +1,7 @@
 import { Injectable, NgZone, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { BehaviorSubject, Observable, catchError, finalize, firstValueFrom, of, shareReplay, switchMap, tap } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, finalize, firstValueFrom, of, shareReplay, switchMap, tap, throwError } from 'rxjs';
 import { BrowserAuthError, RedirectRequest } from '../auth/msal-browser-shim';
 import { MsalService } from '../auth/msal-angular-shim';
 import { environment } from '../../../environments/environment';
@@ -22,10 +22,14 @@ import {
   UserSignup,
 } from '../models/auth.model';
 
-// Access token is stored in memory only (never persisted to localStorage).
-// Refresh token is stored as an HttpOnly cookie by the backend (inaccessible to JS).
-// User profile is cached in localStorage for convenience (non-sensitive data).
+// Access token is persisted in localStorage so it survives page navigations
+// (e.g. redirect to PayFlow payment app and back).  The HttpOnly refresh-token
+// cookie is the primary session credential; the access token is a short-lived
+// convenience cache.
+// User profile is also cached in localStorage (non-sensitive data).
 const USER_KEY = 'se_user';
+const TOKEN_KEY = 'se_at';
+const REFRESH_TOKEN_KEY = 'se_rt';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -43,8 +47,8 @@ export class AuthService {
     | null = null;
   private refreshTokenInFlight$: Observable<TokenResponse> | null = null;
 
-  // In-memory access token (never persisted to localStorage)
-  private accessTokenMemory: string | null = null;
+  // Access token cached in memory and localStorage (survives page navigations)
+  private accessTokenMemory: string | null = localStorage.getItem(TOKEN_KEY);
 
   private currentUserSubject = new BehaviorSubject<UserResponse | null>(
     this.loadUserFromStorage()
@@ -74,6 +78,10 @@ export class AuthService {
         this.hydrateSession(pending.accessToken, pending.user);
       }
     }
+    // Fall back to localStorage if memory was cleared (e.g. page navigation)
+    if (!this.accessTokenMemory) {
+      this.accessTokenMemory = localStorage.getItem(TOKEN_KEY);
+    }
     return this.accessTokenMemory;
   }
 
@@ -83,14 +91,29 @@ export class AuthService {
    * Returns true if session was restored, false otherwise.
    */
   initSession(): Observable<boolean> {
-    // If we have a cached user, attempt a silent refresh
-    if (this.loadUserFromStorage()) {
+    // If we have a cached user, attempt a silent refresh to get a fresh access token.
+    // If refresh fails (e.g. cookie lost, transient error), we still preserve
+    // the cached user so the UI shows them as logged in.  The auth interceptor
+    // will retry the refresh on the first real API call; if that also fails it
+    // will redirect to login.  This prevents unnecessary logouts after cross-app
+    // navigations (e.g. returning from PayFlow payment app).
+    const cachedUser = this.loadUserFromStorage();
+    if (cachedUser) {
+      // Ensure the BehaviorSubject is hydrated even before refresh completes
+      if (!this.currentUserSubject.value) {
+        this.currentUserSubject.next(cachedUser);
+      }
+      if (!this.getStoredRefreshToken()) {
+        return of(!!this.getAccessToken());
+      }
       return this.refreshToken().pipe(
-        tap(() => { /* session restored */ }),
+        tap(() => { /* session restored with fresh token */ }),
         switchMap(() => of(true)),
         catchError(() => {
-          this.clearLocal();
-          return of(false);
+          // Don't clear the user — they may still have a valid session.
+          // The cached access token in localStorage (if present) will be
+          // used for the next API call; the interceptor handles 401 → refresh.
+          return of(true);
         })
       );
     }
@@ -120,9 +143,17 @@ export class AuthService {
       return this.refreshTokenInFlight$;
     }
 
-    // Refresh token is sent automatically via HttpOnly cookie (withCredentials)
+    const refreshToken = this.getStoredRefreshToken();
+    if (!refreshToken) {
+      return throwError(() => new Error('No refresh token available.'));
+    }
+
     this.refreshTokenInFlight$ = this.http
-      .post<TokenResponse>(`${this.base}/refresh`, {}, { withCredentials: true })
+      .post<TokenResponse>(
+        `${this.base}/refresh`,
+        { refresh_token: refreshToken },
+        { withCredentials: true }
+      )
       .pipe(
         tap(res => this.persistSession(res)),
         finalize(() => {
@@ -198,7 +229,13 @@ export class AuthService {
   private clearLocal(): void {
     this.accessTokenMemory = null;
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
     this.currentUserSubject.next(null);
+  }
+
+  private getStoredRefreshToken(): string | null {
+    return localStorage.getItem(REFRESH_TOKEN_KEY);
   }
 
   private loadUserFromStorage(): UserResponse | null {
@@ -218,6 +255,7 @@ export class AuthService {
    */
   hydrateSession(accessToken: string, user: unknown): void {
     this.accessTokenMemory = accessToken;
+    localStorage.setItem(TOKEN_KEY, accessToken);
     if (user) {
       const typed = user as UserResponse;
       this.currentUserSubject.next(typed);
@@ -228,8 +266,11 @@ export class AuthService {
   private persistSession(resp: TokenResponse): void {
     if (resp.access_token) {
       this.accessTokenMemory = resp.access_token;
+      localStorage.setItem(TOKEN_KEY, resp.access_token);
     }
-    // Refresh token is now in HttpOnly cookie (set by backend), not stored client-side
+    if (resp.refresh_token) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, resp.refresh_token);
+    }
     if (resp.user) {
       this.currentUserSubject.next(resp.user);
       localStorage.setItem(USER_KEY, JSON.stringify(resp.user));

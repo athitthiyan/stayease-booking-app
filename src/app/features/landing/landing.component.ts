@@ -17,6 +17,16 @@ function formatLocalDate(d: Date): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+/** Hotel business date — operational day extends until 3:00 AM local time. */
+function getBusinessDate(): Date {
+  const now = new Date();
+  if (now.getHours() < 3) {
+    now.setDate(now.getDate() - 1);
+  }
+  now.setHours(0, 0, 0, 0);
+  return now;
+}
+
 interface Destination {
   name: string;
   country: string;
@@ -75,9 +85,10 @@ interface Destination {
           </div>
           <div class="search-box__divider"></div>
           <div class="search-box__field search-box__field--dates">
-            <label for="dates-picker">📅 Dates</label>
+            <span id="dates-picker-label">📅 Dates</span>
             <app-date-range-picker
               id="dates-picker"
+              aria-labelledby="dates-picker-label"
               [checkIn]="checkIn"
               [checkOut]="checkOut"
               (dateChange)="onDateChange($event)"
@@ -85,9 +96,10 @@ interface Destination {
           </div>
           <div class="search-box__divider"></div>
           <div class="search-box__field search-box__field--guests">
-            <label for="guests-picker">👤 Guests</label>
+            <span id="guests-picker-label">👤 Guests</span>
             <app-guest-picker
               id="guests-picker"
+              aria-labelledby="guests-picker-label"
               [value]="guestSelection"
               (valueChange)="onGuestChange($event)"
             />
@@ -295,8 +307,8 @@ export class LandingComponent implements OnInit {
   checkOut = '';
   guests = 2;
   guestSelection: GuestSelection = { adults: 2, children: 0, infants: 0 };
-  today = formatLocalDate(new Date());
-  tomorrow = formatLocalDate(new Date(Date.now() + 86400000));
+  today = formatLocalDate(getBusinessDate());
+  tomorrow = formatLocalDate(new Date(getBusinessDate().getTime() + 86400000));
   searchValidationError = '';
 
   particles = Array.from({ length: 20 }, () => {

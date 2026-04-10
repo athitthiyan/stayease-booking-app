@@ -106,6 +106,7 @@ describe('ActiveBookingService', () => {
     getActiveHold: jest.Mock;
     getBooking: jest.Mock;
     setCheckoutState: jest.Mock;
+    clearCheckoutState: jest.Mock;
     cancelBooking: jest.Mock;
   };
   let router: { events: Subject<NavigationEnd>; url: string; navigate: jest.Mock };
@@ -120,6 +121,7 @@ describe('ActiveBookingService', () => {
       getActiveHold: jest.fn().mockReturnValue(of(null)),
       getBooking: jest.fn(),
       setCheckoutState: jest.fn(),
+      clearCheckoutState: jest.fn(),
       cancelBooking: jest.fn(),
     };
     router = {
@@ -226,6 +228,7 @@ describe('ActiveBookingService', () => {
 
     service.continueBooking();
 
+    expect(bookingService.clearCheckoutState).toHaveBeenCalled();
     expect(bookingService.setCheckoutState).toHaveBeenCalledWith({
       room: expect.objectContaining({ id: 9 }),
       checkIn: '2026-05-01',
@@ -237,6 +240,18 @@ describe('ActiveBookingService', () => {
     });
     expect(sessionStorage.getItem('pending_booking')).toContain('"booking_ref":"BKACTIVE"');
     expect(router.navigate).toHaveBeenCalledWith(['/checkout', 17]);
+  });
+
+  it('hides the CTA bar on the held booking checkout route', () => {
+    bookingService.getActiveHold.mockReturnValue(of(mockHold()));
+
+    authState$.next(mockUser);
+    expect(service.shouldShowActiveReservation()).toBe(true);
+
+    router.url = '/checkout/17';
+    routerEvents$.next(new NavigationEnd(2, '/checkout/17', '/checkout/17'));
+
+    expect(service.shouldShowActiveReservation()).toBe(false);
   });
 
   it('gracefully clears stale booking ids when continue booking fails', () => {

@@ -779,14 +779,28 @@ export class DateRangePickerComponent implements OnInit, OnDestroy {
     return `${year}-${month}-${day}`;
   }
 
+  /**
+   * Returns the current hotel business date as YYYY-MM-DD.
+   * The hotel operational day extends until 3:00 AM local time,
+   * so between midnight and 2:59 AM the business date is still "yesterday".
+   */
+  private getBusinessDateString(): string {
+    const now = new Date();
+    if (now.getHours() < 3) {
+      // Still within previous day's business window — roll back one day
+      now.setDate(now.getDate() - 1);
+    }
+    return this.formatDateString(now);
+  }
+
   private getTodayString(): string {
-    return this.formatDateString(new Date());
+    return this.getBusinessDateString();
   }
 
   private isPastDate(dateStr: string): boolean {
     const minDate = this._minDate();
     if (minDate && this.compareDates(dateStr, minDate) < 0) return true;
-    return this.compareDates(dateStr, this.getTodayString()) < 0;
+    return this.compareDates(dateStr, this.getBusinessDateString()) < 0;
   }
 
   private compareDates(first: string, second: string): number {

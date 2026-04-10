@@ -105,13 +105,18 @@ export class PlatformSyncService implements OnDestroy {
   // ── WebSocket Connection ──────────────────────────────────────────
 
   private tryWebSocket(): void {
-    const token = localStorage.getItem('access_token') || '';
+    let token = '';
+    try {
+      token = localStorage.getItem('access_token') || '';
+    } catch {
+      // localStorage may not be available in SSR or private browsing mode
+    }
     const wsUrl = environment.apiUrl
       .replace('https://', 'wss://')
-      .replace('http://', 'ws://') + '/ws/events?token=' + encodeURIComponent(token);
+      .replace('http://', 'ws://') + '/ws/events';
 
     try {
-      this.ws = new WebSocket(wsUrl);
+      this.ws = new WebSocket(wsUrl, ['access_token', token]);
 
       this.ws.onopen = () => {
         this.connected.set(true);

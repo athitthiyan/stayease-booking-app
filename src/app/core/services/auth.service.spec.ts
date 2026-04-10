@@ -115,6 +115,7 @@ describe('AuthService', () => {
 
     expect(service.getAccessToken()).toBe('access-token-abc');
     expect(localStorage.getItem('se_user')).toEqual(JSON.stringify(mockUser));
+    expect(localStorage.getItem('se_rt')).toBe('refresh-token-xyz');
     expect(service.isLoggedIn).toBe(true);
     expect(emitted).toEqual(mockUser);
   });
@@ -150,10 +151,11 @@ describe('AuthService', () => {
   // ─── refresh token ────────────────────────────────────────────────────────
 
   it('should refresh token and persist new session', () => {
+    localStorage.setItem('se_rt', 'refresh-token-xyz');
     service.refreshToken().subscribe();
 
     const req = http.expectOne(`${env.environment.apiUrl}/auth/refresh`);
-    expect(req.request.body).toEqual({});
+    expect(req.request.body).toEqual({ refresh_token: 'refresh-token-xyz' });
     expect(req.request.withCredentials).toBe(true);
     req.flush(mockTokenResponse);
 
@@ -161,6 +163,7 @@ describe('AuthService', () => {
   });
 
   it('should deduplicate in-flight refresh token requests', () => {
+    localStorage.setItem('se_rt', 'refresh-token-xyz');
     const results: TokenResponse[] = [];
 
     service.refreshToken().subscribe(value => results.push(value));
@@ -171,6 +174,19 @@ describe('AuthService', () => {
     reqs[0].flush(mockTokenResponse);
 
     expect(results).toEqual([mockTokenResponse, mockTokenResponse]);
+  });
+
+  it('should not call refresh endpoint when no refresh token is stored', () => {
+    let error: unknown;
+
+    service.refreshToken().subscribe({
+      error: err => {
+        error = err;
+      },
+    });
+
+    expect((error as Error).message).toBe('No refresh token available.');
+    http.expectNone(`${env.environment.apiUrl}/auth/refresh`);
   });
 
   // ─── get me ───────────────────────────────────────────────────────────────
@@ -247,6 +263,7 @@ describe('AuthService', () => {
     req.flush({ message: 'Logged out successfully' });
 
     expect(localStorage.getItem('se_user')).toBeNull();
+    expect(localStorage.getItem('se_rt')).toBeNull();
     expect(service.isLoggedIn).toBe(false);
     expect(service.getAccessToken()).toBeNull();
     expect(routerSpy.navigate).toHaveBeenCalledWith(['/auth/login']);

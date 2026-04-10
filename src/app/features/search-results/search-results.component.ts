@@ -87,9 +87,10 @@ interface ActiveFilterTag {
             </div>
 
             <div class="filter-bar__stack filter-bar__stack--dates">
-              <label class="filter-label" for="search-dates-picker">Dates</label>
+              <span class="filter-label" id="search-dates-picker-label">Dates</span>
               <app-date-range-picker
                 id="search-dates-picker"
+                aria-labelledby="search-dates-picker-label"
                 [checkIn]="draftFilters.check_in || ''"
                 [checkOut]="draftFilters.check_out || ''"
                 (dateChange)="onDateChange($event)"
@@ -97,9 +98,10 @@ interface ActiveFilterTag {
             </div>
 
             <div class="filter-bar__stack filter-bar__stack--guests">
-              <label class="filter-label" for="search-guests-picker">Guests</label>
+              <span class="filter-label" id="search-guests-picker-label">Guests</span>
               <app-guest-picker
                 id="search-guests-picker"
+                aria-labelledby="search-guests-picker-label"
                 [compact]="true"
                 [value]="guestSelection"
                 (valueChange)="onGuestChange($event)"

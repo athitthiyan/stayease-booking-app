@@ -1,5 +1,5 @@
 import { signal } from '@angular/core';
-import { of, Subject, throwError } from 'rxjs';
+import { BehaviorSubject, of, Subject, throwError } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 
@@ -77,8 +77,10 @@ describe('CheckoutComponent', () => {
     extendHold: jest.Mock;
     cancelBooking: jest.Mock;
   };
+  let routeParamMap$: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
   beforeEach(async () => {
+    routeParamMap$ = new BehaviorSubject(convertToParamMap({}));
     bookingService = {
       getCheckoutState: jest.fn(),
       getBooking: jest.fn(),
@@ -102,6 +104,7 @@ describe('CheckoutComponent', () => {
         {
           provide: ActivatedRoute,
           useValue: {
+            paramMap: routeParamMap$.asObservable(),
             snapshot: {
               paramMap: convertToParamMap({}),
             },
@@ -1033,7 +1036,10 @@ describe('CheckoutComponent', () => {
         provideRouter([]),
         {
           provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap: convertToParamMap({ id: '42' }) } },
+          useValue: {
+            paramMap: of(convertToParamMap({ id: '42' })),
+            snapshot: { paramMap: convertToParamMap({ id: '42' }) },
+          },
         },
         { provide: BookingService, useValue: bs },
       ],
@@ -1088,7 +1094,10 @@ describe('CheckoutComponent', () => {
         provideRouter([]),
         {
           provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap: convertToParamMap({ id: '12' }) } },
+          useValue: {
+            paramMap: of(convertToParamMap({ id: '12' })),
+            snapshot: { paramMap: convertToParamMap({ id: '12' }) },
+          },
         },
         { provide: BookingService, useValue: bs },
       ],
@@ -1099,6 +1108,32 @@ describe('CheckoutComponent', () => {
 
     expect(bs.getBooking).toHaveBeenCalledWith(12);
     expect(fixture.componentInstance.resumableBooking()?.id).toBe(12);
+  });
+
+  it('re-initializes when the checkout route id changes on the same component instance', () => {
+    bookingService.getCheckoutState.mockReturnValue(null);
+    bookingService.getBooking.mockImplementation((id: number) =>
+      of(makeBooking({ id, booking_ref: `BK${id}`, room: checkoutState.room! })),
+    );
+
+    const route = TestBed.inject(ActivatedRoute) as ActivatedRoute & {
+      snapshot: { paramMap: ReturnType<typeof convertToParamMap> };
+    };
+    route.snapshot.paramMap = convertToParamMap({ id: '17' });
+    routeParamMap$.next(convertToParamMap({ id: '17' }));
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    expect(bookingService.getBooking).toHaveBeenCalledWith(17);
+    expect(component.resumableBooking()?.id).toBe(17);
+
+    route.snapshot.paramMap = convertToParamMap({ id: '29' });
+    routeParamMap$.next(convertToParamMap({ id: '29' }));
+
+    expect(bookingService.getBooking).toHaveBeenCalledWith(29);
+    expect(component.resumableBooking()?.id).toBe(29);
   });
 
   it('prevents payment when findResumableBooking returns a confirmed booking', () => {

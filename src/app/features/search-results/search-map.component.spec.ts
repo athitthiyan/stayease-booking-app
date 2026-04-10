@@ -366,6 +366,18 @@ describe('SearchMapComponent', () => {
     expect(component.locating()).toBe(false);
   });
 
+  it('ignores locate requests before the map is ready', () => {
+    const fixture = TestBed.createComponent(SearchMapComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    (component as unknown as { map: unknown }).map = null;
+    component.locateUser();
+
+    expect(navigator.geolocation.getCurrentPosition).not.toHaveBeenCalled();
+    expect(component.locating()).toBe(false);
+  });
+
   it('prompts geolocation, preserves bounds, invalidates, opens directions, and cleans up on destroy', async () => {
     const fixture = TestBed.createComponent(SearchMapComponent);
     const component = fixture.componentInstance;

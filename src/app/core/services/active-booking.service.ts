@@ -12,6 +12,9 @@ import {
   resolveActiveHoldSyncReason,
 } from './active-booking-visibility';
 
+/** Regex to match /checkout/<bookingId> routes */
+const CHECKOUT_ROUTE_RE = /^\/checkout\/(\d+)/;
+
 const ACTIVE_BOOKING_SYNC_KEY = 'se_active_booking_sync';
 const ACTIVE_HOLD_POLL_MS = 30_000;
 const ACTIVE_HOLD_REFRESH_DEBOUNCE_MS = 200;
@@ -31,9 +34,19 @@ export class ActiveBookingService {
   readonly loading = signal(false);
   readonly loadError = signal('');
   readonly toastMessage = signal('');
-  readonly shouldShowActiveReservation = computed(
-    () => isActiveReservationVisible(this.activeHold()) && this.remainingSeconds() > 0,
-  );
+  private readonly currentUrl = signal(this.router.url);
+  readonly shouldShowActiveReservation = computed(() => {
+    const hold = this.activeHold();
+    if (!isActiveReservationVisible(hold) || this.remainingSeconds() <= 0) {
+      return false;
+    }
+    // Hide the CTA bar when the user is already on the held booking's checkout page
+    const match = CHECKOUT_ROUTE_RE.exec(this.currentUrl());
+    if (match && hold && Number(match[1]) === hold.booking_id) {
+      return false;
+    }
+    return true;
+  });
   readonly canContinue = computed(() => this.shouldShowActiveReservation());
 
   private countdownHandle: ReturnType<typeof setInterval> | null = null;
@@ -66,7 +79,8 @@ export class ActiveBookingService {
         filter((event): event is NavigationEnd => event instanceof NavigationEnd),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe(() => {
+      .subscribe(event => {
+        this.currentUrl.set(event.urlAfterRedirects || event.url);
         if (this.authService.isLoggedIn) {
           this.scheduleRefresh(true);
         }
@@ -277,6 +291,13 @@ export class ActiveBookingService {
       return;
     }
 
+    // Clear any stale checkout state from a different room/booking so the
+    // checkout component's ngOnInit will fetch fresh data from the API
+    // instead of hydrating from a mismatched cached state.
+    this.bookingService.clearCheckoutState();
+    sessionStorage.removeItem('pending_booking');
+
+    // Store the held booking so checkout can restore it immediately
     sessionStorage.setItem('pending_booking', JSON.stringify(booking));
     this.bookingService.setCheckoutState({
       room: booking.room,

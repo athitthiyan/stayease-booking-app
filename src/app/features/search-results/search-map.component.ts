@@ -158,7 +158,7 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   @Output() searchArea = new EventEmitter<{ north: number; south: number; east: number; west: number }>();
 
   private ngZone = inject(NgZone);
-  private map!: L.Map;
+  private map: L.Map | null = null;
   private markerLayer = L.layerGroup();
   private clusterGroup: L.LayerGroup | null = null;
   private markers = new Map<number, L.Marker>();
@@ -169,6 +169,7 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   private geoPromptShown = false;
   private previousBounds: L.LatLngBounds | null = null;
   private tileLayer: L.TileLayer | null = null;
+  private destroyed = false;
 
   activeRoom = signal<Room | null>(null);
   activeRoomId = signal<number | null>(null);
@@ -202,17 +203,23 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
   ngAfterViewInit(): void {
     this.ngZone.runOutsideAngular(() => {
+      if (!this.hasMapHost()) {
+        return;
+      }
+
       this.initMap();
 
       // ResizeObserver: fix grey tiles on ANY container resize
       this.resizeObserver = new ResizeObserver(() => {
-        this.map?.invalidateSize({ animate: false });
+        this.safeInvalidateMap(false);
       });
-      this.resizeObserver.observe(this.mapEl.nativeElement);
+      if (this.hasMapHost()) {
+        this.resizeObserver.observe(this.mapEl.nativeElement);
+      }
 
       // Orientation change handler (SCENARIO 6)
       this.orientationHandler = () => {
-        setTimeout(() => this.map?.invalidateSize({ animate: true }), 300);
+        setTimeout(() => this.safeInvalidateMap(true), 300);
       };
       window.addEventListener('orientationchange', this.orientationHandler);
     });
@@ -237,16 +244,22 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.resizeObserver?.disconnect();
     if (this.orientationHandler) {
       window.removeEventListener('orientationchange', this.orientationHandler);
     }
     this.map?.remove();
+    this.map = null;
   }
 
   // ── Map Init ──────────────────────────────────────────────────────────
 
   private initMap(): void {
+    if (!this.hasMapHost()) {
+      return;
+    }
+
     this.map = L.map(this.mapEl.nativeElement, {
       center: this.FALLBACK_CENTER,
       zoom: this.FALLBACK_ZOOM,
@@ -286,18 +299,23 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     });
 
     // Invalidate after initial render — prevents grey tiles
-    setTimeout(() => this.map.invalidateSize(), 100);
-    setTimeout(() => this.map.invalidateSize(), 400);
-    setTimeout(() => this.map.invalidateSize(), 1000);
+    setTimeout(() => this.safeInvalidateMap(), 100);
+    setTimeout(() => this.safeInvalidateMap(), 400);
+    setTimeout(() => this.safeInvalidateMap(), 1000);
   }
 
   // ── Markers ───────────────────────────────────────────────────────────
 
   private renderMarkers(): void {
+    const map = this.map;
+    if (!map) {
+      return;
+    }
+
     this.markerLayer.clearLayers();
     if (this.clusterGroup) {
       this.clusterGroup.clearLayers();
-      this.map.removeLayer(this.clusterGroup);
+      map.removeLayer(this.clusterGroup);
     }
     this.markers.clear();
 
@@ -338,12 +356,17 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       const icon = this.createPriceIcon(room);
       const marker = L.marker([room.latitude!, room.longitude!], { icon })
         .on('click', () => {
+          const activeMap = this.map;
+          if (!activeMap) {
+            return;
+          }
+
           this.ngZone.run(() => {
             this.activeRoom.set(room);
             this.activeRoomId.set(room.id);
             this.roomSelected.emit(room);
           });
-          this.map.flyTo([room.latitude!, room.longitude!], Math.max(this.map.getZoom(), 14), { duration: 0.6 });
+          activeMap.flyTo([room.latitude!, room.longitude!], Math.max(activeMap.getZoom(), 14), { duration: 0.6 });
         })
         .on('mouseover', () => {
           this.ngZone.run(() => this.highlightMarker(room.id));
@@ -357,7 +380,7 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     }
 
     if (this.clusterGroup) {
-      this.clusterGroup.addTo(this.map);
+      this.clusterGroup.addTo(map);
     }
 
     this.fitAllMarkers();
@@ -397,7 +420,7 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     this.activeRoom.set(room);
     this.activeRoomId.set(room.id);
     this.roomSelected.emit(room);
-    if (room.latitude && room.longitude) {
+    if (room.latitude && room.longitude && this.map) {
       this.map.flyTo([room.latitude, room.longitude], 15, { duration: 0.8 });
       const marker = this.markers.get(room.id);
       if (marker) {
@@ -434,6 +457,10 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
   }
 
   fitAllMarkers(): void {
+    if (!this.map) {
+      return;
+    }
+
     const geoRooms = this.rooms.filter(r => r.latitude && r.longitude);
     if (geoRooms.length === 0) {
       // No rooms — center on city fallback
@@ -462,12 +489,21 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
   /** PHASE 3 — Locate Me: flyTo zoom 15, blue pulse marker, radius circle */
   locateUser(): void {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation || !this.hasLiveMap()) {
+      this.locating.set(false);
+      return;
+    }
     this.locating.set(true);
 
     navigator.geolocation.getCurrentPosition(
       pos => {
         this.ngZone.run(() => {
+          const map = this.map;
+          if (!map || !this.hasLiveMap()) {
+            this.locating.set(false);
+            return;
+          }
+
           const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           this.userLocation.set(loc);
           this.locating.set(false);
@@ -483,7 +519,7 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
               iconAnchor: [20, 20],
             });
             this.userMarker = L.marker([loc.lat, loc.lng], { icon: userIcon, zIndexOffset: 1000 })
-              .addTo(this.map);
+              .addTo(map);
           }
 
           // Add/update radius circle (500m–1km)
@@ -496,11 +532,11 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
               fillColor: 'rgba(99, 199, 212, 0.08)',
               fillOpacity: 0.3,
               weight: 1.5,
-            }).addTo(this.map);
+            }).addTo(map);
           }
 
           // CRITICAL: flyTo user location at zoom 15 — NOT fitAllMarkers
-          this.map.flyTo([loc.lat, loc.lng], 15, {
+          map.flyTo([loc.lat, loc.lng], 15, {
             animate: true,
             duration: 1.5,
           });
@@ -509,8 +545,14 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       () => {
         // SCENARIO 1 & 10: No geolocation / timeout → fallback to city center
         this.ngZone.run(() => {
+          const map = this.map;
+          if (!map || !this.hasLiveMap()) {
+            this.locating.set(false);
+            return;
+          }
+
           this.locating.set(false);
-          this.map.flyTo(this.FALLBACK_CENTER, this.FALLBACK_ZOOM, {
+          map.flyTo(this.FALLBACK_CENTER, this.FALLBACK_ZOOM, {
             animate: true,
             duration: 1.0,
           });
@@ -534,8 +576,8 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
 
   /** Force invalidate — called by parent after fullscreen/resize */
   invalidate(): void {
-    setTimeout(() => this.map?.invalidateSize({ animate: false }), 50);
-    setTimeout(() => this.map?.invalidateSize({ animate: false }), 300);
+    setTimeout(() => this.safeInvalidateMap(false), 50);
+    setTimeout(() => this.safeInvalidateMap(false), 300);
   }
 
   openDirections(room: Room): void {
@@ -547,5 +589,21 @@ export class SearchMapComponent implements AfterViewInit, OnDestroy, OnChanges {
       ? `https://www.google.com/maps/dir/${origin}/${destination}`
       : `https://www.google.com/maps/dir//${destination}`;
     window.open(url, '_blank');
+  }
+
+  private hasMapHost(): boolean {
+    return !!this.mapEl?.nativeElement?.isConnected;
+  }
+
+  private hasLiveMap(): boolean {
+    return !this.destroyed && !!this.map && this.hasMapHost();
+  }
+
+  private safeInvalidateMap(animate = false): void {
+    if (!this.hasLiveMap()) {
+      return;
+    }
+
+    this.map?.invalidateSize({ animate });
   }
 }

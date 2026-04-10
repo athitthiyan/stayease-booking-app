@@ -4,23 +4,18 @@
 // DO NOT use production API keys in this file.
 // All keys in this file are already rotated/disabled in production.
 
+import { PORTAL_URLS, STRIPE_TEST_KEY } from '@stayvora/config';
+
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:8000',
-  apiBaseUrl: 'http://localhost:8000',
-  customerPortalUrl: 'http://localhost:4200',
-  paymentAppUrl: 'http://localhost:4201',
-  paymentPortalUrl: 'http://localhost:4201',
-  adminPortalUrl: 'http://localhost:4202',
-  partnerPortalUrl: 'http://localhost:4203',
+  ...PORTAL_URLS.dev,
+  paymentAppUrl: PORTAL_URLS.dev.paymentPortalUrl,
   microsoftClientId: '041f5aef-c9db-4eb8-9bb0-349a19fc3002',
-  microsoftTenantId:'553e9dc0-268d-499d-b603-c817abd918f1',
+  microsoftTenantId: '553e9dc0-268d-499d-b603-c817abd918f1',
   // Google OAuth client ID for Google Sign-In (different from Maps API key)
-  // Get from: Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client ID
   googleClientId: '227255495608-2quh3crqstjaq22g0r2pt5mqj120pdre.apps.googleusercontent.com',
   googleMapsApiKey: 'AIzaSyA2Bgbm2nroTHIaPS-0oKGdSmyEktwT1s',
-  stripePublishableKey: 'pk_test_51TH0UuBDYx3dIveAYRnmWFuHY6EB8yZigeKqjltdRnQpc3iidRxSDV6rdmZrH8bcRt9fg3HIBCp32GRpMTnjSGcy00KPKiGzPL',
-  // Feature toggle: set false to disable Stripe globally (Razorpay/mock remain available)
+  stripePublishableKey: STRIPE_TEST_KEY,
   stripeEnabled: true,
   maintenanceMode: false,
   maintenanceHosts: [] as string[],

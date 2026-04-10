@@ -33,6 +33,9 @@
               "node_modules/leaflet/dist/leaflet.css",
               "src/styles.scss"
             ],
+            "stylePreprocessorOptions": {
+              "includePaths": ["../0-shared-lib/styles"]
+            },
             "scripts": [],
             "allowedCommonJsDependencies": ["leaflet", "@azure/msal-browser/lib/msal-browser.cjs"]
           },

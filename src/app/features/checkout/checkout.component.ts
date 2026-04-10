@@ -1,7 +1,8 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BookingService, CheckoutState } from '../../core/services/booking.service';
 import { ApiErrorDetail, ApiErrorResponse, Booking } from '../../core/models/booking.model';
 import { environment } from '../../../environments/environment';
@@ -16,6 +17,7 @@ import { DateRangePickerComponent } from '../../shared/components/date-range-pic
   selector: 'app-checkout',
   standalone: true,
   imports: [CommonModule, RouterLink, FormsModule, DateRangePickerComponent],
+  // TODO: Add changeDetection: ChangeDetectionStrategy.OnPush for better performance with signals
   template: `
     <div class="checkout-page">
       <div class="container checkout-page__inner">
@@ -77,6 +79,7 @@ import { DateRangePickerComponent } from '../../shared/components/date-range-pic
           }
 
           <!-- Guest Details -->
+          <!-- TODO: M-03 - Refactor to use FormControl exclusively instead of mixing ngModel with reactive forms -->
           <section class="checkout-section">
             <h2>Guest Information</h2>
             <div class="form-row">
@@ -404,6 +407,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   editCheckOut = signal('');
 
   private countdownInterval: ReturnType<typeof setInterval> | null = null;
+  private destroyRef = inject(DestroyRef);
   protected readonly placeholderImg = ROOM_IMAGE_PLACEHOLDER;
 
   guestSummary = computed(() => {
@@ -567,7 +571,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     if (!state || !roomId) return;
 
     this.checkingAvailability.set(true);
-    this.bookingService.getUnavailableDates(roomId, state.checkIn, state.checkOut).subscribe({
+    this.bookingService.getUnavailableDates(roomId, state.checkIn, state.checkOut)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: response => {
         this.checkingAvailability.set(false);
         const hasOverlap = this.datesOverlap(
@@ -626,6 +632,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   }
 
   // ── Pricing ────────────────────────────────────────────────────────────────
+  // TODO: Tax rates should be fetched from the API configuration, not hardcoded
+  private readonly TAX_CONFIG = { taxRate: 0.12, serviceFeeRate: 0.05 };
 
   private initializePricing(state: CheckoutState): void {
     this.checkoutState.set(state);
@@ -634,8 +642,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     );
     this.nights.set(nights);
     const sub = (state.room?.price || 0) * nights;
-    const tax = Math.round(sub * 0.12);
-    const fee = Math.round(sub * 0.05);
+    const tax = Math.round(sub * this.TAX_CONFIG.taxRate);
+    const fee = Math.round(sub * this.TAX_CONFIG.serviceFeeRate);
     this.subtotal.set(sub);
     this.taxes.set(tax);
     this.serviceFee.set(fee);
@@ -711,63 +719,66 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     }
   }
 
-  ngOnInit() {
+  /** Track current booking ID so paramMap subscription can detect switches */
+  private currentBookingId: number | null = null;
+
+  ngOnInit(): void {
+    // Subscribe to route param changes so that navigating from one checkout
+    // to another (e.g. CTA "Continue Booking" while on a different room's
+    // checkout) re-initializes the component with fresh data.
+    this.route.paramMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(params => {
+        const routeBookingId = this.parseRouteBookingId(params.get('id'));
+        if (this.currentBookingId !== routeBookingId || this.currentBookingId === null) {
+          this.resetForRouteChange();
+          this.initializeCheckout(routeBookingId);
+        }
+      });
+  }
+
+  private initializeCheckout(routeBookingId: number | null): void {
+    this.currentBookingId = routeBookingId;
     const state = this.bookingService.getCheckoutState();
     if (state) {
       this.initializePricing(state);
       this.restorePendingBooking(state);
     } else {
-      const bookingId = Number(this.route.snapshot.paramMap.get('id'));
-      if (!Number.isFinite(bookingId) || bookingId <= 0) {
+      if (routeBookingId === null) {
         this.router.navigate(['/search']);
         return;
       }
 
-      this.bookingService.getBooking(bookingId).subscribe({
-        next: booking => this.hydrateCheckoutFromBooking(booking),
-        error: () => {
-          this.submitError.set('This booking is no longer available.');
-          this.router.navigate(['/bookings']);
-        },
-      });
+      this.bookingService.getBooking(routeBookingId)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: booking => this.hydrateCheckoutFromBooking(booking),
+          error: () => {
+            this.submitError.set('This booking is no longer available.');
+            this.router.navigate(['/bookings']);
+          },
+        });
     }
 
-    // Recover from payment failure redirect —
-    // `pending_booking` is written by redirectToPayment() before sending the user to Stayvora Pay.
-    // When the user returns (back button / failed payment redirect) we restore the hold.
-    const pendingRaw = sessionStorage.getItem('pending_booking');
-    /* istanbul ignore if -- defensive fallback; restorePendingBooking handles all reachable cases */
-    if (pendingRaw && state && !this.resumableBooking()) {
-      try {
-        const pending: Booking = JSON.parse(pendingRaw);
-        if (
-          pending?.id &&
-          pending.payment_status !== 'paid' &&
-          pending.status !== 'confirmed' &&
-          this.matchesCheckoutState(pending, state)
-        ) {
-          if (pending.hold_expires_at && new Date(pending.hold_expires_at).getTime() > Date.now()) {
-            this.resumableBooking.set(pending);
-            this.applyBookingToForm(pending);
-            this.startCountdown(pending.hold_expires_at);
-            this.submitError.set('Your previous payment failed. Complete checkout to retry.');
-          } else {
-            sessionStorage.removeItem('pending_booking');
-          }
-        } else if (pending?.payment_status === 'paid') {
-          sessionStorage.removeItem('pending_booking');
-        }
-      } catch {
-        sessionStorage.removeItem('pending_booking');
-      }
-    }
-
-    // Detect return from login redirect — state is already restored from sessionStorage
+    // Detect return from login redirect: state is already restored from sessionStorage.
     const authRedirect = sessionStorage.getItem('booking_auth_redirect');
     if (authRedirect) {
       sessionStorage.removeItem('booking_auth_redirect');
-      // State is already restored from getCheckoutState() above
     }
+  }
+
+  private parseRouteBookingId(rawId: string | null): number | null {
+    const bookingId = Number(rawId);
+    return Number.isFinite(bookingId) && bookingId > 0 ? bookingId : null;
+  }
+
+  private resetForRouteChange(): void {
+    this.stopCountdown();
+    this.resumableBooking.set(null);
+    this.resetCheckoutErrors();
+    this.clearConflictState();
+    this.holdSecondsLeft.set(0);
+    this.holdExpired.set(false);
   }
 
   ngOnDestroy(): void {
@@ -815,7 +826,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
   private tryExtendHold(bookingId: number, email: string): void {
     this.extendingHold.set(true);
-    this.bookingService.extendHold(bookingId, email).subscribe({
+    this.bookingService.extendHold(bookingId, email)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: extended => {
         this.resumableBooking.set(extended);
         this.holdExpired.set(false);
@@ -922,7 +935,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.bookingService.getUnavailableDates(roomId, state.checkIn, state.checkOut).subscribe({
+    this.bookingService.getUnavailableDates(roomId, state.checkIn, state.checkOut)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: response => {
         this.unavailableDates.set(response.unavailable_dates);
         this.heldDates.set(response.held_dates);
@@ -944,7 +959,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     const booking = this.resumableBooking();
     if (!booking || this.cancellingHold()) return;
     this.cancellingHold.set(true);
-    this.bookingService.cancelBooking(booking.id).subscribe({
+    this.bookingService.cancelBooking(booking.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: () => {
         this.cancellingHold.set(false);
         this.resumableBooking.set(null);
@@ -978,7 +995,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       const roomId = state?.room?.id;
       if (state && roomId) {
         this.checkingAvailability.set(true);
-        this.bookingService.getUnavailableDates(roomId, state.checkIn, state.checkOut).subscribe({
+        this.bookingService.getUnavailableDates(roomId, state.checkIn, state.checkOut)
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe({
           next: response => {
             this.checkingAvailability.set(false);
             const hasOverlap = this.datesOverlap(
@@ -1031,6 +1050,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         new Date(state.checkOut).toISOString(),
         this.form.email,
       )
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: existing => {
           if (existing) {
@@ -1074,7 +1094,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
               children: state.children || 0,
               infants: state.infants || 0,
               special_requests: this.form.special_requests,
-            }).subscribe({
+            })
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
               next: booking => {
                 this.bookingConflict.set(false);
                 this.resumableBooking.set(booking);

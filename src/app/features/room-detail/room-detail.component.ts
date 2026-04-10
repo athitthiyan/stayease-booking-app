@@ -31,6 +31,21 @@ function formatLocalDate(d: Date): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+/**
+ * Returns the current hotel business date.
+ * The hotel operational day extends until 3:00 AM local time,
+ * so between midnight and 2:59 AM the business date is still "yesterday".
+ */
+function getBusinessDate(): Date {
+  const now = new Date();
+  if (now.getHours() < 3) {
+    now.setDate(now.getDate() - 1);
+  }
+  // Reset time portion to midnight
+  now.setHours(0, 0, 0, 0);
+  return now;
+}
+
 @Component({
   selector: 'app-room-detail',
   standalone: true,
@@ -219,9 +234,10 @@ function formatLocalDate(d: Date): string {
 
               <!-- Dates -->
               <div class="form-group">
-                <label for="room-dates-picker">Dates</label>
+                <span id="room-dates-picker-label">Dates</span>
                 <app-date-range-picker
                   id="room-dates-picker"
+                  aria-labelledby="room-dates-picker-label"
                   [checkIn]="checkIn"
                   [checkOut]="checkOut"
                   [minDate]="today"
@@ -273,9 +289,10 @@ function formatLocalDate(d: Date): string {
                 </button>
               }
               <div class="form-group" style="margin-top:12px">
-                <label for="room-guests-picker">Guests</label>
+                <span id="room-guests-picker-label">Guests</span>
                 <app-guest-picker
                   id="room-guests-picker"
+                  aria-labelledby="room-guests-picker-label"
                   [maxGuests]="room()?.max_guests || 10"
                   [value]="guestSelection"
                   (valueChange)="onGuestChange($event)"
@@ -347,8 +364,8 @@ export class RoomDetailComponent implements OnInit {
   checkOut = '';
   guests = 2;
   guestSelection: GuestSelection = { adults: 2, children: 0, infants: 0 };
-  today = formatLocalDate(new Date());
-  tomorrow = formatLocalDate(new Date(Date.now() + 86400000));
+  today = formatLocalDate(getBusinessDate());
+  tomorrow = formatLocalDate(new Date(getBusinessDate().getTime() + 86400000));
 
   nights = signal(0);
   totalAmount = signal(0);
@@ -546,6 +563,9 @@ export class RoomDetailComponent implements OnInit {
     this.onDateChange();
   }
 
+  // TODO: Tax rates should be fetched from the API configuration, not hardcoded
+  private readonly TAX_CONFIG = { taxRate: 0.12, serviceFeeRate: 0.05 };
+
   onDateChange() {
     this.formError.set('');
     this.blockingActiveBooking.set(null);
@@ -554,7 +574,8 @@ export class RoomDetailComponent implements OnInit {
       this.nights.set(Math.floor(nights));
       const nightCount = Math.floor(nights);
       const roomRate = (this.room()?.price || 0) * nightCount;
-      this.totalAmount.set(Math.round(roomRate * 1.17)); // +12% tax +5% service
+      const totalRate = 1 + this.TAX_CONFIG.taxRate + this.TAX_CONFIG.serviceFeeRate;
+      this.totalAmount.set(Math.round(roomRate * totalRate));
     } else {
       this.nights.set(0);
       this.totalAmount.set(0);

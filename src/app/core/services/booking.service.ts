@@ -50,6 +50,11 @@ export class BookingService {
     return this._checkoutState$.value;
   }
 
+  clearCheckoutState(): void {
+    this._checkoutState$.next(null);
+    sessionStorage.removeItem('checkout_state');
+  }
+
   createBooking(data: CreateBookingRequest): Observable<Booking> {
     return this.http.post<Booking>(this.base, data);
   }
