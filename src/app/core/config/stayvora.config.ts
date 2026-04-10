@@ -19,3 +19,8 @@ export const PORTAL_URLS = {
 
 export const STRIPE_TEST_KEY =
   'pk_test_51TH0UuBDYx3dIveAYRnmWFuHY6EB8yZigeKqjltdRnQpc3iidRxSDV6rdmZrH8bcRt9fg3HIBCp32GRpMTnjSGcy00KPKiGzPL';
+
+export const TAX_CONFIG = {
+  taxRate: 0.12,
+  serviceFeeRate: 0.05,
+};

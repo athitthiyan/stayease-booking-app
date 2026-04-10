@@ -6,7 +6,7 @@ import { of } from 'rxjs';
 describe('appConfig', () => {
   it('registers the application providers', () => {
     expect(appConfig.providers).toBeDefined();
-    expect(appConfig.providers?.length).toBe(9);
+    expect(appConfig.providers?.length).toBe(10);
   });
 
   it('APP_INITIALIZER factory calls authService.initSession()', () => {

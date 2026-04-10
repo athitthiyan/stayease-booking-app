@@ -11,6 +11,7 @@ import { BookingSearchStore } from '../../core/services/booking-search.store';
 import { ActiveBookingService } from '../../core/services/active-booking.service';
 import { Booking } from '../../core/models/booking.model';
 import { Room } from '../../core/models/room.model';
+import { TAX_CONFIG } from '../../core/config/stayvora.config';
 import { ReviewsSectionComponent } from '../../shared/components/reviews-section/reviews-section.component';
 import { GuestPickerComponent, GuestSelection } from '../../shared/components/guest-picker/guest-picker.component';
 import { DateRangePickerComponent } from '../../shared/components/date-range-picker/date-range-picker.component';
@@ -563,9 +564,6 @@ export class RoomDetailComponent implements OnInit {
     this.onDateChange();
   }
 
-  // TODO: Tax rates should be fetched from the API configuration, not hardcoded
-  private readonly TAX_CONFIG = { taxRate: 0.12, serviceFeeRate: 0.05 };
-
   onDateChange() {
     this.formError.set('');
     this.blockingActiveBooking.set(null);
@@ -574,7 +572,7 @@ export class RoomDetailComponent implements OnInit {
       this.nights.set(Math.floor(nights));
       const nightCount = Math.floor(nights);
       const roomRate = (this.room()?.price || 0) * nightCount;
-      const totalRate = 1 + this.TAX_CONFIG.taxRate + this.TAX_CONFIG.serviceFeeRate;
+      const totalRate = 1 + TAX_CONFIG.taxRate + TAX_CONFIG.serviceFeeRate;
       this.totalAmount.set(Math.round(roomRate * totalRate));
     } else {
       this.nights.set(0);

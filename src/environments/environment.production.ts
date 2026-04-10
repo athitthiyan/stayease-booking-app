@@ -17,4 +17,6 @@ export const environment = {
   maintenanceMode: false,
   maintenanceHosts: ['www.stayvora.co.in'],
   gaMeasurementId: '',
+  // Sentry DSN for error tracking — set to enable (e.g. 'https://...@sentry.io/...')
+  sentryDsn: '',
 };

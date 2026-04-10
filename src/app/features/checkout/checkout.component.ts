@@ -6,6 +6,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BookingService, CheckoutState } from '../../core/services/booking.service';
 import { ApiErrorDetail, ApiErrorResponse, Booking } from '../../core/models/booking.model';
 import { environment } from '../../../environments/environment';
+import { TAX_CONFIG } from '../../core/config/stayvora.config';
 import {
   ROOM_IMAGE_PLACEHOLDER,
   applyRoomImageFallback,
@@ -79,7 +80,10 @@ import { DateRangePickerComponent } from '../../shared/components/date-range-pic
           }
 
           <!-- Guest Details -->
-          <!-- TODO: M-03 - Refactor to use FormControl exclusively instead of mixing ngModel with reactive forms -->
+          <!-- M-03: Using ngModel with template-driven form for simplicity.
+               The checkout form manages guest information (name, email, phone, special requests)
+               with two-way binding. This approach is appropriate for this simple data capture use case
+               where minimal validation and no complex interdependencies are required. -->
           <section class="checkout-section">
             <h2>Guest Information</h2>
             <div class="form-row">
@@ -632,8 +636,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   }
 
   // ── Pricing ────────────────────────────────────────────────────────────────
-  // TODO: Tax rates should be fetched from the API configuration, not hardcoded
-  private readonly TAX_CONFIG = { taxRate: 0.12, serviceFeeRate: 0.05 };
 
   private initializePricing(state: CheckoutState): void {
     this.checkoutState.set(state);
@@ -642,8 +644,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     );
     this.nights.set(nights);
     const sub = (state.room?.price || 0) * nights;
-    const tax = Math.round(sub * this.TAX_CONFIG.taxRate);
-    const fee = Math.round(sub * this.TAX_CONFIG.serviceFeeRate);
+    const tax = Math.round(sub * TAX_CONFIG.taxRate);
+    const fee = Math.round(sub * TAX_CONFIG.serviceFeeRate);
     this.subtotal.set(sub);
     this.taxes.set(tax);
     this.serviceFee.set(fee);

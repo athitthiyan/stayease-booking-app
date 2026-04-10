@@ -21,4 +21,6 @@ export const environment = {
   maintenanceHosts: [] as string[],
   // Google Analytics 4 — set measurement ID to enable (e.g. 'G-XXXXXXXXXX')
   gaMeasurementId: '',
+  // Sentry DSN for error tracking — set to enable (e.g. 'https://...@sentry.io/...')
+  sentryDsn: '',
 };

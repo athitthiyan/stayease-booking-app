@@ -30,10 +30,7 @@ describe('DateRangePickerComponent', () => {
     });
 
     it('should set minDate to today if not provided', () => {
-      const today = new Date();
-      const todayString = `${today.getFullYear()}-${String(
-        today.getMonth() + 1
-      ).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const todayString = getTodayString();
 
       component.ngOnInit();
       expect(component._minDate()).toBe(todayString);
@@ -830,12 +827,20 @@ describe('DateRangePickerComponent', () => {
   });
 
   // Helper functions
+
+  /**
+   * Mirror the component's business-date logic: before 3 AM local time the
+   * hotel operational day is still "yesterday", so roll the date back by one.
+   */
   function getTodayString(): string {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
+    const now = new Date();
+    if (now.getHours() < 3) {
+      now.setDate(now.getDate() - 1);
+    }
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
       2,
       '0'
-    )}-${String(today.getDate()).padStart(2, '0')}`;
+    )}-${String(now.getDate()).padStart(2, '0')}`;
   }
 
   function getTomorrowString(): string {
