@@ -160,4 +160,25 @@ describe('authInterceptor', () => {
     expect(mockRouter.navigate).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalled();
   });
+
+  it('does not attempt refresh when 401 occurs on /auth/refresh endpoint itself', () => {
+    setupModule({
+      getAccessToken: jest.fn().mockReturnValue('expired-token'),
+      refreshToken: jest.fn(),
+    });
+
+    const errorSpy = jest.fn();
+    httpClient.get(`${apiUrl}/auth/refresh`).subscribe({ error: errorSpy });
+
+    const req = httpMock.expectOne(`${apiUrl}/auth/refresh`);
+    req.flush(
+      { detail: 'token invalid' },
+      { status: 401, statusText: 'Unauthorized' },
+    );
+
+    expect(mockAuth.refreshToken).not.toHaveBeenCalled();
+    expect(mockAuth.logout).not.toHaveBeenCalled();
+    expect(mockRouter.navigate).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+  });
 });

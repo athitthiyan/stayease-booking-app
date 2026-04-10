@@ -207,4 +207,23 @@ describe('LandingComponent', () => {
     expect(event.stopPropagation).toHaveBeenCalled();
     expect(component.showRecoveryBanner()).toBe(false);
   });
+
+  it('sets business date to previous day when current time is before 3 AM', () => {
+    availabilityService.getFeaturedRooms.mockReturnValue(of([]));
+
+    // Mock Date to return 2:00 AM on April 10, 2026
+    const mockDate = new Date('2026-04-10T02:00:00');
+    jest.useFakeTimers();
+    jest.setSystemTime(mockDate);
+
+    const fixture = TestBed.createComponent(LandingComponent);
+    const component = fixture.componentInstance;
+
+    // The component initializes `today` with getBusinessDate() in the property initializer
+    // After initialization, `today` should be April 9, 2026 (previous day)
+    expect(component.today).toBe('2026-04-09');
+    expect(component.tomorrow).toBe('2026-04-10');
+
+    jest.useRealTimers();
+  });
 });

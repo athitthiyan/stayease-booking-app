@@ -10,9 +10,10 @@ import {
   ChangePasswordRequest,
   ForgotPasswordRequest,
   MessageResponse,
-  PhoneOtpRequest,
-  PhoneOtpResponse,
-  PhoneOtpVerifyRequest,
+  OtpChallengeResponse,
+  OtpChallengeStartRequest,
+  OtpChallengeVerifyRequest,
+  OtpChallengeVerifyResponse,
   ResetPasswordRequest,
   SocialLoginRequest,
   TokenResponse,
@@ -183,25 +184,20 @@ export class AuthService {
     );
   }
 
-  requestPhoneOtp(payload: PhoneOtpRequest): Observable<PhoneOtpResponse> {
-    return this.http.post<PhoneOtpResponse>(`${this.base}/phone/request-otp`, payload);
+  requestOtpChallenge(payload: OtpChallengeStartRequest): Observable<OtpChallengeResponse> {
+    return this.http.post<OtpChallengeResponse>(`${this.base}/otp/request`, payload);
   }
 
-  verifyPhoneOtp(payload: PhoneOtpVerifyRequest): Observable<UserResponse> {
-    return this.http.post<UserResponse>(`${this.base}/phone/verify`, payload).pipe(
-      tap(user => {
-        this.currentUserSubject.next(user);
-        localStorage.setItem(USER_KEY, JSON.stringify(user));
-      })
-    );
+  verifyOtpChallenge(payload: OtpChallengeVerifyRequest): Observable<OtpChallengeVerifyResponse> {
+    return this.http.post<OtpChallengeVerifyResponse>(`${this.base}/otp/verify`, payload);
   }
 
   changePassword(payload: ChangePasswordRequest): Observable<MessageResponse> {
     return this.http.post<MessageResponse>(`${this.base}/change-password`, payload);
   }
 
-  forgotPassword(payload: ForgotPasswordRequest): Observable<MessageResponse> {
-    return this.http.post<MessageResponse>(`${this.base}/forgot-password`, payload);
+  forgotPassword(payload: ForgotPasswordRequest): Observable<OtpChallengeResponse> {
+    return this.http.post<OtpChallengeResponse>(`${this.base}/forgot-password`, payload);
   }
 
   resetPassword(payload: ResetPasswordRequest): Observable<MessageResponse> {

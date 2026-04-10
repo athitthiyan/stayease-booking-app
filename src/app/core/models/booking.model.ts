@@ -9,7 +9,7 @@ export type {
   RefundStatus,
   BookingLifecycleState,
   BookingSupportCategory,
-} from '@stayvora/models';
+} from './shared.model';
 
 // Import types for use in this file's interfaces
 import type {
@@ -17,7 +17,7 @@ import type {
   PaymentStatus,
   RefundStatus,
   BookingLifecycleState,
-} from '@stayvora/models';
+} from './shared.model';
 
 export interface CreateBookingRequest {
   user_name: string;

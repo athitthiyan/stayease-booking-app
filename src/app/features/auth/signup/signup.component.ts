@@ -1,10 +1,13 @@
-import { Component, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
-import { BookingSearchStore } from '../../../core/services/booking-search.store';
 import { CommonModule } from '@angular/common';
-import { AuthService } from '../../../core/services/auth.service';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Component, OnDestroy, inject, signal } from '@angular/core';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
+
+import { BookingSearchStore } from '../../../core/services/booking-search.store';
+import { AuthService } from '../../../core/services/auth.service';
+import { OtpChallengeResponse } from '../../../core/models/auth.model';
 
 function passwordStrengthValidator(ctrl: AbstractControl): ValidationErrors | null {
   const value: string = ctrl.value ?? '';
@@ -21,6 +24,44 @@ function passwordMatchValidator(ctrl: AbstractControl): ValidationErrors | null 
   return pw === confirm ? null : { passwordMismatch: true };
 }
 
+type ContactChannel = 'email' | 'phone';
+
+interface OtpUiState {
+  sending: boolean;
+  verifying: boolean;
+  sent: boolean;
+  verified: boolean;
+  challengeId: string;
+  recipient: string;
+  otp: string;
+  devCode: string;
+  info: string;
+  error: string;
+  resendRemainingSeconds: number;
+  resendsRemaining: number;
+  attemptsRemaining: number;
+  blockedMessage: string;
+}
+
+function createOtpState(): OtpUiState {
+  return {
+    sending: false,
+    verifying: false,
+    sent: false,
+    verified: false,
+    challengeId: '',
+    recipient: '',
+    otp: '',
+    devCode: '',
+    info: '',
+    error: '',
+    resendRemainingSeconds: 0,
+    resendsRemaining: 3,
+    attemptsRemaining: 5,
+    blockedMessage: '',
+  };
+}
+
 @Component({
   selector: 'app-signup',
   standalone: true,
@@ -28,12 +69,10 @@ function passwordMatchValidator(ctrl: AbstractControl): ValidationErrors | null 
   template: `
     <div class="auth-page">
       <div class="auth-card">
-        <a routerLink="/" class="auth-logo">
-          <span>🏨</span> Stay<span class="accent">Ease</span>
-        </a>
+        <a routerLink="/" class="auth-logo">Stay<span class="accent">vora</span></a>
 
         <h1 class="auth-title">Create your account</h1>
-        <p class="auth-subtitle">Join thousands of happy travellers</p>
+        <p class="auth-subtitle">Verify both your email and phone before we create your account.</p>
 
         @if (errorMsg()) {
           <div class="auth-error" role="alert">{{ errorMsg() }}</div>
@@ -42,14 +81,7 @@ function passwordMatchValidator(ctrl: AbstractControl): ValidationErrors | null 
         <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
           <div class="form-group">
             <label for="full_name">Full name</label>
-            <input
-              id="full_name"
-              type="text"
-              formControlName="full_name"
-              placeholder="Jane Smith"
-              autocomplete="name"
-              [class.is-invalid]="isFieldInvalid('full_name')"
-            />
+            <input id="full_name" type="text" formControlName="full_name" autocomplete="name" />
             @if (isFieldInvalid('full_name')) {
               <span class="field-error">Full name is required</span>
             }
@@ -57,17 +89,120 @@ function passwordMatchValidator(ctrl: AbstractControl): ValidationErrors | null 
 
           <div class="form-group">
             <label for="email">Email address</label>
-            <input
-              id="email"
-              type="email"
-              formControlName="email"
-              placeholder="you@example.com"
-              autocomplete="email"
-              [class.is-invalid]="isFieldInvalid('email')"
-            />
+            <input id="email" type="email" formControlName="email" autocomplete="email" />
             @if (isFieldInvalid('email')) {
               <span class="field-error">Enter a valid email address</span>
             }
+            <div class="otp-panel">
+              <div class="otp-panel__header">
+                <span>Email verification</span>
+                @if (emailOtp().verified) {
+                  <span class="badge badge--verified">Verified</span>
+                }
+              </div>
+              <button
+                type="button"
+                class="btn btn--secondary btn--full"
+                (click)="requestOtp('email')"
+                [disabled]="emailOtp().sending || !form.controls.email.valid || emailOtp().verified"
+              >
+                @if (emailOtp().sending) { Sending OTP... } @else if (emailOtp().sent) { Resend OTP } @else { Send OTP }
+              </button>
+              @if (emailOtp().sent && !emailOtp().verified) {
+                <div class="otp-inline">
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="6"
+                    [value]="emailOtp().otp"
+                    (input)="updateOtpValue('email', $any($event.target).value)"
+                    placeholder="Enter 6-digit OTP"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn--secondary"
+                    (click)="verifyOtp('email')"
+                    [disabled]="emailOtp().verifying || emailOtp().otp.length !== 6"
+                  >
+                    @if (emailOtp().verifying) { Verifying... } @else { Verify OTP }
+                  </button>
+                </div>
+              }
+              @if (emailOtp().resendRemainingSeconds > 0) {
+                <span class="field-hint">Resend OTP in {{ emailOtp().resendRemainingSeconds }}s</span>
+              }
+              @if (emailOtp().info) {
+                <span class="field-success">{{ emailOtp().info }}</span>
+              }
+              @if (emailOtp().error) {
+                <span class="field-error">{{ emailOtp().error }}</span>
+              }
+              @if (emailOtp().blockedMessage) {
+                <span class="field-error">{{ emailOtp().blockedMessage }}</span>
+              }
+              @if (emailOtp().devCode) {
+                <span class="otp-dev">Dev OTP: {{ emailOtp().devCode }}</span>
+              }
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="phone">Phone number</label>
+            <input id="phone" type="tel" formControlName="phone" autocomplete="tel" placeholder="+91 98765 43210" />
+            @if (isFieldInvalid('phone')) {
+              <span class="field-error">Enter a valid phone number</span>
+            }
+            <div class="otp-panel">
+              <div class="otp-panel__header">
+                <span>Phone verification</span>
+                @if (phoneOtp().verified) {
+                  <span class="badge badge--verified">Verified</span>
+                }
+              </div>
+              <button
+                type="button"
+                class="btn btn--secondary btn--full"
+                (click)="requestOtp('phone')"
+                [disabled]="phoneOtp().sending || !form.controls.phone.valid || phoneOtp().verified"
+              >
+                @if (phoneOtp().sending) { Sending OTP... } @else if (phoneOtp().sent) { Resend OTP } @else { Send OTP }
+              </button>
+              @if (phoneOtp().sent && !phoneOtp().verified) {
+                <div class="otp-inline">
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="6"
+                    [value]="phoneOtp().otp"
+                    (input)="updateOtpValue('phone', $any($event.target).value)"
+                    placeholder="Enter 6-digit OTP"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn--secondary"
+                    (click)="verifyOtp('phone')"
+                    [disabled]="phoneOtp().verifying || phoneOtp().otp.length !== 6"
+                  >
+                    @if (phoneOtp().verifying) { Verifying... } @else { Verify OTP }
+                  </button>
+                </div>
+              }
+              @if (phoneOtp().resendRemainingSeconds > 0) {
+                <span class="field-hint">Resend OTP in {{ phoneOtp().resendRemainingSeconds }}s</span>
+              }
+              @if (phoneOtp().info) {
+                <span class="field-success">{{ phoneOtp().info }}</span>
+              }
+              @if (phoneOtp().error) {
+                <span class="field-error">{{ phoneOtp().error }}</span>
+              }
+              @if (phoneOtp().blockedMessage) {
+                <span class="field-error">{{ phoneOtp().blockedMessage }}</span>
+              }
+              @if (phoneOtp().devCode) {
+                <span class="otp-dev">Dev OTP: {{ phoneOtp().devCode }}</span>
+              }
+            </div>
           </div>
 
           <div class="form-group">
@@ -77,54 +212,38 @@ function passwordMatchValidator(ctrl: AbstractControl): ValidationErrors | null 
                 id="password"
                 [type]="showPassword() ? 'text' : 'password'"
                 formControlName="password"
-                placeholder="Min 10 chars, upper + lower + digit"
                 autocomplete="new-password"
-                [class.is-invalid]="isFieldInvalid('password')"
+                placeholder="Min 10 chars, upper + lower + digit"
               />
               <button type="button" class="toggle-pw" (click)="togglePassword()" aria-label="Toggle visibility">
-                {{ showPassword() ? '🙈' : '👁' }}
+                {{ showPassword() ? 'Hide' : 'Show' }}
               </button>
             </div>
             @if (isFieldInvalid('password')) {
-              <span class="field-error">Min 10 characters, upper, lower &amp; digit required</span>
+              <span class="field-error">Min 10 characters, upper, lower and digit required</span>
             }
           </div>
 
           <div class="form-group">
             <label for="confirmPassword">Confirm password</label>
-            <input
-              id="confirmPassword"
-              type="password"
-              formControlName="confirmPassword"
-              placeholder="••••••••••"
-              autocomplete="new-password"
-              [class.is-invalid]="isConfirmInvalid()"
-            />
+            <input id="confirmPassword" type="password" formControlName="confirmPassword" autocomplete="new-password" />
             @if (isConfirmInvalid()) {
               <span class="field-error">Passwords do not match</span>
             }
           </div>
 
-          <button type="submit" class="btn btn--primary btn--full" [disabled]="loading()">
-            @if (loading()) { Creating account… } @else { Create account }
+          <button type="submit" class="btn btn--primary btn--full" [disabled]="loading() || !canSubmit()">
+            @if (loading()) { Creating account... } @else { Create account }
           </button>
         </form>
 
-        <!-- Social Sign In Buttons -->
-        <div class="divider">
-          <span>Or continue with</span>
-        </div>
+        <div class="divider"><span>Or continue with</span></div>
 
         <div class="social-buttons">
-          <!-- Google Sign In -->
           <button type="button" class="social-btn social-btn--google" (click)="signInWithGoogle()" [disabled]="loading() || socialLoading()">
-            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#34A853" d="M10.53 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.9 7.35 2.56 10.52l7.97-5.93z"/><path fill="#FBBC05" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.93C6.51 42.62 14.62 48 24 48z"/></svg>
             Google
           </button>
-
-          <!-- Microsoft Sign In -->
           <button type="button" class="social-btn social-btn--microsoft" (click)="signInWithMicrosoft()" [disabled]="loading() || socialLoading()">
-            <svg width="18" height="18" viewBox="0 0 23 23"><path fill="#f25022" d="M1 1h10v10H1z"/><path fill="#00a4ef" d="M12 1h10v10H12z"/><path fill="#7fba00" d="M1 12h10v10H1z"/><path fill="#ffb900" d="M12 12h10v10H12z"/></svg>
             Microsoft
           </button>
         </div>
@@ -138,7 +257,6 @@ function passwordMatchValidator(ctrl: AbstractControl): ValidationErrors | null 
   `,
   styles: [`
     :host { display: block; }
-
     .auth-page {
       min-height: 100vh;
       display: flex;
@@ -147,10 +265,9 @@ function passwordMatchValidator(ctrl: AbstractControl): ValidationErrors | null 
       padding: var(--space-xl);
       background: var(--color-bg);
     }
-
     .auth-card {
       width: 100%;
-      max-width: 420px;
+      max-width: 520px;
       background: var(--color-surface);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-xl);
@@ -159,7 +276,6 @@ function passwordMatchValidator(ctrl: AbstractControl): ValidationErrors | null 
       flex-direction: column;
       gap: var(--space-lg);
     }
-
     .auth-logo {
       font-family: var(--font-serif);
       font-size: 1.4rem;
@@ -167,23 +283,9 @@ function passwordMatchValidator(ctrl: AbstractControl): ValidationErrors | null 
       color: var(--color-text);
       text-align: center;
     }
-    .auth-logo .accent { color: var(--color-primary); }
-
-    .auth-title {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--color-text);
-      text-align: center;
-      margin: 0;
-    }
-
-    .auth-subtitle {
-      color: var(--color-text-muted);
-      text-align: center;
-      margin: -8px 0 0;
-      font-size: 14px;
-    }
-
+    .accent { color: var(--color-primary); }
+    .auth-title, .auth-subtitle { text-align: center; margin: 0; }
+    .auth-subtitle { color: var(--color-text-muted); font-size: 14px; }
     .auth-error {
       background: rgba(239, 68, 68, 0.1);
       border: 1px solid rgba(239, 68, 68, 0.3);
@@ -192,19 +294,7 @@ function passwordMatchValidator(ctrl: AbstractControl): ValidationErrors | null 
       border-radius: var(--radius-md);
       font-size: 14px;
     }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .form-group label {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--color-text);
-    }
-
+    .form-group { display: grid; gap: 6px; }
     input {
       width: 100%;
       padding: 12px 16px;
@@ -213,40 +303,60 @@ function passwordMatchValidator(ctrl: AbstractControl): ValidationErrors | null 
       border-radius: var(--radius-md);
       color: var(--color-text);
       font-size: 15px;
-      transition: border-color var(--transition-fast);
       box-sizing: border-box;
     }
-
-    input:focus { outline: none; border-color: var(--color-primary); }
-    input.is-invalid { border-color: #ef4444; }
-
     .input-password { position: relative; }
-    .input-password input { padding-right: 46px; }
-
+    .input-password input { padding-right: 72px; }
     .toggle-pw {
       position: absolute;
-      right: 12px;
+      right: 10px;
       top: 50%;
       transform: translateY(-50%);
-      background: none;
-      font-size: 18px;
-      line-height: 1;
-      cursor: pointer;
-      padding: 2px;
+      background: transparent;
+      color: var(--color-primary);
+      font-size: 12px;
+      font-weight: 700;
     }
-
-    .field-error { font-size: 12px; color: #f87171; }
-
-    .btn--full { width: 100%; justify-content: center; margin-top: 4px; }
-
-    .auth-switch {
-      text-align: center;
-      font-size: 14px;
-      color: var(--color-text-muted);
-      margin: 0;
+    .otp-panel {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid rgba(94, 170, 255, 0.22);
+      border-radius: var(--radius-md);
+      background: rgba(94, 170, 255, 0.06);
     }
-    .auth-switch a { color: var(--color-primary); font-weight: 500; }
-
+    .otp-panel__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge--verified {
+      background: rgba(34, 197, 94, 0.18);
+      color: #86efac;
+    }
+    .otp-inline {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+    }
+    .field-error { color: #f87171; font-size: 12px; }
+    .field-success { color: #86efac; font-size: 12px; }
+    .field-hint { color: var(--color-text-muted); font-size: 12px; }
+    .otp-dev { color: var(--color-primary); font-size: 12px; font-weight: 700; }
+    .btn--full { width: 100%; justify-content: center; }
+    .auth-switch { text-align: center; font-size: 14px; color: var(--color-text-muted); margin: 0; }
+    .auth-switch a { color: var(--color-primary); font-weight: 600; }
     .divider {
       text-align: center;
       position: relative;
@@ -262,109 +372,162 @@ function passwordMatchValidator(ctrl: AbstractControl): ValidationErrors | null 
       right: 0;
       height: 1px;
       background: var(--color-border);
-      z-index: 0;
     }
     .divider span {
-      background: var(--color-surface);
-      padding: 0 8px;
       position: relative;
       z-index: 1;
+      background: var(--color-surface);
+      padding: 0 8px;
     }
-
-    .social-buttons {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
+    .social-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .social-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
       padding: 12px 16px;
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
       background: var(--color-bg);
       color: var(--color-text);
-      font-size: 13px;
-      font-weight: 500;
       cursor: pointer;
-      transition: all var(--transition-fast);
     }
-
-    .social-btn:hover:not(:disabled) { background: var(--color-surface); }
-    .social-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-    .social-btn--google {
-      background: #fff;
-      color: #1f1f1f;
-      border: 1px solid #dadce0;
-    }
-    .social-btn--google:hover:not(:disabled) { background: #f7f8f8; }
-
-    .social-btn--microsoft {
-      background: #2f2f2f;
-      color: #fff;
-      border: 1px solid #444;
-    }
-    .social-btn--microsoft:hover:not(:disabled) { background: #3a3a3a; }
-
-    svg { flex-shrink: 0; }
   `],
 })
-export class SignupComponent {
+export class SignupComponent implements OnDestroy {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
   private router = inject(Router);
   private searchStore = inject(BookingSearchStore);
+  private subscriptions = new Subscription();
 
   loading = signal(false);
   socialLoading = signal(false);
   errorMsg = signal('');
   showPassword = signal(false);
+  emailOtp = signal<OtpUiState>(createOtpState());
+  phoneOtp = signal<OtpUiState>(createOtpState());
 
   form = this.fb.nonNullable.group(
     {
       full_name: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
+      phone: ['', [Validators.required, Validators.pattern(/^[0-9+\-\s()]{7,30}$/)]],
       password: ['', [Validators.required, passwordStrengthValidator]],
       confirmPassword: ['', Validators.required],
     },
     { validators: passwordMatchValidator }
   );
 
-  togglePassword(): void { this.showPassword.update(v => !v); }
+  private countdownId = window.setInterval(() => {
+    this.tickCountdown('email');
+    this.tickCountdown('phone');
+  }, 1000);
 
-  isFieldInvalid(field: 'full_name' | 'email' | 'password' | 'confirmPassword'): boolean {
+  constructor() {
+    this.subscriptions.add(
+      this.form.controls.email.valueChanges.subscribe(() => this.resetOtpState('email'))
+    );
+    this.subscriptions.add(
+      this.form.controls.phone.valueChanges.subscribe(() => this.resetOtpState('phone'))
+    );
+  }
+
+  ngOnDestroy(): void {
+    window.clearInterval(this.countdownId);
+    this.subscriptions.unsubscribe();
+  }
+
+  togglePassword(): void {
+    this.showPassword.update(value => !value);
+  }
+
+  isFieldInvalid(field: 'full_name' | 'email' | 'phone' | 'password'): boolean {
     const ctrl = this.form.get(field);
     return !!(ctrl?.invalid && ctrl.touched);
   }
 
   isConfirmInvalid(): boolean {
     const ctrl = this.form.get('confirmPassword');
-    return !!(
-      ctrl?.touched &&
-      (ctrl.invalid || this.form.errors?.['passwordMismatch'])
-    );
+    return !!(ctrl?.touched && (ctrl.invalid || this.form.errors?.['passwordMismatch']));
+  }
+
+  canSubmit(): boolean {
+    return this.form.valid && this.emailOtp().verified && this.phoneOtp().verified;
+  }
+
+  updateOtpValue(channel: ContactChannel, raw: string): void {
+    const sanitized = raw.replace(/\D/g, '').slice(0, 6);
+    this.patchOtpState(channel, { otp: sanitized, error: '' });
+  }
+
+  requestOtp(channel: ContactChannel): void {
+    const control = channel === 'email' ? this.form.controls.email : this.form.controls.phone;
+    control.markAsTouched();
+    if (control.invalid) return;
+
+    this.errorMsg.set('');
+    this.patchOtpState(channel, { sending: true, error: '', blockedMessage: '' });
+
+    this.authService.requestOtpChallenge({
+      flow: 'signup',
+      channel,
+      recipient: control.value.trim(),
+    }).subscribe({
+      next: response => {
+        this.applyChallengeResponse(channel, response, 'OTP sent successfully.');
+        this.patchOtpState(channel, { sending: false, sent: true });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.handleOtpError(channel, err);
+        this.patchOtpState(channel, { sending: false });
+      },
+    });
+  }
+
+  verifyOtp(channel: ContactChannel): void {
+    const state = this.getOtpState(channel);
+    if (state.otp.length !== 6 || !state.challengeId) return;
+
+    this.patchOtpState(channel, { verifying: true, error: '', blockedMessage: '' });
+    this.authService.verifyOtpChallenge({
+      challenge_id: state.challengeId,
+      otp: state.otp,
+    }).subscribe({
+      next: () => {
+        this.patchOtpState(channel, {
+          verifying: false,
+          verified: true,
+          info: `${channel === 'email' ? 'Email' : 'Phone'} verified successfully.`,
+          error: '',
+          sent: false,
+        });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.handleOtpError(channel, err);
+        this.patchOtpState(channel, { verifying: false });
+      },
+    });
   }
 
   onSubmit(): void {
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.loading()) return;
+    if (!this.canSubmit() || this.loading()) return;
 
     this.loading.set(true);
     this.errorMsg.set('');
 
-    const { full_name, email, password } = this.form.getRawValue();
-
-    this.authService.signup({ full_name, email, password }).subscribe({
+    const { full_name, email, phone, password } = this.form.getRawValue();
+    this.authService.signup({
+      full_name,
+      email,
+      phone,
+      password,
+      email_challenge_id: this.emailOtp().challengeId,
+      phone_challenge_id: this.phoneOtp().challengeId,
+    }).subscribe({
       next: () => {
         const intended = this.searchStore.getAndClearRedirectIntent();
         this.router.navigateByUrl(intended || '/');
       },
       error: (err: HttpErrorResponse) => {
-        this.errorMsg.set(err.error?.detail ?? 'Signup failed. Please try again.');
+        this.errorMsg.set(this.extractErrorMessage(err, 'Signup failed. Please try again.'));
         this.loading.set(false);
       },
     });
@@ -379,12 +542,71 @@ export class SignupComponent {
     });
   }
 
-  signInWithMicrosoft(): void {
+  async signInWithMicrosoft(): Promise<void> {
     this.socialLoading.set(true);
     this.errorMsg.set('');
-    this.authService.loginWithMicrosoft().catch((err: Error) => {
-      this.errorMsg.set(err.message || 'Microsoft Sign-In failed. Please try again.');
+    try {
+      await this.authService.loginWithMicrosoft();
+    } catch {
+      this.errorMsg.set('Microsoft Sign-In failed. Please try again.');
       this.socialLoading.set(false);
+    }
+  }
+
+  private getOtpSignal(channel: ContactChannel) {
+    return channel === 'email' ? this.emailOtp : this.phoneOtp;
+  }
+
+  private getOtpState(channel: ContactChannel): OtpUiState {
+    return this.getOtpSignal(channel)();
+  }
+
+  private patchOtpState(channel: ContactChannel, patch: Partial<OtpUiState>): void {
+    this.getOtpSignal(channel).update(state => ({ ...state, ...patch }));
+  }
+
+  private resetOtpState(channel: ContactChannel): void {
+    this.getOtpSignal(channel).set(createOtpState());
+  }
+
+  private tickCountdown(channel: ContactChannel): void {
+    const state = this.getOtpState(channel);
+    if (state.resendRemainingSeconds <= 0) return;
+    this.patchOtpState(channel, { resendRemainingSeconds: state.resendRemainingSeconds - 1 });
+  }
+
+  private applyChallengeResponse(channel: ContactChannel, response: OtpChallengeResponse, successMessage: string): void {
+    this.patchOtpState(channel, {
+      challengeId: response.challenge_id,
+      recipient: response.recipient,
+      otp: '',
+      sent: true,
+      verified: false,
+      devCode: response.dev_code ?? '',
+      info: response.message || successMessage,
+      error: '',
+      resendRemainingSeconds: response.resend_available_in_seconds,
+      resendsRemaining: response.resends_remaining,
+      attemptsRemaining: response.attempts_remaining,
+      blockedMessage: response.blocked_until ? 'OTP requests are temporarily blocked. Please try again later.' : '',
     });
+  }
+
+  private handleOtpError(channel: ContactChannel, err: HttpErrorResponse): void {
+    const detail = err.error?.detail;
+    const payload = typeof detail === 'object' && detail ? detail : null;
+    this.patchOtpState(channel, {
+      error: payload?.message ?? this.extractErrorMessage(err, 'OTP request failed.'),
+      blockedMessage: payload?.code === 'otp_temporarily_blocked' ? payload.message : '',
+      resendRemainingSeconds: payload?.resend_available_in_seconds ?? this.getOtpState(channel).resendRemainingSeconds,
+      attemptsRemaining: payload?.attempts_remaining ?? this.getOtpState(channel).attemptsRemaining,
+    });
+  }
+
+  private extractErrorMessage(err: HttpErrorResponse, fallback: string): string {
+    const detail = err.error?.detail;
+    if (typeof detail === 'string') return detail;
+    if (detail && typeof detail.message === 'string') return detail.message;
+    return fallback;
   }
 }

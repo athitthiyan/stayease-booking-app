@@ -1,9 +1,11 @@
-import { Component, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { AuthService } from '../../../core/services/auth.service';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Component, OnDestroy, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+
+import { AuthService } from '../../../core/services/auth.service';
+import { OtpChallengeResponse } from '../../../core/models/auth.model';
 
 @Component({
   selector: 'app-forgot-password',
@@ -12,57 +14,83 @@ import { HttpErrorResponse } from '@angular/common/http';
   template: `
     <div class="auth-page">
       <div class="auth-card">
-        <a routerLink="/" class="auth-logo">
-          <span>🏨</span> Stay<span class="accent">Ease</span>
-        </a>
+        <a routerLink="/" class="auth-logo">Stay<span class="accent">vora</span></a>
 
-        @if (!submitted()) {
-          <h1 class="auth-title">Reset your password</h1>
-          <p class="auth-subtitle">We'll send a reset link to your email</p>
+        <h1 class="auth-title">Reset your password</h1>
+        <p class="auth-subtitle">Verify with OTP sent to your registered email or phone.</p>
 
-          @if (errorMsg()) {
-            <div class="auth-error" role="alert">{{ errorMsg() }}</div>
-          }
+        @if (errorMsg()) {
+          <div class="auth-error" role="alert">{{ errorMsg() }}</div>
+        }
 
-          <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
-            <div class="form-group">
-              <label for="email">Email address</label>
-              <input
-                id="email"
-                type="email"
-                formControlName="email"
-                placeholder="you@example.com"
-                autocomplete="email"
-                [class.is-invalid]="isEmailInvalid()"
-              />
-              @if (isEmailInvalid()) {
-                <span class="field-error">Enter a valid email address</span>
-              }
+        <form [formGroup]="form" (ngSubmit)="requestOtp()" novalidate>
+          <div class="form-group">
+            <label for="channel">Recovery method</label>
+            <select id="channel" formControlName="channel">
+              <option value="email">Email</option>
+              <option value="phone">Phone</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="recipient">{{ form.controls.channel.value === 'email' ? 'Email address' : 'Phone number' }}</label>
+            <input
+              id="recipient"
+              [type]="form.controls.channel.value === 'email' ? 'email' : 'tel'"
+              formControlName="recipient"
+              [placeholder]="form.controls.channel.value === 'email' ? 'you@example.com' : '+91 98765 43210'"
+            />
+          </div>
+
+          <button type="submit" class="btn btn--primary btn--full" [disabled]="loading()">
+            @if (loading()) { Sending OTP... } @else { Send OTP }
+          </button>
+        </form>
+
+        @if (challenge().sent && !challenge().verified) {
+          <div class="otp-panel">
+            <div class="otp-panel__header">
+              <span>Verify OTP</span>
             </div>
-
-            <button type="submit" class="btn btn--primary btn--full" [disabled]="loading()">
-              @if (loading()) { Sending… } @else { Send reset link }
-            </button>
-          </form>
-        } @else {
-          <div class="success-state">
-            <div class="success-icon">📧</div>
-            <h2 class="auth-title">Check your inbox</h2>
-            <p class="auth-subtitle">
-              If that email exists in our system, you'll receive a reset link shortly.
-            </p>
+            <div class="otp-inline">
+              <input
+                type="text"
+                inputmode="numeric"
+                maxlength="6"
+                [value]="challenge().otp"
+                (input)="updateOtpValue($any($event.target).value)"
+                placeholder="Enter 6-digit OTP"
+              />
+              <button type="button" class="btn btn--secondary" (click)="verifyOtp()" [disabled]="verifying() || challenge().otp.length !== 6">
+                @if (verifying()) { Verifying... } @else { Verify OTP }
+              </button>
+            </div>
+            @if (challenge().resendRemainingSeconds > 0) {
+              <span class="field-hint">Resend OTP in {{ challenge().resendRemainingSeconds }}s</span>
+            }
+            @if (challenge().info) {
+              <span class="field-success">{{ challenge().info }}</span>
+            }
+            @if (challenge().error) {
+              <span class="field-error">{{ challenge().error }}</span>
+            }
+            @if (challenge().blockedMessage) {
+              <span class="field-error">{{ challenge().blockedMessage }}</span>
+            }
+            @if (challenge().devCode) {
+              <span class="otp-dev">Dev OTP: {{ challenge().devCode }}</span>
+            }
           </div>
         }
 
         <p class="auth-switch">
-          <a routerLink="/auth/login">← Back to sign in</a>
+          <a routerLink="/auth/login">Back to sign in</a>
         </p>
       </div>
     </div>
   `,
   styles: [`
     :host { display: block; }
-
     .auth-page {
       min-height: 100vh;
       display: flex;
@@ -71,43 +99,31 @@ import { HttpErrorResponse } from '@angular/common/http';
       padding: var(--space-xl);
       background: var(--color-bg);
     }
-
     .auth-card {
       width: 100%;
-      max-width: 420px;
+      max-width: 460px;
       background: var(--color-surface);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-xl);
       padding: var(--space-2xl);
-      display: flex;
-      flex-direction: column;
+      display: grid;
       gap: var(--space-lg);
     }
-
-    .auth-logo {
-      font-family: var(--font-serif);
-      font-size: 1.4rem;
-      font-weight: 700;
+    .auth-logo { text-align: center; font-family: var(--font-serif); font-size: 1.4rem; font-weight: 700; color: var(--color-text); }
+    .accent { color: var(--color-primary); }
+    .auth-title, .auth-subtitle { text-align: center; margin: 0; }
+    .auth-subtitle { color: var(--color-text-muted); font-size: 14px; }
+    .form-group { display: grid; gap: 6px; }
+    input, select {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--color-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
       color: var(--color-text);
-      text-align: center;
+      font-size: 15px;
+      box-sizing: border-box;
     }
-    .auth-logo .accent { color: var(--color-primary); }
-
-    .auth-title {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--color-text);
-      text-align: center;
-      margin: 0;
-    }
-
-    .auth-subtitle {
-      color: var(--color-text-muted);
-      text-align: center;
-      margin: -8px 0 0;
-      font-size: 14px;
-    }
-
     .auth-error {
       background: rgba(239, 68, 68, 0.1);
       border: 1px solid rgba(239, 68, 68, 0.3);
@@ -116,85 +132,131 @@ import { HttpErrorResponse } from '@angular/common/http';
       border-radius: var(--radius-md);
       font-size: 14px;
     }
-
-    .form-group { display: flex; flex-direction: column; gap: 6px; }
-
-    .form-group label {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--color-text);
-    }
-
-    input {
-      width: 100%;
-      padding: 12px 16px;
-      background: var(--color-bg);
-      border: 1px solid var(--color-border);
+    .otp-panel {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid rgba(94, 170, 255, 0.22);
       border-radius: var(--radius-md);
-      color: var(--color-text);
-      font-size: 15px;
-      transition: border-color var(--transition-fast);
-      box-sizing: border-box;
+      background: rgba(94, 170, 255, 0.06);
     }
-
-    input:focus { outline: none; border-color: var(--color-primary); }
-    input.is-invalid { border-color: #ef4444; }
-
-    .field-error { font-size: 12px; color: #f87171; }
-
+    .otp-panel__header { font-size: 13px; font-weight: 600; }
+    .otp-inline { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+    .field-error { color: #f87171; font-size: 12px; }
+    .field-success { color: #86efac; font-size: 12px; }
+    .field-hint { color: var(--color-text-muted); font-size: 12px; }
+    .otp-dev { color: var(--color-primary); font-size: 12px; font-weight: 700; }
     .btn--full { width: 100%; justify-content: center; }
-
-    .success-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: var(--space-md);
-      padding: var(--space-lg) 0;
-    }
-
-    .success-icon { font-size: 3rem; }
-
-    .auth-switch {
-      text-align: center;
-      font-size: 14px;
-      color: var(--color-text-muted);
-      margin: 0;
-    }
-    .auth-switch a { color: var(--color-primary); font-weight: 500; }
+    .auth-switch { text-align: center; margin: 0; }
+    .auth-switch a { color: var(--color-primary); }
   `],
 })
-export class ForgotPasswordComponent {
+export class ForgotPasswordComponent implements OnDestroy {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
+  private router = inject(Router);
 
   loading = signal(false);
-  submitted = signal(false);
+  verifying = signal(false);
   errorMsg = signal('');
-
-  form = this.fb.nonNullable.group({
-    email: ['', [Validators.required, Validators.email]],
+  challenge = signal({
+    sent: false,
+    verified: false,
+    challengeId: '',
+    otp: '',
+    devCode: '',
+    info: '',
+    error: '',
+    resendRemainingSeconds: 0,
+    blockedMessage: '',
   });
 
-  isEmailInvalid(): boolean {
-    const ctrl = this.form.get('email');
-    return !!(ctrl?.invalid && ctrl.touched);
+  form = this.fb.nonNullable.group({
+    channel: ['email' as 'email' | 'phone', Validators.required],
+    recipient: ['', Validators.required],
+  });
+
+  private countdownId = window.setInterval(() => {
+    const seconds = this.challenge().resendRemainingSeconds;
+    if (seconds > 0) {
+      this.challenge.update(state => ({ ...state, resendRemainingSeconds: seconds - 1 }));
+    }
+  }, 1000);
+
+  ngOnDestroy(): void {
+    window.clearInterval(this.countdownId);
   }
 
-  onSubmit(): void {
+  requestOtp(): void {
     this.form.markAllAsTouched();
     if (this.form.invalid || this.loading()) return;
 
     this.loading.set(true);
     this.errorMsg.set('');
 
-    this.authService
-      .forgotPassword({ email: this.form.getRawValue().email })
-      .subscribe({
-        next: () => this.submitted.set(true),
-        error: (err: HttpErrorResponse) => {
-          this.errorMsg.set(err.error?.detail ?? 'Request failed. Please try again.');
-          this.loading.set(false);
-        },
-      });
+    this.authService.forgotPassword(this.form.getRawValue()).subscribe({
+      next: response => {
+        this.applyChallengeResponse(response);
+        this.loading.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.errorMsg.set(this.extractErrorMessage(err, 'Request failed. Please try again.'));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  verifyOtp(): void {
+    if (this.challenge().otp.length !== 6 || !this.challenge().challengeId) return;
+
+    this.verifying.set(true);
+    this.errorMsg.set('');
+    this.authService.verifyOtpChallenge({
+      challenge_id: this.challenge().challengeId,
+      otp: this.challenge().otp,
+    }).subscribe({
+      next: response => {
+        this.challenge.update(state => ({ ...state, verified: true, info: response.message, error: '' }));
+        this.verifying.set(false);
+        this.router.navigate(['/auth/reset-password'], {
+          queryParams: { reset_token: response.reset_token ?? '' },
+        });
+      },
+      error: (err: HttpErrorResponse) => {
+        const detail = err.error?.detail;
+        const message = typeof detail === 'object' && detail?.message ? detail.message : this.extractErrorMessage(err, 'OTP verification failed.');
+        this.challenge.update(state => ({ ...state, error: message }));
+        this.verifying.set(false);
+      },
+    });
+  }
+
+  updateOtpValue(raw: string): void {
+    this.challenge.update(state => ({
+      ...state,
+      otp: raw.replace(/\D/g, '').slice(0, 6),
+      error: '',
+    }));
+  }
+
+  private applyChallengeResponse(response: OtpChallengeResponse): void {
+    this.challenge.set({
+      sent: true,
+      verified: false,
+      challengeId: response.challenge_id,
+      otp: '',
+      devCode: response.dev_code ?? '',
+      info: response.message,
+      error: '',
+      resendRemainingSeconds: response.resend_available_in_seconds,
+      blockedMessage: response.blocked_until ? 'OTP requests are temporarily blocked. Please try again later.' : '',
+    });
+  }
+
+  private extractErrorMessage(err: HttpErrorResponse, fallback: string): string {
+    const detail = err.error?.detail;
+    if (typeof detail === 'string') return detail;
+    if (detail && typeof detail.message === 'string') return detail.message;
+    return fallback;
   }
 }

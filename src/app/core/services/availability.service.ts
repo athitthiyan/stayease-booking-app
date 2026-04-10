@@ -82,10 +82,12 @@ export class AvailabilityService {
 
     return this.roomService.getRooms(requestParams).pipe(
       map(response => {
-        const rooms = response.rooms.filter(room => room.availability !== false).map(room => ({
+        const rooms = response.rooms
+          .filter((room: Room) => room.availability !== false)
+          .map((room: Room) => ({
           ...room,
           availabilityState: 'available' as const,
-        }));
+          }));
 
         return {
           ...response,
@@ -105,7 +107,7 @@ export class AvailabilityService {
 
     if (!validated) {
       return this.roomService.getFeaturedRooms(limit).pipe(
-        map(rooms => rooms.map(room => ({ ...room, availabilityState: 'available' as const }))),
+        map(rooms => rooms.map((room: Room) => ({ ...room, availabilityState: 'available' as const }))),
         catchError(() => of([])),
       );
     }
@@ -117,7 +119,7 @@ export class AvailabilityService {
       page: 1,
       per_page: limit,
     }).pipe(
-      map(response => response.rooms.map(room => ({ ...room, availabilityState: 'available' as const }))),
+      map(response => response.rooms.map((room: Room) => ({ ...room, availabilityState: 'available' as const }))),
       catchError(() => of([])),
     );
   }

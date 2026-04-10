@@ -124,7 +124,14 @@ describe('AuthService', () => {
 
   it('should persist session on signup', () => {
     service
-      .signup({ email: 'new@example.com', full_name: 'New User', password: 'Pass1234!' })
+      .signup({
+        email: 'new@example.com',
+        full_name: 'New User',
+        phone: '+1234567890',
+        password: 'Pass1234!',
+        email_challenge_id: 'email-challenge-1',
+        phone_challenge_id: 'phone-challenge-1',
+      })
       .subscribe();
 
     const req = http.expectOne(`${env.environment.apiUrl}/auth/signup`);
@@ -228,18 +235,32 @@ describe('AuthService', () => {
   // ─── forgot password ──────────────────────────────────────────────────────
 
   it('should call forgot-password endpoint', () => {
-    service.forgotPassword({ email: 'test@example.com' }).subscribe();
+    service
+      .forgotPassword({ channel: 'email', recipient: 'test@example.com' })
+      .subscribe();
 
     const req = http.expectOne(`${env.environment.apiUrl}/auth/forgot-password`);
     expect(req.request.method).toBe('POST');
-    req.flush({ message: 'If that email exists...' });
+    req.flush({
+      message: 'OTP sent',
+      challenge_id: 'forgot-email-1',
+      flow: 'password_reset',
+      channel: 'email',
+      recipient: 'test@example.com',
+      expires_in_seconds: 300,
+      resend_available_in_seconds: 30,
+      resends_remaining: 3,
+      attempts_remaining: 5,
+      max_resends: 3,
+      max_attempts: 5,
+    });
   });
 
   // ─── reset password ───────────────────────────────────────────────────────
 
   it('should call reset-password endpoint', () => {
     service
-      .resetPassword({ token: 'reset-token', new_password: 'NewPass123' })
+      .resetPassword({ reset_token: 'reset-token', new_password: 'NewPass123' })
       .subscribe();
 
     const req = http.expectOne(`${env.environment.apiUrl}/auth/reset-password`);
@@ -318,24 +339,63 @@ describe('AuthService', () => {
 
   // ─── phone OTP ─────────────────────────────────────────────────────────
 
-  it('should call the phone OTP request endpoint', () => {
-    service.requestPhoneOtp({ phone: '+1234567890' }).subscribe();
-    const req = http.expectOne(`${env.environment.apiUrl}/auth/phone/request-otp`);
+  it('should call the OTP challenge request endpoint', () => {
+    service
+      .requestOtpChallenge({
+        flow: 'profile',
+        channel: 'phone',
+        recipient: '+1234567890',
+      })
+      .subscribe();
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/otp/request`);
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ phone: '+1234567890' });
-    req.flush({ message: 'sent', otp_id: 'otp-1' });
+    expect(req.request.body).toEqual({
+      flow: 'profile',
+      channel: 'phone',
+      recipient: '+1234567890',
+    });
+    req.flush({
+      message: 'OTP sent',
+      challenge_id: 'otp-1',
+      flow: 'profile',
+      channel: 'phone',
+      recipient: '+1234567890',
+      expires_in_seconds: 300,
+      resend_available_in_seconds: 30,
+      resends_remaining: 3,
+      attempts_remaining: 5,
+      max_resends: 3,
+      max_attempts: 5,
+    });
   });
 
-  it('should update user and localStorage on verifyPhoneOtp', () => {
-    const verifiedUser = { ...mockUser, phone: '+1234567890', phone_verified: true };
-    service.verifyPhoneOtp({ phone: '+1234567890', otp: '123456' }).subscribe();
+  it('should return verification response from verifyOtpChallenge', () => {
+    let response: unknown;
+    service
+      .verifyOtpChallenge({ challenge_id: 'otp-1', otp: '123456' })
+      .subscribe(result => {
+        response = result;
+      });
 
-    const req = http.expectOne(`${env.environment.apiUrl}/auth/phone/verify`);
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/otp/verify`);
     expect(req.request.method).toBe('POST');
-    req.flush(verifiedUser);
+    req.flush({
+      message: 'OTP verified',
+      challenge_id: 'otp-1',
+      flow: 'profile',
+      channel: 'phone',
+      recipient: '+1234567890',
+      reset_token: 'reset-session-token',
+    });
 
-    expect(service.currentUser).toEqual(verifiedUser);
-    expect(JSON.parse(localStorage.getItem('se_user')!)).toEqual(verifiedUser);
+    expect(response).toEqual({
+      message: 'OTP verified',
+      challenge_id: 'otp-1',
+      flow: 'profile',
+      channel: 'phone',
+      recipient: '+1234567890',
+      reset_token: 'reset-session-token',
+    });
   });
 
   // ─── Microsoft + social login with token ──────────────────────────────
@@ -408,6 +468,13 @@ describe('AuthService', () => {
     mockMsalService.loginRedirect.mockReturnValue(throwError(() => otherError));
 
     await expect(service.loginWithMicrosoft()).rejects.toThrow('Microsoft Sign-In failed. Please try again.');
+  });
+
+  it('should re-throw non-BrowserAuthError exceptions from Microsoft login', async () => {
+    const customError = new Error('Custom error message');
+    mockMsalService.loginRedirect.mockReturnValue(throwError(() => customError));
+
+    await expect(service.loginWithMicrosoft()).rejects.toThrow('Custom error message');
   });
 
   it('should post and persist session on socialLoginWithToken', () => {
@@ -515,42 +582,489 @@ describe('AuthService', () => {
     delete (window as any).google;
   });
 
-  it('should load script when google is not on window and call initAndPrompt on load', async () => {
+  it('should navigate to redirect URL from sessionStorage after Google login success', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (window as any).google;
-    const appendSpy = jest.spyOn(document.body, 'appendChild').mockImplementation((el) => {
-      // Simulate script loaded, but google still not available → reject
-      if (el instanceof HTMLScriptElement && el.onload) {
-        (el.onload as () => void)();
-      }
-      return el;
-    });
-
-    await expect(service.loginWithGoogle()).rejects.toThrow('Google Identity Services failed to load.');
-    appendSpy.mockRestore();
-  });
-
-  it('should reject when script fails to load', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (window as any).google;
-    const appendSpy = jest.spyOn(document.body, 'appendChild').mockImplementation((el) => {
-      if (el instanceof HTMLScriptElement && el.onerror) {
-        (el.onerror as () => void)();
-      }
-      return el;
-    });
-
-    await expect(service.loginWithGoogle()).rejects.toThrow('Failed to load Google Identity Services.');
-    appendSpy.mockRestore();
-  });
-
-  it('isAdmin should be true for admin user', () => {
-    const adminToken: TokenResponse = {
-      ...mockTokenResponse,
-      user: { ...mockUser, is_admin: true },
+    const win = window as any;
+    sessionStorage.setItem('sv_redirect_after_login', '/rooms/42');
+    win.google = {
+      accounts: {
+        oauth2: {
+          initTokenClient: (cfg: { callback: (r: Record<string, string>) => void }) => ({
+            requestAccessToken: () => cfg.callback({ access_token: 'goog-tok' }),
+          }),
+        },
+      },
     };
+
+    const promise = service.loginWithGoogle();
+
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
+    expect(req.request.body).toEqual({ provider: 'google', id_token: 'goog-tok' });
+    req.flush(mockTokenResponse);
+
+    await promise;
+    expect(sessionStorage.getItem('sv_redirect_after_login')).toBeNull();
+    expect(routerSpy.navigateByUrl).toHaveBeenCalledWith('/rooms/42');
+    delete win.google;
+  });
+
+  it('should show denied message when Google returns access_denied error', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    win.google = {
+      accounts: {
+        oauth2: {
+          initTokenClient: (cfg: { callback: (r: Record<string, unknown>) => void }) => ({
+            requestAccessToken: () => cfg.callback({ error: 'access_denied' }),
+          }),
+        },
+      },
+    };
+
+    try {
+      await service.loginWithGoogle();
+      fail('should have thrown');
+    } catch (err) {
+      expect((err as Error).message).toBe('Google Sign-In was denied. Please grant the required permissions.');
+    }
+    delete win.google;
+  });
+
+  it('should show cancelled message when Google returns error other than access_denied', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    win.google = {
+      accounts: {
+        oauth2: {
+          initTokenClient: (cfg: { callback: (r: Record<string, unknown>) => void }) => ({
+            requestAccessToken: () => cfg.callback({ error: 'popup_closed_by_user' }),
+          }),
+        },
+      },
+    };
+
+    try {
+      await service.loginWithGoogle();
+      fail('should have thrown');
+    } catch (err) {
+      expect((err as Error).message).toBe('Google Sign-In was cancelled.');
+    }
+    delete win.google;
+  });
+
+  it('should handle Microsoft login with BrowserAuthError for interaction_in_progress', async () => {
+    const inProgressError = new BrowserAuthError('interaction_in_progress');
+    mockMsalService.loginRedirect.mockReturnValue(throwError(() => inProgressError));
+
+    try {
+      await service.loginWithMicrosoft();
+      fail('should have thrown');
+    } catch (err) {
+      expect((err as Error).message).toBe('A sign-in is already in progress. Please wait.');
+    }
+  });
+
+  it('should handle Microsoft login with BrowserAuthError for other error codes', async () => {
+    const otherAuthError = new BrowserAuthError('browser_not_supported');
+    mockMsalService.loginRedirect.mockReturnValue(throwError(() => otherAuthError));
+
+    try {
+      await service.loginWithMicrosoft();
+      fail('should have thrown');
+    } catch (err) {
+      expect((err as Error).message).toBe('Microsoft Sign-In failed. Please try again.');
+    }
+  });
+
+  it('should re-throw non-BrowserAuthError exceptions from loginWithMicrosoft', async () => {
+    const customError = new Error('Network timeout');
+    mockMsalService.loginRedirect.mockReturnValue(throwError(() => customError));
+
+    try {
+      await service.loginWithMicrosoft();
+      fail('should have thrown');
+    } catch (err) {
+      expect((err as Error).message).toBe('Network timeout');
+    }
+  });
+
+  it('should deduplicate concurrent socialLoginWithToken requests with same provider and token', () => {
+    const results: TokenResponse[] = [];
+
+    service.socialLoginWithToken('apple', 'same-apple-token').subscribe(value => results.push(value));
+    service.socialLoginWithToken('apple', 'same-apple-token').subscribe(value => results.push(value));
+    service.socialLoginWithToken('apple', 'same-apple-token').subscribe(value => results.push(value));
+
+    const reqs = http.match(`${env.environment.apiUrl}/auth/social-login`);
+    expect(reqs).toHaveLength(1);
+    reqs[0].flush(mockTokenResponse);
+
+    expect(results).toEqual([mockTokenResponse, mockTokenResponse, mockTokenResponse]);
+  });
+
+  it('should allow different tokens for same provider to create separate requests', () => {
+    const results: TokenResponse[] = [];
+
+    service.socialLoginWithToken('google', 'token-1').subscribe(value => results.push(value));
+    service.socialLoginWithToken('google', 'token-2').subscribe(value => results.push(value));
+
+    const reqs = http.match(`${env.environment.apiUrl}/auth/social-login`);
+    expect(reqs).toHaveLength(2);
+    reqs[0].flush(mockTokenResponse);
+    reqs[1].flush(mockTokenResponse);
+
+    expect(results).toEqual([mockTokenResponse, mockTokenResponse]);
+  });
+
+  it('should clear in-flight marker when socialLoginWithToken completes', () => {
+    service.socialLoginWithToken('microsoft', 'ms-token').subscribe();
+
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
+    req.flush(mockTokenResponse);
+
+    // After completion, a new request with same token should create new HTTP request
+    service.socialLoginWithToken('microsoft', 'ms-token').subscribe();
+    http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
+  });
+
+  // ─── initSession coverage ────────────────────────────────────────────────
+
+  it('should return false when no cached user exists', (done) => {
+    service.initSession().subscribe(result => {
+      expect(result).toBe(false);
+      done();
+    });
+  });
+
+  it('should return true when cached user exists but no refresh token', (done) => {
+    localStorage.setItem('se_user', JSON.stringify(mockUser));
+    localStorage.setItem('se_at', 'access-token-abc');
+
+    // Create new service instance to load from storage
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [
+        AuthService,
+        { provide: Router, useValue: routerSpy },
+        { provide: MsalService, useValue: mockMsalService },
+      ],
+    });
+    const freshService = TestBed.inject(AuthService);
+
+    freshService.initSession().subscribe(result => {
+      expect(result).toBe(true);
+      expect(freshService.isLoggedIn).toBe(true);
+      done();
+    });
+  });
+
+  it('should refresh token and return true on initSession when cached user and refresh token exist', (done) => {
+    localStorage.setItem('se_user', JSON.stringify(mockUser));
+    localStorage.setItem('se_rt', 'refresh-token-xyz');
+
+    // Create new service instance to load from storage
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [
+        AuthService,
+        { provide: Router, useValue: routerSpy },
+        { provide: MsalService, useValue: mockMsalService },
+      ],
+    });
+    const freshService = TestBed.inject(AuthService);
+    const freshHttp = TestBed.inject(HttpTestingController);
+
+    freshService.initSession().subscribe(result => {
+      expect(result).toBe(true);
+      freshHttp.verify();
+      done();
+    });
+
+    const req = freshHttp.expectOne(`${env.environment.apiUrl}/auth/refresh`);
+    req.flush(mockTokenResponse);
+  });
+
+  it('should return true on initSession when refresh fails', (done) => {
+    localStorage.setItem('se_user', JSON.stringify(mockUser));
+    localStorage.setItem('se_rt', 'refresh-token-xyz');
+
+    // Create new service instance to load from storage
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [
+        AuthService,
+        { provide: Router, useValue: routerSpy },
+        { provide: MsalService, useValue: mockMsalService },
+      ],
+    });
+    const freshService = TestBed.inject(AuthService);
+    const freshHttp = TestBed.inject(HttpTestingController);
+
+    freshService.initSession().subscribe(result => {
+      expect(result).toBe(true);
+      // User should still be cached even after refresh failure
+      expect(freshService.currentUser).toEqual(mockUser);
+      done();
+    });
+
+    const req = freshHttp.expectOne(`${env.environment.apiUrl}/auth/refresh`);
+    req.flush({ message: 'error' }, { status: 401, statusText: 'Unauthorized' });
+  });
+
+  // ─── getAccessToken coverage ────────────────────────────────────────────
+
+  it('should hydrate session from consumePendingSession if memory is empty', () => {
+    // Create a fresh service with empty localStorage and memory
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [
+        AuthService,
+        { provide: Router, useValue: routerSpy },
+        { provide: MsalService, useValue: mockMsalService },
+      ],
+    });
+
+    // Mock the consumePendingSession export
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const msal = require('../auth/msal.config');
+    const originalConsume = msal.consumePendingSession;
+
+    try {
+      msal.consumePendingSession = jest.fn().mockReturnValue({
+        accessToken: 'pending-token',
+        user: mockUser,
+      });
+
+      const freshService = TestBed.inject(AuthService);
+      const token = freshService.getAccessToken();
+
+      expect(token).toBe('pending-token');
+      expect(freshService.currentUser).toEqual(mockUser);
+    } finally {
+      msal.consumePendingSession = originalConsume;
+    }
+  });
+
+  // ─── logout coverage ────────────────────────────────────────────────────
+
+  it('should not call google revoke when token is null on logout', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    const revokeMock = jest.fn();
+    win.google = {
+      accounts: { oauth2: { revoke: revokeMock } },
+    };
+
+    service.logout();
+    http.expectOne(`${env.environment.apiUrl}/auth/logout`).flush({ message: 'Logged out successfully' });
+
+    expect(revokeMock).not.toHaveBeenCalled();
+    expect(service.isLoggedIn).toBe(false);
+    delete win.google;
+  });
+
+  // ─── persistSession coverage ────────────────────────────────────────────
+
+  it('should persist session when only access_token is present', () => {
+    const partialResp = {
+      access_token: 'only-access-token',
+      refresh_token: undefined,
+      user: undefined,
+    } as unknown as TokenResponse;
+
     service.login({ email: 'a@b.com', password: 'pw' }).subscribe();
-    http.expectOne(`${env.environment.apiUrl}/auth/login`).flush(adminToken);
-    expect(service.isAdmin).toBe(true);
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/login`);
+    req.flush(partialResp);
+
+    expect(service.getAccessToken()).toBe('only-access-token');
+    expect(localStorage.getItem('se_rt')).toBeNull();
+  });
+
+  it('should persist session when only refresh_token is present', () => {
+    const partialResp = {
+      access_token: undefined,
+      refresh_token: 'only-refresh-token',
+      user: undefined,
+    } as unknown as TokenResponse;
+
+    service.login({ email: 'a@b.com', password: 'pw' }).subscribe();
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/login`);
+    req.flush(partialResp);
+
+    expect(localStorage.getItem('se_rt')).toBe('only-refresh-token');
+  });
+
+  it('should persist session when only user is present', () => {
+    const partialResp = {
+      access_token: undefined,
+      refresh_token: undefined,
+      user: mockUser,
+    } as unknown as TokenResponse;
+
+    service.login({ email: 'a@b.com', password: 'pw' }).subscribe();
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/login`);
+    req.flush(partialResp);
+
+    expect(service.currentUser).toEqual(mockUser);
+    expect(localStorage.getItem('se_user')).toEqual(JSON.stringify(mockUser));
+  });
+
+  // ─── hydrateSession coverage ────────────────────────────────────────────
+
+  it('should hydrate session with token only when user is null', () => {
+    service.hydrateSession('token-only', null);
+
+    expect(service.getAccessToken()).toBe('token-only');
+    expect(localStorage.getItem('se_at')).toBe('token-only');
+    expect(service.currentUser).toBeNull();
+    expect(localStorage.getItem('se_user')).toBeNull();
+  });
+
+  it('should hydrate session with token only when user is undefined', () => {
+    service.hydrateSession('token-only-2', undefined);
+
+    expect(service.getAccessToken()).toBe('token-only-2');
+    expect(localStorage.getItem('se_at')).toBe('token-only-2');
+    expect(service.currentUser).toBeNull();
+    expect(localStorage.getItem('se_user')).toBeNull();
+  });
+
+  // ─── loginWithGoogle coverage ────────────────────────────────────────────
+
+  it('should reject when Google script fails to load', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    delete win.google;
+
+    // Mock document.body.appendChild to trigger script onerror
+    const appendChildSpy = jest.spyOn(document.body, 'appendChild').mockImplementation((element: Node) => {
+      const script = element as HTMLScriptElement;
+      if (script.src && script.src.includes('accounts.google.com')) {
+        // Simulate script load error
+        setTimeout(() => {
+          if (script.onerror) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            script.onerror(new Event('error') as any);
+          }
+        }, 0);
+      }
+      return element;
+    });
+
+    try {
+      await expect(service.loginWithGoogle()).rejects.toThrow('Failed to load Google Identity Services.');
+    } finally {
+      appendChildSpy.mockRestore();
+    }
+  });
+
+  it('should use Google if already loaded when loginWithGoogle is called', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    win.google = {
+      accounts: {
+        oauth2: {
+          initTokenClient: (cfg: { callback: (r: Record<string, string>) => void }) => ({
+            requestAccessToken: () => cfg.callback({ access_token: 'goog-tok' }),
+          }),
+        },
+      },
+    };
+
+    // appendChildSpy should NOT be called since google is already available
+    const appendChildSpy = jest.spyOn(document.body, 'appendChild');
+
+    const promise = service.loginWithGoogle();
+
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
+    req.flush(mockTokenResponse);
+
+    await promise;
+    expect(appendChildSpy).not.toHaveBeenCalled();
+    appendChildSpy.mockRestore();
+    delete win.google;
+  });
+
+  it('should reject when GIS fails to load (google undefined after script load)', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    delete win.google;
+
+    // Mock document.body.appendChild to trigger script onload but leave google undefined
+    const appendChildSpy = jest.spyOn(document.body, 'appendChild').mockImplementation((element: Node) => {
+      const script = element as HTMLScriptElement;
+      if (script.src && script.src.includes('accounts.google.com')) {
+        // Simulate script load success but google is not available
+        setTimeout(() => {
+          if (script.onload) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            script.onload(new Event('load') as any);
+          }
+        }, 0);
+      }
+      return element;
+    });
+
+    try {
+      await expect(service.loginWithGoogle()).rejects.toThrow('Google Identity Services failed to load.');
+    } finally {
+      appendChildSpy.mockRestore();
+    }
+  });
+
+  // ─── socialLoginWithToken coverage ──────────────────────────────────────
+
+  it('should clean up in-flight when different request replaces it', () => {
+    const results: (TokenResponse | string)[] = [];
+    const errors: unknown[] = [];
+
+    // First request in-flight
+    service.socialLoginWithToken('google', 'token-1').subscribe({
+      next: (r) => results.push(r),
+      error: (e) => errors.push(e),
+    });
+
+    const req1 = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
+
+    // Second request with different token replaces in-flight
+    service.socialLoginWithToken('google', 'token-2').subscribe({
+      next: () => results.push('second'),
+      error: (e) => errors.push(e),
+    });
+
+    const req2 = http.expectOne(`${env.environment.apiUrl}/auth/social-login`);
+
+    // Complete first request
+    req1.flush(mockTokenResponse);
+
+    // Complete second request
+    req2.flush(mockTokenResponse);
+
+    // Both should have results
+    expect(results).toContain(mockTokenResponse);
+    expect(results).toContain('second');
+  });
+
+  it('should handle no access token when logout calls google revoke', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    const revokeMock = jest.fn();
+    win.google = {
+      accounts: { oauth2: { revoke: revokeMock } },
+    };
+
+    // Service has no access token stored
+    service.logout();
+
+    const req = http.expectOne(`${env.environment.apiUrl}/auth/logout`);
+    req.flush({ message: 'Logged out successfully' });
+
+    // revoke should NOT be called when there's no access token
+    expect(revokeMock).not.toHaveBeenCalled();
+    delete win.google;
   });
 });

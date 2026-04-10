@@ -4,7 +4,7 @@
 // DO NOT use production API keys in this file.
 // All keys in this file are already rotated/disabled in production.
 
-import { PORTAL_URLS, STRIPE_TEST_KEY } from '@stayvora/config';
+import { PORTAL_URLS, STRIPE_TEST_KEY } from '../app/core/config/stayvora.config';
 
 export const environment = {
   production: false,

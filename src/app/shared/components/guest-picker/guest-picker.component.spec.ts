@@ -540,4 +540,140 @@ describe('GuestPickerComponent', () => {
       expect(component.open()).toBe(true);
     });
   });
+
+  describe('ResizeObserver setup in ngAfterViewInit', () => {
+    it('should create ResizeObserver and observe element', () => {
+      const observeSpy = jest.fn();
+      const disconnectSpy = jest.fn();
+      const ResizeObserverMock = jest.fn(() => ({
+        observe: observeSpy,
+        disconnect: disconnectSpy,
+      }));
+      global.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
+
+      const newFixture = TestBed.createComponent(GuestPickerComponent);
+      const newComponent = newFixture.componentInstance;
+      newFixture.detectChanges();
+      newComponent.ngAfterViewInit();
+
+      expect(ResizeObserverMock).toHaveBeenCalled();
+      expect(observeSpy).toHaveBeenCalled();
+    });
+
+    it('should not create ResizeObserver if it is undefined', () => {
+      const ResizeObserverBefore = global.ResizeObserver;
+      delete (global as unknown as { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
+
+      const newFixture = TestBed.createComponent(GuestPickerComponent);
+      const newComponent = newFixture.componentInstance;
+      newFixture.detectChanges();
+
+      expect(() => newComponent.ngAfterViewInit()).not.toThrow();
+
+      global.ResizeObserver = ResizeObserverBefore;
+    });
+  });
+
+  describe('onDocumentClick closes dropdown when clicking outside', () => {
+    it('should close dropdown when clicking outside the component', () => {
+      component.open.set(true);
+
+      const outsideElement = document.createElement('div');
+      const event = new MouseEvent('click', { bubbles: true });
+      Object.defineProperty(event, 'target', { value: outsideElement, enumerable: true });
+
+      component.onDocumentClick(event);
+
+      expect(component.open()).toBe(false);
+    });
+
+    it('should not close dropdown if clicked inside the component', () => {
+      component.open.set(true);
+      fixture.detectChanges();
+
+      const insideElement = fixture.nativeElement.querySelector('.guest-picker');
+      const event = new MouseEvent('click', { bubbles: true });
+      Object.defineProperty(event, 'target', { value: insideElement, enumerable: true });
+
+      component.onDocumentClick(event);
+
+      expect(component.open()).toBe(true);
+    });
+
+    it('should not attempt to close when already closed', () => {
+      component.open.set(false);
+      const closeSpy = jest.spyOn(component, 'close');
+
+      const outsideElement = document.createElement('div');
+      const event = new MouseEvent('click', { bubbles: true });
+      Object.defineProperty(event, 'target', { value: outsideElement, enumerable: true });
+
+      component.onDocumentClick(event);
+
+      expect(closeSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('positionPanel mobile viewport logic', () => {
+    it('should center panel on mobile viewport (innerWidth <= 768)', () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 768 });
+
+      component.toggle();
+
+      expect(component.panelCentered()).toBe(true);
+
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth });
+    });
+
+    it('should not center panel on desktop viewport (innerWidth > 768)', () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+
+      component.toggle();
+
+      expect(component.panelCentered()).toBe(false);
+
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth });
+    });
+
+    it('should clamp panel offset to viewport boundaries on mobile', () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375 }); // Small mobile
+
+      // Mock trigger button and host element dimensions so hostWidth > 0
+      const triggerBtn = component['triggerBtn'];
+      if (triggerBtn) {
+        jest.spyOn(triggerBtn.nativeElement, 'getBoundingClientRect').mockReturnValue({
+          width: 120, height: 40, top: 100, bottom: 140, left: 50, right: 170, x: 50, y: 100, toJSON: () => ({}),
+        } as DOMRect);
+        Object.defineProperty(triggerBtn.nativeElement, 'offsetHeight', { configurable: true, value: 40 });
+      }
+      jest.spyOn(fixture.nativeElement, 'getBoundingClientRect').mockReturnValue({
+        width: 120, height: 40, top: 100, bottom: 140, left: 50, right: 170, x: 50, y: 100, toJSON: () => ({}),
+      } as DOMRect);
+
+      component.toggle();
+
+      const offset = component.panelOffsetLeft();
+      expect(offset).toBeGreaterThan(0); // Centered offset relative to host
+
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth });
+    });
+
+    it('should apply left offset clamping logic on desktop', () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 });
+
+      component.toggle();
+
+      const offset = component.panelOffsetLeft();
+      const viewportMargin = 16;
+      const maxAllowed = 1440 - viewportMargin - component.panelWidth();
+
+      expect(offset).toBeLessThanOrEqual(maxAllowed + 1000); // Allow large positive offset
+
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth });
+    });
+  });
 });

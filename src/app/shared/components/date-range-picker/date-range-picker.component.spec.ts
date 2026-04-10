@@ -856,4 +856,108 @@ describe('DateRangePickerComponent', () => {
       '0'
     )}-${String(date.getDate()).padStart(2, '0')}`;
   }
+
+  it('should position panel centered when viewport width <= 1024', () => {
+    const originalInnerWidth = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+
+    fixture.detectChanges();
+    const trigger = fixture.nativeElement.querySelector('.drp__trigger') as HTMLButtonElement;
+    jest.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+      width: 280,
+      height: 48,
+      top: 120,
+      bottom: 168,
+      left: 372,
+      right: 652,
+      x: 372,
+      y: 120,
+      toJSON: () => ({}),
+    });
+    jest.spyOn(component['elementRef'].nativeElement, 'getBoundingClientRect').mockReturnValue({
+      width: 280,
+      height: 48,
+      top: 120,
+      bottom: 168,
+      left: 372,
+      right: 652,
+      x: 372,
+      y: 120,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    component.openCalendar();
+
+    expect(component.panelCentered()).toBe(true);
+    expect(component.panelWidth()).toBe(420); // Min of (1024 - 32, 420) = 420
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth });
+  });
+
+  it('should not position panel when isBrowser is false', () => {
+    Object.defineProperty(component, 'isBrowser', { value: false, writable: true });
+    const panelOffsetLeftBefore = component.panelOffsetLeft();
+
+    component.openCalendar();
+
+    expect(component.panelOffsetLeft()).toBe(panelOffsetLeftBefore);
+  });
+
+  it('should calculate getBusinessDateString before 3am to roll back one day', () => {
+    jest.useFakeTimers();
+    const now = new Date();
+    now.setHours(2, 30, 0); // 2:30 AM
+    jest.setSystemTime(now);
+
+    // Access private method through component instance
+    const result = (component as unknown as { getBusinessDateString: () => string }).getBusinessDateString?.();
+
+    // Should be yesterday's date
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const expectedStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+    expect(result).toBe(expectedStr);
+
+    jest.useRealTimers();
+  });
+
+  it('should clamp panel offset left to viewport boundaries', () => {
+    const originalInnerWidth = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 });
+
+    fixture.detectChanges();
+    const trigger = fixture.nativeElement.querySelector('.drp__trigger') as HTMLButtonElement;
+
+    // Position trigger very far left — offset should clamp to minLocalLeft
+    jest.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+      width: 260,
+      height: 48,
+      top: 120,
+      bottom: 168,
+      left: 0,
+      right: 260,
+      x: 0,
+      y: 120,
+      toJSON: () => ({}),
+    });
+    jest.spyOn(component['elementRef'].nativeElement, 'getBoundingClientRect').mockReturnValue({
+      width: 260,
+      height: 48,
+      top: 120,
+      bottom: 168,
+      left: 0,
+      right: 260,
+      x: 0,
+      y: 120,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    component.openCalendar();
+
+    const offset = component.panelOffsetLeft();
+    const minAllowed = 16; // viewportPadding - hostRect.left
+    expect(offset).toBeGreaterThanOrEqual(minAllowed);
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth });
+  });
 });

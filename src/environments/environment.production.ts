@@ -2,7 +2,7 @@
 // Verify SSL certificates are properly configured and certificate pinning is implemented
 // at the network/backend level to prevent man-in-the-middle attacks.
 
-import { PORTAL_URLS, STRIPE_TEST_KEY } from '@stayvora/config';
+import { PORTAL_URLS, STRIPE_TEST_KEY } from '../app/core/config/stayvora.config';
 
 export const environment = {
   production: true,

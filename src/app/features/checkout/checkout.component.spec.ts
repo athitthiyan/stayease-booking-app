@@ -1460,4 +1460,410 @@ describe('CheckoutComponent', () => {
     expect(component.emailError()).toBe('');
     expect(component.phoneError()).toBe('');
   });
+
+  // ── cancelHold error path ────────────────────────────────────────────────
+
+  it('handles cancelBooking API failure gracefully', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    const booking = makeBooking({ id: 50 });
+    bookingService.cancelBooking = jest.fn().mockReturnValue(
+      throwError(() => new Error('Cancel failed'))
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.resumableBooking.set(booking);
+
+    component.cancelHold();
+
+    expect(component.cancellingHold()).toBe(false);
+    expect(component.submitError()).toBe('Could not cancel the booking. Please try again.');
+    expect(component.resumableBooking()).toEqual(booking);
+  });
+
+  // ── proceedToPayment conflict handling ────────────────────────────────────
+
+  it('shows blocking message when proceedToPayment finds dates still unavailable after re-check', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.getUnavailableDates.mockReturnValue(
+      of({ unavailable_dates: ['2026-04-10', '2026-04-11'], held_dates: [] }),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.bookingConflict.set(true);
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    expect(component.checkingAvailability()).toBe(false);
+    expect(component.toastMessage()).toContain('still unavailable');
+    expect(component.unavailableDates()).toEqual(['2026-04-10', '2026-04-11']);
+  });
+
+  it('clears conflict and proceeds to payment when re-check shows dates are available', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.getUnavailableDates.mockReturnValue(
+      of({ unavailable_dates: [], held_dates: [] }),
+    );
+    bookingService.findResumableBooking.mockReturnValue(of(null));
+    bookingService.createBooking.mockReturnValue(of(makeBooking()));
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    const redirectSpy = redirectSpyFor(component);
+    component.ngOnInit();
+    component.bookingConflict.set(true);
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    // Conflict should be cleared after re-check confirms availability
+    expect(component.bookingConflict()).toBe(false);
+    // Should proceed with booking creation
+    expect(bookingService.createBooking).toHaveBeenCalled();
+    expect(redirectSpy).toHaveBeenCalled();
+  });
+
+  it('shows error when availability check fails during conflict re-check', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.getUnavailableDates.mockReturnValue(
+      throwError(() => new Error('Network timeout')),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.bookingConflict.set(true);
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    expect(component.checkingAvailability()).toBe(false);
+    expect(component.toastMessage()).toContain('Could not verify availability');
+    expect(component.bookingConflict()).toBe(true);
+  });
+
+  // ── Form field validation error display tests ──────────────────────────────
+
+  it('displays name error message when name field is invalid', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    fixture.detectChanges();
+
+    // Leave name empty
+    component.form.user_name = '';
+    component.form.email = 'athit@example.com';
+    component.proceedToPayment();
+
+    expect(component.nameError()).toBe('Please enter the guest name.');
+    fixture.detectChanges();
+
+    const errorElement = fixture.nativeElement.querySelector('#checkout-name-error');
+    expect(errorElement).toBeTruthy();
+    expect(errorElement.textContent).toBe('Please enter the guest name.');
+    expect(errorElement.getAttribute('role')).toBe('alert');
+  });
+
+  it('displays email error message when email is missing', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    fixture.detectChanges();
+
+    component.form.user_name = 'Athit';
+    component.form.email = '';
+    component.proceedToPayment();
+
+    expect(component.emailError()).toBe('Please enter the guest email.');
+    fixture.detectChanges();
+
+    const errorElement = fixture.nativeElement.querySelector('#checkout-email-error');
+    expect(errorElement).toBeTruthy();
+    expect(errorElement.textContent).toBe('Please enter the guest email.');
+  });
+
+  it('displays email error message when email format is invalid', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    fixture.detectChanges();
+
+    component.form.user_name = 'Athit';
+    component.form.email = 'not-an-email';
+    component.proceedToPayment();
+
+    expect(component.emailError()).toBe('Please enter a valid email address.');
+    fixture.detectChanges();
+
+    const errorElement = fixture.nativeElement.querySelector('#checkout-email-error');
+    expect(errorElement).toBeTruthy();
+    expect(errorElement.textContent).toBe('Please enter a valid email address.');
+  });
+
+  it('displays phone error message when phone format is invalid', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    fixture.detectChanges();
+
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+    component.form.phone = 'abc'; // Invalid phone (less than 7 chars)
+    component.proceedToPayment();
+
+    expect(component.phoneError()).toBe('Please enter a valid phone number.');
+    fixture.detectChanges();
+
+    const errorElement = fixture.nativeElement.querySelector('#checkout-phone-error');
+    expect(errorElement).toBeTruthy();
+    expect(errorElement.textContent).toBe('Please enter a valid phone number.');
+  });
+
+  it('applies error class to inputs with validation errors', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    fixture.detectChanges();
+
+    component.form.user_name = '';
+    component.form.email = '';
+    component.form.phone = 'bad';
+    component.proceedToPayment();
+    fixture.detectChanges();
+
+    const nameInput = fixture.nativeElement.querySelector('#checkout-name');
+    const emailInput = fixture.nativeElement.querySelector('#checkout-email');
+    const phoneInput = fixture.nativeElement.querySelector('#checkout-phone');
+
+    expect(nameInput.classList.contains('input--error')).toBe(true);
+    expect(emailInput.classList.contains('input--error')).toBe(true);
+    expect(phoneInput.classList.contains('input--error')).toBe(true);
+  });
+
+  it('clears error messages when form becomes valid', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    // First, set invalid data
+    component.form.user_name = '';
+    component.form.email = 'invalid-email';
+    component.proceedToPayment();
+    expect(component.nameError()).not.toBe('');
+    expect(component.emailError()).not.toBe('');
+
+    // Now fix the data
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+    (component as unknown as { resetCheckoutErrors: () => void }).resetCheckoutErrors();
+
+    expect(component.nameError()).toBe('');
+    expect(component.emailError()).toBe('');
+    expect(component.phoneError()).toBe('');
+  });
+
+  it('validates phone number with common formats', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    // Valid phone formats
+    const validPhones = [
+      '1234567890',
+      '+1 (555) 000-0000',
+      '+91 98765 43210',
+      '555-000-0000',
+      '+1-555-000-0000',
+    ];
+
+    validPhones.forEach(phone => {
+      component.form.user_name = 'Athit';
+      component.form.email = 'athit@example.com';
+      component.form.phone = phone;
+      component.proceedToPayment();
+      expect(component.phoneError()).toBe('');
+    });
+  });
+
+  it('handles API error detail with custom error code', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.findResumableBooking.mockReturnValue(of(null));
+    bookingService.createBooking.mockReturnValue(
+      throwError(() => ({
+        error: {
+          detail: {
+            code: 'GUEST_CAPACITY_EXCEEDED',
+            message: 'Room can only accommodate 2 guests',
+          },
+        },
+      })),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    expect(component.submitError()).toContain('Room can only accommodate 2 guests');
+  });
+
+  it('handles API error detail with unknown code but custom message', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.findResumableBooking.mockReturnValue(of(null));
+    bookingService.createBooking.mockReturnValue(
+      throwError(() => ({
+        error: {
+          detail: {
+            code: 'UNKNOWN_CODE',
+            message: 'Custom error message from API',
+          },
+        },
+      })),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    expect(component.submitError()).toContain('Custom error message from API');
+  });
+
+  it('handles API error detail with string instead of object', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.findResumableBooking.mockReturnValue(of(null));
+    bookingService.createBooking.mockReturnValue(
+      throwError(() => ({
+        error: {
+          detail: 'String error message from server',
+        },
+      })),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    expect(component.submitError()).toContain('String error message from server');
+  });
+
+  // ── Refresh availability for conflict error handler tests ───────────────────
+
+  it('calls refreshAvailabilityForConflict on booking conflict', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.getUnavailableDates.mockReturnValue(
+      of({
+        unavailable_dates: ['2026-04-10', '2026-04-11'],
+        held_dates: [],
+      }),
+    );
+    bookingService.findResumableBooking.mockReturnValue(of(null));
+    bookingService.createBooking.mockReturnValue(
+      throwError(() => ({
+        status: 409,
+        error: { detail: 'Room is booked' },
+      })),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    // getUnavailableDates should have been called to refresh availability
+    expect(bookingService.getUnavailableDates).toHaveBeenCalledWith(5, '2026-04-10', '2026-04-12');
+    expect(component.unavailableDates()).toEqual(['2026-04-10', '2026-04-11']);
+    expect(component.bookingConflict()).toBe(true);
+  });
+
+  it('handles refreshAvailabilityForConflict when getUnavailableDates fails', () => {
+    bookingService.getCheckoutState.mockReturnValue(checkoutState);
+    bookingService.getUnavailableDates.mockReturnValue(
+      throwError(() => new Error('API error')),
+    );
+    bookingService.findResumableBooking.mockReturnValue(of(null));
+    bookingService.createBooking.mockReturnValue(
+      throwError(() => ({
+        status: 409,
+        error: { detail: 'Room is booked' },
+      })),
+    );
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.form.user_name = 'Athit';
+    component.form.email = 'athit@example.com';
+
+    component.proceedToPayment();
+
+    // Error should be handled, and arrays should be reset
+    expect(component.unavailableDates()).toEqual([]);
+    expect(component.heldDates()).toEqual([]);
+    expect(component.bookingConflict()).toBe(true);
+  });
+
+  it('handles refreshAvailabilityForConflict when no checkout state exists', () => {
+    bookingService.getCheckoutState.mockReturnValue(null);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    (component as unknown as { refreshAvailabilityForConflict: () => void }).refreshAvailabilityForConflict();
+
+    expect(component.unavailableDates()).toEqual([]);
+    expect(component.heldDates()).toEqual([]);
+  });
+
+  it('handles refreshAvailabilityForConflict when room id is missing', () => {
+    const incompleteState: CheckoutState = {
+      ...checkoutState,
+      room: null,
+    };
+    bookingService.getCheckoutState.mockReturnValue(incompleteState);
+
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    (component as unknown as { refreshAvailabilityForConflict: () => void }).refreshAvailabilityForConflict();
+
+    expect(component.unavailableDates()).toEqual([]);
+    expect(component.heldDates()).toEqual([]);
+  });
 });

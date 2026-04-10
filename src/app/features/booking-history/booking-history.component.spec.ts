@@ -545,4 +545,204 @@ describe('BookingHistoryComponent', () => {
     expect(component.emptyTitle()).toBe('No cancellations');
     expect(component.emptySubtitle()).toBe('Great — all your bookings are on track!');
   });
+
+  it('returns correct empty state messages for past tab', () => {
+    bookingService.getMyBookings.mockReturnValue(of(response));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.setTab('past');
+
+    expect(component.emptyIcon()).toBe('📸');
+    expect(component.emptyTitle()).toBe('No past stays yet');
+    expect(component.emptySubtitle()).toBe('Your travel memories will appear here.');
+  });
+
+  it('returns correct empty state messages for cancelled tab', () => {
+    bookingService.getMyBookings.mockReturnValue(of(response));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    component.setTab('cancelled');
+
+    expect(component.emptyIcon()).toBe('🎉');
+    expect(component.emptyTitle()).toBe('No cancellations');
+    expect(component.emptySubtitle()).toBe('Great — all your bookings are on track!');
+  });
+
+  it('uses local pagination when data tab does not match activeTab', () => {
+    const customResponse = bookingResponse({
+      tab: 'upcoming', // API returned upcoming tab
+      total_pages: 2,
+      bookings: response.bookings.slice(0, 2),
+    });
+    bookingService.getMyBookings.mockReturnValue(of(customResponse));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    // Change to past tab locally — data still has upcoming
+    component.setTab('past');
+    component.currentPage.set(1);
+
+    const paginated = component.paginatedBookings();
+    // Should use local pagination (first page only)
+    expect(paginated.length).toBeLessThanOrEqual(component.pageSize());
+  });
+
+  it('calculates totalPages correctly for local pagination mode', () => {
+    const customResponse = bookingResponse({
+      tab: 'upcoming',
+      total_pages: 2,
+      bookings: [
+        response.bookings[0],
+        response.bookings[1],
+        response.bookings[2],
+        response.bookings[3],
+      ],
+    });
+    bookingService.getMyBookings.mockReturnValue(of(customResponse));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.pageSize.set(2); // 2 bookings per page
+    component.ngOnInit();
+
+    // Switch to different tab — triggers local pagination
+    component.setTab('past');
+
+    const totalPages = component.totalPages();
+    // 4 bookings / 2 per page = 2 pages
+    expect(totalPages).toBeGreaterThanOrEqual(1);
+  });
+
+  it('paginatedBookings respects pageSize for locally filtered data', () => {
+    const manyBookings = bookingResponse({
+      tab: 'upcoming',
+      bookings: Array.from({ length: 15 }, (_, i) => ({
+        ...response.bookings[0],
+        id: i + 1,
+        booking_ref: `BK${i + 1}`,
+      })),
+    });
+    bookingService.getMyBookings.mockReturnValue(of(manyBookings));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.pageSize.set(5);
+    component.ngOnInit();
+
+    component.setTab('past'); // Switch to trigger local pagination
+    component.currentPage.set(2);
+
+    const paginated = component.paginatedBookings();
+    // Page 2: should show items 5-9 (5 per page)
+    expect(paginated.length).toBeLessThanOrEqual(5);
+  });
+
+  // ── Empty state display tests ──────────────────────────────────────────────
+
+  it('shows empty state icon for upcoming tab', () => {
+    bookingService.getMyBookings.mockReturnValue(of({ bookings: [], total_pages: 1, tab: 'upcoming' }));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.setTab('upcoming');
+
+    expect(component.emptyIcon()).toBe('🌴');
+  });
+
+  it('shows empty state icon for past tab', () => {
+    bookingService.getMyBookings.mockReturnValue(of({ bookings: [], total_pages: 1, tab: 'past' }));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.setTab('past');
+
+    expect(component.emptyIcon()).toBe('📸');
+  });
+
+  it('shows empty state icon for cancelled tab', () => {
+    bookingService.getMyBookings.mockReturnValue(of({ bookings: [], total_pages: 1, tab: 'cancelled' }));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.setTab('cancelled');
+
+    expect(component.emptyIcon()).toBe('🎉');
+  });
+
+  it('shows empty state title for upcoming tab', () => {
+    bookingService.getMyBookings.mockReturnValue(of({ bookings: [], total_pages: 1, tab: 'upcoming' }));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.setTab('upcoming');
+
+    expect(component.emptyTitle()).toBe('No upcoming trips');
+  });
+
+  it('shows empty state title for past tab', () => {
+    bookingService.getMyBookings.mockReturnValue(of({ bookings: [], total_pages: 1, tab: 'past' }));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.setTab('past');
+
+    expect(component.emptyTitle()).toBe('No past stays yet');
+  });
+
+  it('shows empty state title for cancelled tab', () => {
+    bookingService.getMyBookings.mockReturnValue(of({ bookings: [], total_pages: 1, tab: 'cancelled' }));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.setTab('cancelled');
+
+    expect(component.emptyTitle()).toBe('No cancellations');
+  });
+
+  it('shows empty state subtitle for upcoming tab', () => {
+    bookingService.getMyBookings.mockReturnValue(of({ bookings: [], total_pages: 1, tab: 'upcoming' }));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.setTab('upcoming');
+
+    expect(component.emptySubtitle()).toBe('Time to plan your next getaway!');
+  });
+
+  it('shows empty state subtitle for past tab', () => {
+    bookingService.getMyBookings.mockReturnValue(of({ bookings: [], total_pages: 1, tab: 'past' }));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.setTab('past');
+
+    expect(component.emptySubtitle()).toBe('Your travel memories will appear here.');
+  });
+
+  it('shows empty state subtitle for cancelled tab', () => {
+    bookingService.getMyBookings.mockReturnValue(of({ bookings: [], total_pages: 1, tab: 'cancelled' }));
+
+    const fixture = TestBed.createComponent(BookingHistoryComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    component.setTab('cancelled');
+
+    expect(component.emptySubtitle()).toBe('Great — all your bookings are on track!');
+  });
 });

@@ -9,6 +9,7 @@ import { RoomService } from '../../core/services/room.service';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { AuthService } from '../../core/services/auth.service';
 import { BookingSearchStore } from '../../core/services/booking-search.store';
+import { AvailabilityService } from '../../core/services/availability.service';
 
 describe('SearchResultsComponent', () => {
   let roomService: { getRooms: jest.Mock };
@@ -729,5 +730,65 @@ describe('SearchResultsComponent', () => {
 
     component.goToPage(2);
     expect(scrollSpy).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+  });
+
+  it('handles search API error by setting rooms to empty array and error flag to true', () => {
+    // Mock AvailabilityService.getRoomsForSearch to throw so the loadRooms error handler fires
+    const availabilityService = TestBed.inject(AvailabilityService);
+    jest.spyOn(availabilityService, 'getRoomsForSearch').mockReturnValue(throwError(() => new Error('API Error')));
+
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+
+    // Call loadRooms directly which has an error handler that sets error(true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (component as any).loadRooms();
+
+    expect(component.error()).toBe(true);
+    expect(component.rooms()).toEqual([]);
+    expect(component.loading()).toBe(false);
+  });
+
+  it('reads stored map preference from localStorage with catch branch for thrown errors', async () => {
+    const getItemSpy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('localStorage access denied');
+    });
+
+    TestBed.resetTestingModule();
+    roomService = { getRooms: jest.fn().mockReturnValue(of(roomsResponse)) };
+    wishlistService = {
+      loadStatus: jest.fn().mockReturnValue(of({})),
+      isSaved: jest.fn().mockReturnValue(false),
+      toggle: jest.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [SearchResultsComponent],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: RoomService, useValue: roomService },
+        { provide: WishlistService, useValue: wishlistService },
+        { provide: AuthService, useValue: authService },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            queryParams: of({ city: 'Paris' }),
+            snapshot: {},
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(SearchResultsComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+
+    // Should fall back to showing the map when localStorage throws
+    expect(component.showMap()).toBe(true);
+    expect(component.isMapCollapsed()).toBe(false);
+
+    getItemSpy.mockRestore();
   });
 });

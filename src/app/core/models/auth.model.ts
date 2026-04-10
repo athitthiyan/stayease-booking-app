@@ -1,5 +1,3 @@
-// Re-export all auth types from shared library.
-// App-specific auth interfaces can still be added here.
 export type {
   UserResponse,
   TokenResponse,
@@ -9,9 +7,12 @@ export type {
   ResetPasswordRequest,
   ChangePasswordRequest,
   UserProfileUpdate,
-  PhoneOtpRequest,
-  PhoneOtpResponse,
-  PhoneOtpVerifyRequest,
+  OtpChallengeStartRequest,
+  OtpChallengeResponse,
+  OtpChallengeVerifyRequest,
+  OtpChallengeVerifyResponse,
+  OtpFlow,
+  OtpChannel,
   MessageResponse,
   SocialLoginRequest,
-} from '@stayvora/models';
+} from './shared.model';

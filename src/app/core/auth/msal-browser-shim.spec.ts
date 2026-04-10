@@ -251,4 +251,47 @@ describe('msal-browser-shim', () => {
     expect(error.errorCode).toBe('sample_error');
     expect(error.message).toBe('Readable message');
   });
+
+  it('returns null when handleRedirectPromise is called in SSR environment (window undefined)', async () => {
+    const originalWindow = globalThis.window;
+
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      const app = new PublicClientApplication(baseConfig);
+      const result = await app.handleRedirectPromise();
+
+      expect(result).toBeNull();
+    } finally {
+      Object.defineProperty(globalThis, 'window', {
+        configurable: true,
+        value: originalWindow,
+      });
+    }
+  });
+
+  it('validates state mismatch in hash-based implicit flow during handleRedirectPromise', async () => {
+    window.history.replaceState({}, '', '/auth/callback/microsoft#id_token=jwt-token&state=wrong-state');
+    localStorage.setItem('msal_redirect_state', 'expected-state');
+
+    const app = new PublicClientApplication(baseConfig);
+    const result = await app.handleRedirectPromise();
+
+    expect(result).toBeNull();
+    expect(localStorage.getItem('msal_redirect_state')).toBeNull();
+  });
+
+  it('successfully returns id_token and state from implicit hash flow when state matches', async () => {
+    window.history.replaceState({}, '', '/auth/callback/microsoft#id_token=jwt-implicit-token&state=matching-state');
+    localStorage.setItem('msal_redirect_state', 'matching-state');
+
+    const app = new PublicClientApplication(baseConfig);
+    const result = await app.handleRedirectPromise();
+
+    expect(result).toEqual({ idToken: 'jwt-implicit-token', state: 'matching-state' });
+    expect(localStorage.getItem('msal_redirect_state')).toBeNull();
+  });
 });

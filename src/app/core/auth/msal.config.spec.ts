@@ -307,4 +307,94 @@ describe('msal.config', () => {
     expect(module.wasBackendLoginDone()).toBe(false);
     expect(localStorage.getItem('se_access_token')).toBeNull();
   });
+
+  it('uses Error LogLevel in production environment', async () => {
+    jest.resetModules();
+    fetchMock.mockReset();
+
+    jest.doMock('./msal-browser-shim', () => {
+      enum LogLevel {
+        Error = 'error',
+        Warning = 'warning',
+      }
+
+      class PublicClientApplication {
+        constructor(public readonly config: unknown) {}
+
+        initialize = jest.fn().mockResolvedValue(undefined);
+        handleRedirectPromise = jest.fn().mockResolvedValue(null);
+      }
+
+      return {
+        BrowserCacheLocation: { LocalStorage: 'localStorage' },
+        LogLevel,
+        PublicClientApplication,
+      };
+    });
+
+    jest.doMock('./msal-angular-shim', () => ({
+      MSAL_INSTANCE: Symbol('MSAL_INSTANCE'),
+      MsalService: class {},
+      MsalBroadcastService: class {},
+    }));
+
+    // Mock environment as production
+    jest.doMock('../../../environments/environment', () => ({
+      environment: {
+        production: true,
+        microsoftClientId: '041f5aef-c9db-4eb8-9bb0-349a19fc3002',
+        microsoftTenantId: 'test-tenant',
+        apiUrl: 'http://localhost:8000',
+      },
+    }));
+
+    const module = await import('./msal.config');
+
+    expect(module.msalConfig.system?.loggerOptions?.logLevel).toBe('error');
+  });
+
+  it('uses Warning LogLevel in development environment', async () => {
+    jest.resetModules();
+    fetchMock.mockReset();
+
+    jest.doMock('./msal-browser-shim', () => {
+      enum LogLevel {
+        Error = 'error',
+        Warning = 'warning',
+      }
+
+      class PublicClientApplication {
+        constructor(public readonly config: unknown) {}
+
+        initialize = jest.fn().mockResolvedValue(undefined);
+        handleRedirectPromise = jest.fn().mockResolvedValue(null);
+      }
+
+      return {
+        BrowserCacheLocation: { LocalStorage: 'localStorage' },
+        LogLevel,
+        PublicClientApplication,
+      };
+    });
+
+    jest.doMock('./msal-angular-shim', () => ({
+      MSAL_INSTANCE: Symbol('MSAL_INSTANCE'),
+      MsalService: class {},
+      MsalBroadcastService: class {},
+    }));
+
+    // Mock environment as development (production: false)
+    jest.doMock('../../../environments/environment', () => ({
+      environment: {
+        production: false,
+        microsoftClientId: '041f5aef-c9db-4eb8-9bb0-349a19fc3002',
+        microsoftTenantId: 'test-tenant',
+        apiUrl: 'http://localhost:8000',
+      },
+    }));
+
+    const module = await import('./msal.config');
+
+    expect(module.msalConfig.system?.loggerOptions?.logLevel).toBe('warning');
+  });
 });

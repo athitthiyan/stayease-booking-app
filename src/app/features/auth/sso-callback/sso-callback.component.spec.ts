@@ -10,6 +10,7 @@ import * as msalConfig from '../../../core/auth/msal.config';
 describe('SsoCallbackComponent', () => {
   const authService = {
     socialLoginWithToken: jest.fn(),
+    hydrateSession: jest.fn(),
   };
   const searchStore = {
     getAndClearRedirectIntent: jest.fn(),
@@ -43,6 +44,7 @@ describe('SsoCallbackComponent', () => {
 
   beforeEach(() => {
     authService.socialLoginWithToken.mockReset();
+    authService.hydrateSession.mockReset();
     searchStore.getAndClearRedirectIntent.mockReset();
     searchStore.getRedirectIntent.mockReset();
     searchStore.getAndClearRedirectIntent.mockReturnValue(null);
@@ -232,5 +234,34 @@ describe('SsoCallbackComponent', () => {
     const { component, router } = setup(null);
     component.goToLogin();
     expect(router.navigate).toHaveBeenCalledWith(['/auth/login']);
+  });
+
+  it('calls hydrateSession when wasBackendLoginDone is true and pending session exists', () => {
+    wasBackendLoginDoneSpy.mockReturnValue(true);
+    const consumeSpy = jest.spyOn(msalConfig, 'consumePendingSession').mockReturnValue({
+      accessToken: 'access-token-123',
+      user: { id: 'user-1', email: 'user@example.com', name: 'Test User' }
+    });
+
+    const { component, router } = setup(null);
+    component.ngOnInit();
+
+    expect(authService.hydrateSession).toHaveBeenCalledWith('access-token-123', { id: 'user-1', email: 'user@example.com', name: 'Test User' });
+    expect(router.navigate).toHaveBeenCalledWith(['/']);
+
+    consumeSpy.mockRestore();
+  });
+
+  it('does not call hydrateSession when consumePendingSession returns null, but still redirects', () => {
+    wasBackendLoginDoneSpy.mockReturnValue(true);
+    const consumeSpy = jest.spyOn(msalConfig, 'consumePendingSession').mockReturnValue(null);
+
+    const { component, router } = setup(null);
+    component.ngOnInit();
+
+    expect(authService.hydrateSession).not.toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalledWith(['/']);
+
+    consumeSpy.mockRestore();
   });
 });

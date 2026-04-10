@@ -750,7 +750,7 @@ export class SearchResultsComponent implements OnInit {
 
   selectedAmenities(): string[] {
     return this.draftFilters.amenities
-      ? this.draftFilters.amenities.split(',').map(value => value.trim()).filter(Boolean)
+      ? this.draftFilters.amenities.split(',').map((value: string) => value.trim()).filter(Boolean)
       : [];
   }
 

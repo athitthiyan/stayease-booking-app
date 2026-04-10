@@ -475,4 +475,111 @@ describe('SearchMapComponent', () => {
 
     expect(component.userLocation()).toEqual({ lat: 13.0827, lng: 80.2707 });
   });
+
+  it('handles geolocation error callback fallback to city center when hasLiveMap returns false', () => {
+    const fixture = TestBed.createComponent(SearchMapComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    component.ngAfterViewInit();
+
+    const getCurrentPosition = navigator.geolocation.getCurrentPosition as jest.Mock;
+    getCurrentPosition.mockImplementation((_success: PositionCallback, error?: PositionErrorCallback) => {
+      error?.({
+        code: 1,
+        message: 'denied',
+        PERMISSION_DENIED: 1,
+        POSITION_UNAVAILABLE: 2,
+        TIMEOUT: 3,
+      });
+    });
+
+    component.locateUser();
+    expect(component.locating()).toBe(false);
+    expect((L as unknown as { __mapInstance: { flyTo: jest.Mock } }).__mapInstance.flyTo).toHaveBeenCalledWith(
+      [13.0827, 80.2707],
+      12,
+      expect.any(Object),
+    );
+  });
+
+  it('handles locateUser when hasLiveMap returns false inside success callback', () => {
+    const fixture = TestBed.createComponent(SearchMapComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    component.ngAfterViewInit();
+
+    const getCurrentPosition = navigator.geolocation.getCurrentPosition as jest.Mock;
+    getCurrentPosition.mockImplementation((success: PositionCallback) => {
+      // Simulate map being destroyed between success and execution
+      (component as unknown as { map: unknown }).map = null;
+      success({
+        coords: {
+          latitude: 13.0827,
+          longitude: 80.2707,
+          accuracy: 10,
+          altitude: null,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+          toJSON: () => ({}),
+        },
+        timestamp: Date.now(),
+        toJSON: () => ({}),
+      } as GeolocationPosition);
+    });
+
+    component.locateUser();
+    expect(component.locating()).toBe(false);
+    expect(component.userLocation()).toBeNull();
+  });
+
+  it('updates existing user marker and circle when locateUser is called multiple times', () => {
+    const fixture = TestBed.createComponent(SearchMapComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    component.ngAfterViewInit();
+
+    const getCurrentPosition = navigator.geolocation.getCurrentPosition as jest.Mock;
+    getCurrentPosition.mockImplementation((success: PositionCallback) => {
+      success({
+        coords: {
+          latitude: 13.0827,
+          longitude: 80.2707,
+          accuracy: 10,
+          altitude: null,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+          toJSON: () => ({}),
+        },
+        timestamp: Date.now(),
+        toJSON: () => ({}),
+      } as GeolocationPosition);
+    });
+
+    // First call — creates marker and circle
+    component.locateUser();
+    expect(component.userLocation()).toEqual({ lat: 13.0827, lng: 80.2707 });
+
+    // Second call — should update existing marker and circle
+    getCurrentPosition.mockImplementation((success: PositionCallback) => {
+      success({
+        coords: {
+          latitude: 14.0,
+          longitude: 81.0,
+          accuracy: 10,
+          altitude: null,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+          toJSON: () => ({}),
+        },
+        timestamp: Date.now(),
+        toJSON: () => ({}),
+      } as GeolocationPosition);
+    });
+
+    component.locateUser();
+    expect(component.userLocation()).toEqual({ lat: 14.0, lng: 81.0 });
+  });
 });

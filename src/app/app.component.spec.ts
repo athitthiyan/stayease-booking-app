@@ -5,9 +5,16 @@ import { provideRouter } from '@angular/router';
 import { AppComponent, shouldShowMaintenanceMode } from './app.component';
 import { AuthService } from './core/services/auth.service';
 import { ActiveBookingService } from './core/services/active-booking.service';
+import { AnalyticsService } from './core/services/analytics.service';
 
 describe('AppComponent', () => {
+  let mockAnalytics: jest.Mocked<Partial<AnalyticsService>>;
+
   beforeEach(async () => {
+    mockAnalytics = {
+      init: jest.fn(),
+    };
+
     await TestBed.configureTestingModule({
       imports: [AppComponent],
       providers: [
@@ -34,6 +41,10 @@ describe('AppComponent', () => {
             retryLoad: jest.fn(),
             remainingSeconds: jest.fn(() => 0),
           },
+        },
+        {
+          provide: AnalyticsService,
+          useValue: mockAnalytics,
         },
       ],
     }).compileComponents();
@@ -72,5 +83,21 @@ describe('AppComponent', () => {
         maintenanceHosts: [],
       }),
     ).toBe(true);
+  });
+
+  it('enables maintenance mode when hostname is in maintenanceHosts AND maintenanceMode is true', () => {
+    expect(
+      shouldShowMaintenanceMode('www.stayvora.co.in', {
+        maintenanceMode: true,
+        maintenanceHosts: ['www.stayvora.co.in'],
+      }),
+    ).toBe(true);
+  });
+
+  it('calls analytics.init() on component initialization', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+
+    expect(mockAnalytics.init).toHaveBeenCalled();
   });
 });

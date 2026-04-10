@@ -993,7 +993,7 @@ export class BookingHistoryComponent implements OnInit, OnDestroy {
   refundStatusLabel(booking: Booking): string {
     return (booking.refund_status || 'refund_requested')
       .replace(/_/g, ' ')
-      .replace(/\b\w/g, character => character.toUpperCase());
+      .replace(/\b\w/g, (character: string) => character.toUpperCase());
   }
 
   refundAmount(booking: Booking): number {

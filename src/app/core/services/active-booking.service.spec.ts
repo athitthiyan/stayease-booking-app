@@ -548,4 +548,36 @@ describe('ActiveBookingService', () => {
     jest.advanceTimersByTime(250);
     expect(bookingService.getActiveHold).toHaveBeenCalled();
   });
+
+  it('clears state when suppressedConfirmedBookingId matches the next hold booking_id', () => {
+    bookingService.getActiveHold.mockReturnValue(of(mockHold()));
+    authState$.next(mockUser);
+
+    // Mark booking as confirmed (sets suppressedConfirmedBookingId to 17)
+    service.markBookingConfirmed(mockBooking({ payment_status: 'paid' }));
+    expect(service.activeHold()).toBeNull();
+
+    // Same hold reappears - should stay suppressed and cleared
+    bookingService.getActiveHold.mockReturnValue(of(mockHold({ booking_id: 17 })));
+    routerEvents$.next(new NavigationEnd(3, '/', '/'));
+    jest.advanceTimersByTime(250);
+
+    expect(service.activeHold()).toBeNull();
+  });
+
+  it('clears timeout when refreshHandle is not null in clearToast', () => {
+    bookingService.cancelBooking.mockReturnValue(of(mockBooking({ status: 'cancelled' })));
+    service.activeHold.set(mockHold());
+
+    service.cancelActiveBooking();
+    expect(service.toastMessage()).toBe('Booking cancelled successfully.');
+
+    // Toast auto-clears after TOAST_DURATION_MS (4000)
+    jest.advanceTimersByTime(4_000);
+    expect(service.toastMessage()).toBe('');
+
+    // Verify the internal handles were reset (clearToast was called)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((service as any).toastHandle).toBeNull();
+  });
 });

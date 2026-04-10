@@ -33,9 +33,6 @@
               "node_modules/leaflet/dist/leaflet.css",
               "src/styles.scss"
             ],
-            "stylePreprocessorOptions": {
-              "includePaths": ["../0-shared-lib/styles"]
-            },
             "scripts": [],
             "allowedCommonJsDependencies": ["leaflet", "@azure/msal-browser/lib/msal-browser.cjs"]
           },
@@ -71,6 +68,11 @@
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
+          "options": {
+            "headers": {
+              "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://checkout.razorpay.com https://accounts.google.com https://appleid.cdn-apple.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https:; frame-src https://js.stripe.com https://accounts.google.com https://appleid.apple.com https://api.razorpay.com https://maps.googleapis.com; img-src 'self' data: https:"
+            }
+          },
           "configurations": {
             "production": {
               "buildTarget": "stayvora-booking-app:build:production"

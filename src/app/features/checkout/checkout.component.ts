@@ -16,8 +16,8 @@ import { DateRangePickerComponent } from '../../shared/components/date-range-pic
 @Component({
   selector: 'app-checkout',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, RouterLink, FormsModule, DateRangePickerComponent],
-  // TODO: Add changeDetection: ChangeDetectionStrategy.OnPush for better performance with signals
   template: `
     <div class="checkout-page">
       <div class="container checkout-page__inner">
@@ -892,7 +892,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
   private mapApiError(err: unknown): string {
     const detail = (err as { error?: ApiErrorResponse })?.error?.detail;
-    if (typeof detail === 'object' && detail?.code) {
+    if (detail && !Array.isArray(detail) && typeof detail === 'object' && 'code' in detail) {
       const errorDetail = detail as ApiErrorDetail;
       const messages: Record<string, string> = {
         BOOKING_CONFLICT: 'These dates are no longer available. Please go back and choose different dates.',
@@ -906,7 +906,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         AUTH_REQUIRED: 'Please log in to continue with your booking.',
         STRIPE_DISABLED: 'Card payments are temporarily unavailable. Please use UPI or another method.',
       };
-      return messages[errorDetail.code] || errorDetail.message || 'Booking failed. Please try again.';
+      return (errorDetail.code ? messages[errorDetail.code] : undefined)
+        || errorDetail.message
+        || 'Booking failed. Please try again.';
     }
     if (typeof detail === 'string') return detail;
     if ((err as { status?: number })?.status === 409) {

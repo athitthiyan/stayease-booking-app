@@ -328,4 +328,124 @@ describe('BookingService', () => {
       hold_expires_at: new Date(Date.now() + 600000).toISOString(),
     });
   });
+
+  it('clearCheckoutState removes from sessionStorage and resets BehaviorSubject', () => {
+    const state: CheckoutState = {
+      room: null,
+      checkIn: '2026-05-01',
+      checkOut: '2026-05-03',
+      guests: 2,
+      adults: 2,
+      children: 0,
+      infants: 0,
+    };
+    service.setCheckoutState(state);
+    expect(service.getCheckoutState()).toEqual(state);
+    expect(sessionStorage.getItem('checkout_state')).toBeTruthy();
+
+    service.clearCheckoutState();
+    expect(sessionStorage.getItem('checkout_state')).toBeNull();
+    expect(service.getCheckoutState()).toBeNull();
+  });
+
+  it('getCheckoutState hydrates from sessionStorage when BehaviorSubject is empty', () => {
+    const state: CheckoutState = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      room: { id: 5, hotel_name: 'Test Hotel', availability: true } as any,
+      checkIn: '2026-06-01',
+      checkOut: '2026-06-05',
+      guests: 4,
+      adults: 2,
+      children: 2,
+      infants: 0,
+    };
+    sessionStorage.setItem('checkout_state', JSON.stringify(state));
+
+    const retrieved = service.getCheckoutState();
+    expect(retrieved).toEqual(state);
+  });
+
+  it('getCheckoutState emits restored state to observable', (done) => {
+    const state: CheckoutState = {
+      room: null,
+      checkIn: '2026-07-10',
+      checkOut: '2026-07-12',
+      guests: 3,
+      adults: 2,
+      children: 1,
+      infants: 0,
+    };
+    sessionStorage.setItem('checkout_state', JSON.stringify(state));
+
+    let emitted: CheckoutState | null = null;
+    service.checkoutState$.subscribe(value => {
+      emitted = value;
+    });
+
+    service.getCheckoutState();
+
+    setTimeout(() => {
+      expect(emitted).toEqual(state);
+      done();
+    }, 10);
+  });
+
+  it('getCheckoutState returns BehaviorSubject value when sessionStorage is empty', () => {
+    const state: CheckoutState = {
+      room: null,
+      checkIn: '2026-08-01',
+      checkOut: '2026-08-03',
+      guests: 1,
+      adults: 1,
+      children: 0,
+      infants: 0,
+    };
+    service.setCheckoutState(state);
+    sessionStorage.removeItem('checkout_state');
+
+    const retrieved = service.getCheckoutState();
+    expect(retrieved).toEqual(state);
+  });
+
+  it('getCheckoutState handles complex nested room objects in stored state', () => {
+    const state: CheckoutState = {
+      room: {
+        id: 42,
+        hotel_name: 'Premium Hotel',
+        availability: true,
+        price: 5000,
+        currency: 'INR',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
+      checkIn: '2026-09-15',
+      checkOut: '2026-09-20',
+      guests: 5,
+      adults: 3,
+      children: 2,
+      infants: 0,
+    };
+    sessionStorage.setItem('checkout_state', JSON.stringify(state));
+
+    const retrieved = service.getCheckoutState();
+    expect(retrieved).toEqual(state);
+    expect(retrieved?.room?.id).toBe(42);
+    expect(retrieved?.room?.hotel_name).toBe('Premium Hotel');
+  });
+
+  it('getCheckoutState prioritizes sessionStorage over empty BehaviorSubject', () => {
+    const storedState: CheckoutState = {
+      room: null,
+      checkIn: '2026-10-01',
+      checkOut: '2026-10-03',
+      guests: 2,
+      adults: 2,
+      children: 0,
+      infants: 0,
+    };
+    sessionStorage.setItem('checkout_state', JSON.stringify(storedState));
+
+    // Do not call setCheckoutState, so BehaviorSubject is null
+    const retrieved = service.getCheckoutState();
+    expect(retrieved).toEqual(storedState);
+  });
 });
